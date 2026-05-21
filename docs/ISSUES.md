@@ -93,10 +93,17 @@
 
 ---
 
-## ⏳ Issue 13: Commerce Plugin: Cart & Checkout
-**Status**: Backlog
+## ✅ Issue 13: Commerce Plugin: Cart & Checkout
+**Status**: Completed
 **Type**: AFK
 **Blocked by**: Issue 11
+
+### Achievements
+- Implemented the **Cart Module** (`commerce/cart`) for managing shopping sessions and item persistence.
+- Built declarative workflows for **Cart Operations** (`addItemToCart`, `removeItemFromCart`), ensuring every cart change is auditable.
+- Developed the **Checkout Workflow** that transitions a cart to a COMPLETED status and prepares the system for order fulfillment.
+- Exposed the Cart domain via the unified **GraphQL API** with automatic schema discovery.
+- Achieved high logic coverage for all cart and checkout business logic.
 
 ---
 

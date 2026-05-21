@@ -3,6 +3,7 @@ package graph
 import (
 	"encoding/json"
 	"github.com/GoHyperrr/hyperrr/internal/context"
+	"github.com/GoHyperrr/hyperrr/commerce/cart"
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 )
 
@@ -45,5 +46,22 @@ func mapToModel(l *context.Lineage) *model.WorkflowLineage {
 		})
 	}
 
+	return res
+}
+
+func mapCartToModel(c *cart.Cart) *model.Cart {
+	res := &model.Cart{
+		ID:         c.ID,
+		CustomerID: c.CustomerID,
+		Status:     string(c.Status),
+	}
+	for _, item := range c.Items {
+		res.Items = append(res.Items, &model.CartItem{
+			ID:        item.ID,
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+			Price:     item.Price,
+		})
+	}
 	return res
 }

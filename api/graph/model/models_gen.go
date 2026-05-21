@@ -12,6 +12,12 @@ type Actor struct {
 	Name string `json:"name"`
 }
 
+type AddItemInput struct {
+	ProductID string  `json:"productId"`
+	Quantity  int     `json:"quantity"`
+	Price     float64 `json:"price"`
+}
+
 type Address struct {
 	ID      string  `json:"id"`
 	Line1   string  `json:"line1"`
@@ -25,6 +31,20 @@ type Address struct {
 type AuthResponse struct {
 	Token string `json:"token"`
 	Actor *Actor `json:"actor"`
+}
+
+type Cart struct {
+	ID         string      `json:"id"`
+	CustomerID string      `json:"customerId"`
+	Status     string      `json:"status"`
+	Items      []*CartItem `json:"items"`
+}
+
+type CartItem struct {
+	ID        string  `json:"id"`
+	ProductID string  `json:"productId"`
+	Quantity  int     `json:"quantity"`
+	Price     float64 `json:"price"`
 }
 
 type CreateProductInput struct {

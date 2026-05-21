@@ -8,6 +8,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/commerce/product"
 	"github.com/GoHyperrr/hyperrr/commerce/customer"
+	"github.com/GoHyperrr/hyperrr/commerce/cart"
 	domain "github.com/GoHyperrr/hyperrr/internal/context"
 	"github.com/GoHyperrr/hyperrr/internal/identity"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
@@ -55,12 +56,20 @@ func TestResolvers(t *testing.T) {
 		runner.RegisterTask(name, h)
 	}
 
+	cartMod := cart.NewModule()
+	cartMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	db.Register(cartMod.Models()...)
+	for name, h := range cartMod.Handlers() {
+		runner.RegisterTask(name, h)
+	}
+
 	database.AutoMigrateAll()
 
 	resolver := &Resolver{
 		Projector:      projector,
 		ProductModule:  prodMod,
 		CustomerModule: custMod,
+		CartModule:     cartMod,
 		IdentityModule: identMod,
 		Runner:         runner,
 	}
@@ -133,6 +142,44 @@ func TestResolvers(t *testing.T) {
 		upRes, err := resolver.Mutation().UpdateCustomer(ctx, "c1", updateInput)
 		if err != nil || upRes.Name != newName {
 			t.Fatalf("UpdateCustomer failed: %v", err)
+		}
+	})
+
+	t.Run("Cart Resolvers", func(t *testing.T) {
+		// 1. Get/Create Active Cart
+		c, err := resolver.Query().GetActiveCart(ctx, "c1")
+		if err != nil || c.CustomerID != "c1" {
+			t.Fatalf("GetActiveCart failed: %v", err)
+		}
+
+		// 2. Add Item
+		addInput := model.AddItemInput{
+			ProductID: "p1",
+			Quantity:  2,
+			Price:     10.0,
+		}
+		updated, err := resolver.Mutation().AddItemToCart(ctx, c.ID, addInput)
+		if err != nil || len(updated.Items) != 1 {
+			t.Fatalf("AddItemToCart failed: %v", err)
+		}
+
+		// 3. Remove Item
+		itemID := updated.Items[0].ID
+		afterRemove, err := resolver.Mutation().RemoveItemFromCart(ctx, c.ID, itemID)
+		if err != nil || len(afterRemove.Items) != 0 {
+			t.Fatalf("RemoveItemFromCart failed: %v", err)
+		}
+
+		// 4. Checkout (add item back first)
+		resolver.Mutation().AddItemToCart(ctx, c.ID, addInput)
+		ok, err := resolver.Mutation().CheckoutCart(ctx, c.ID)
+		if err != nil || !ok {
+			t.Fatalf("CheckoutCart failed: %v", err)
+		}
+
+		final, _ := resolver.Query().GetCart(ctx, c.ID)
+		if final.Status != "COMPLETED" {
+			t.Errorf("expected COMPLETED status, got %s", final.Status)
 		}
 	})
 
