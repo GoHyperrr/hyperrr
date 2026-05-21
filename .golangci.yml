@@ -1,0 +1,97 @@
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - cyclop
+    - dupl
+    - durationcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - exportloopref
+    - forbidigo
+    - gochecknoglobals
+    - gochecknoinits
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - godot
+    - gofmt
+    - goimports
+    - gomnd
+    - gomoddirectives
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    - lll
+    - makezero
+    - nakedret
+    - nestif
+    - nilerr
+    - nilnil
+    - noctx
+    - nolintlint
+    - nosprintfhostport
+    - prealloc
+    - predeclared
+    - revive
+    - stylecheck
+    - tenv
+    - testpackage
+    - thelper
+    - tparallel
+    - unconvert
+    - unparam
+    - wastedassign
+    - whitespace
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  cyclop:
+    max-complexity: 15
+  mnd:
+    # don't include the "operation" and "assign"
+    checks: [argument,case,condition,return]
+  revive:
+    rules:
+      - name: blank-imports
+      - name: context-as-first-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+  lll:
+    line-length: 120
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
