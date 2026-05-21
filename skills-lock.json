@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "skills": {
+    "code-review": {
+      "source": "maiobarbero/my-ai-workflow",
+      "sourceType": "github",
+      "skillPath": "skills/code-review/SKILL.md",
+      "computedHash": "4854d3080a12302a776c929347cbbe922f4e4f5907f13e6e57b2ce5a399b59ce"
+    },
+    "final-audit": {
+      "source": "maiobarbero/my-ai-workflow",
+      "sourceType": "github",
+      "skillPath": "skills/final-audit/SKILL.md",
+      "computedHash": "713f97d381366b6c0d9da549d1aa9cfae5574d2bf99a4a206d9539788e82919b"
+    },
+    "issues-to-tasks": {
+      "source": "maiobarbero/my-ai-workflow",
+      "sourceType": "github",
+      "skillPath": "skills/issue-to-tasks/SKILL.md",
+      "computedHash": "05752ac99e7b42959e0dc452b696bc51a02717476ba82272edb286419993842c"
+    },
+    "prd-to-issues": {
+      "source": "maiobarbero/my-ai-workflow",
+      "sourceType": "github",
+      "skillPath": "skills/prd-to-issues/SKILL.md",
+      "computedHash": "e288eb987ec5ee1de87df1b19e311e6b0351052e72cb6fc6e4dc95b39aa08b69"
+    },
+    "project-complexity-action-planner": {
+      "source": "maiobarbero/my-ai-workflow",
+      "sourceType": "github",
+      "skillPath": "skills/project-complexity-action-planner/SKILL.md",
+      "computedHash": "99ed51cf2edea7c42190b1cfa801d463fe72ba7a8809802360c28add4f8eca9a"
+    },
+    "project-complexity-mapper": {
+      "source": "maiobarbero/my-ai-workflow",
+      "sourceType": "github",
+      "skillPath": "skills/project-complexity-mapper/SKILL.md",
+      "computedHash": "a441bc100b0439f2aead9e17ae8c5da968203ac49a87d9ad3fef786ebf459af3"
+    },
+    "write-a-prd": {
+      "source": "maiobarbero/my-ai-workflow",
+      "sourceType": "github",
+      "skillPath": "skills/write-a-prd/SKILL.md",
+      "computedHash": "058c0bc203ccdfd3f6cf8687c7eac1d7f7cfd2032405576f71271020142b706d"
+    }
+  }
+}
