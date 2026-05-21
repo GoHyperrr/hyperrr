@@ -22,6 +22,7 @@ Build hyperrr, an AI-native commerce operating system where workflows, events, a
 ## Implementation Decisions
 
 - **API Philosophy**: Modular Monolith with internal service mesh communication. Exposes a public GraphQL API for external querying and AI interaction.
+- **Module Registry**: Every module (Core or Commerce) is implemented as a **Plugin** that registers its capabilities (Workflows, Handlers, Models) with a central Registry for dynamic discovery.
 - **Server Runtime**: A long-running Go server process hosting the OS core, accessible via HTTP/GraphQL (Playground enabled for developer testing).
 - **Core Rule**: Nothing mutates state directly. Everything flows through workflows and events.
 - **Workflow Engine**: Custom DAG executor driven by a declarative DSL (YAML). Supports state machine transitions (RUNNING, RETRYING, WAITING_HUMAN, COMPENSATING, DEGRADED, etc.).

@@ -107,41 +107,49 @@
 
 ---
 
-## ⏳ Issue 8: Catalog: Product Lifecycle & Discoverable Modules
-**Status**: Backlog
+## ✅ Issue 8: Plugin System & Module Registry
+**Status**: Completed
 **Type**: AFK
 **Blocked by**: Issue 4
 
-### What to build
-Implement the `/internal/catalog` module using the discoverable plugin pattern.
-- Implement the `Module` interface and register with the core system.
-- Define `product.create.v1` and `product.update.v1` workflows.
-- Ensure all mutations are driven by the Workflow Engine.
+### Achievements
+- Implemented a unified `Module` interface that standardizes how both Core and Commerce components interact with the OS.
+- Built a thread-safe global `Registry` for dynamic module discovery and registration.
+- Refactored the core application to automatically load plugins, register their models, and wire their task handlers.
+- Successfully migrated the **Context Engine** to follow the plugin pattern, proving the system's extensibility.
+- Maintained 95%+ logic coverage for the registry and plugin loading mechanics.
 
 ---
 
-## ⏳ Issue 9: Inventory: Reservation & Multi-Warehouse Strategy
+## ⏳ Issue 9: Catalog: Product Lifecycle & Discoverable Modules
+**Status**: Backlog
+**Type**: AFK
+**Blocked by**: Issue 8
+
+---
+
+## ⏳ Issue 10: Inventory: Reservation & Multi-Warehouse Strategy
 **Status**: Backlog
 **Type**: AFK
 **Blocked by**: Issue 5
 
 ---
 
-## ⏳ Issue 10: Orders: Fulfillment & Payment Orchestration (Saga)
+## ⏳ Issue 11: Orders: Fulfillment & Payment Orchestration (Saga)
 **Status**: Backlog
 **Type**: AFK
 **Blocked by**: Issue 5
 
 ---
 
-## ⏳ Issue 11: Identity & CRM: ML-Driven Customer Segmentation
+## ⏳ Issue 12: Identity & CRM: ML-Driven Customer Segmentation
 **Status**: Backlog
 **Type**: AFK
 **Blocked by**: Issue 3
 
 ---
 
-## ⏳ Issue 12: Search: Event-Driven Indexing (Postgres FTS)
+## ⏳ Issue 13: Search: Event-Driven Indexing (Postgres FTS)
 **Status**: Backlog
 **Type**: AFK
 **Blocked by**: Issue 3

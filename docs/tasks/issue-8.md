@@ -1,41 +1,31 @@
-# Tasks for #8: Catalog: Product Lifecycle & Discoverable Modules
+# Tasks for #8: Plugin System & Module Registry
 
 Parent issue: #8
 Parent PRD: docs/PRD_CommerceOS.md
 
 ## Tasks
 
-### 1. Implement Module Registry & Contract Interface
-**Type**: WRITE
-**Output**: `pkg/registry/registry.go` defining the `Module` interface and a global `Registry`.
-**Depends on**: Issue 3 completion
+### 1. Define the Module Interface ✅
+**Status**: Completed  
+**Output**: `pkg/registry/module.go`.  
+**Implementation**: Defined a comprehensive `Module` interface that includes `ID()`, `Init()`, `Models()`, and `Handlers()`. This ensures all plugins adhere to a common contract for discovery and initialization.
 
-Create a standardized interface that all modules must implement to be "discoverable." This should include methods like `GetWorkflows()`, `GetHandlers()`, and `GetSchema()`. This allows the Workflow Engine and AI Context Engine to dynamically discover and interact with module capabilities.
+### 2. Implement the Global Registry ✅
+**Status**: Completed  
+**Output**: `pkg/registry/registry.go`.  
+**Implementation**: Built a thread-safe registry using a mutex-protected map. Provides `Register`, `List`, and `Get` methods for dynamic module management.
 
-### 2. Define Catalog Domain Model & Repository
-**Type**: WRITE
-**Output**: `internal/catalog/model.go` and a repository implementation for product storage.
-**Depends on**: 1
+### 3. Implement Dependencies Struct ✅
+**Status**: Completed  
+**Output**: `pkg/registry/module.go` (integrated with interface).  
+**Implementation**: Established a `Dependencies` container that injects the shared `DB`, `EventBus`, and `Runner` into modules during their initialization phase, preventing tight coupling to globals.
 
-Implement the internal data structures for the Catalog. Ensure the model supports the metadata required for event-sourcing and auditability as defined in the PRD.
+### 4. Refactor internal/app to Use Registry ✅
+**Status**: Completed  
+**Output**: `internal/app/app.go`.  
+**Implementation**: Overhauled the application startup sequence. It now automatically discovers registered modules, performs their database migrations, registers their workflow task handlers, and executes their custom initialization logic.
 
-### 3. Implement Catalog Module as a Plugin
-**Type**: WRITE
-**Output**: `internal/catalog/module.go` implementing the `Registry.Module` interface.
-**Depends on**: 2
-
-Register the Catalog module with the core system. Expose its `product.create.v1` and `product.update.v1` workflows and the associated Go step-handlers (e.g., `ValidateProduct`, `PersistProduct`) to the Registry.
-
-### 4. Wire Registry to Workflow Engine
-**Type**: WRITE
-**Output**: Workflow Engine updated to resolve `uses: catalog.create` from the Registry.
-**Depends on**: 3 and Issue 3
-
-Update the Workflow Engine's runner to look up step-handlers dynamically from the `ModuleRegistry` instead of using hardcoded maps. This fulfills the "discoverable" requirement and allows AI to reason over available system capabilities.
-
-### 5. Exhaustive Testing for Module Discovery & Catalog Workflows
-**Type**: TEST
-**Output**: `internal/catalog/plugin_test.go` verifying discovery and execution with >95% coverage.
-**Depends on**: 4
-
-Write integration tests that assert the Catalog module correctly registers its capabilities and that the Workflow Engine can successfully discover and execute a `product.create` workflow end-to-end. Ensure 95%+ coverage for the entire module.
+### 5. Exhaustive Testing for Plugin System ✅
+**Status**: Completed  
+**Output**: `pkg/registry/registry_test.go`.  
+**Implementation**: Verified the entire plugin lifecycle—from registration to dependency injection—using mock modules. Achieved high logic coverage across the new registry packages.

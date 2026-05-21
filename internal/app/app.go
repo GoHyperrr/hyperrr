@@ -6,11 +6,14 @@ import (
 	"net/http"
 
 	"github.com/GoHyperrr/hyperrr/internal"
-	domain "github.com/GoHyperrr/hyperrr/internal/context"
+	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
 	"github.com/GoHyperrr/hyperrr/internal/context/graph"
+	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
+	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
+	"github.com/GoHyperrr/hyperrr/pkg/registry"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
 )
@@ -30,7 +33,7 @@ func RunWithConfig(cfg *config.Config) error {
 		}
 	}
 
-	// Initialize Logger
+	// 1. Initialize Logger
 	l := logger.New(&logger.Config{
 		Level:  cfg.LogLevel,
 		Format: cfg.LogFormat,
@@ -39,18 +42,56 @@ func RunWithConfig(cfg *config.Config) error {
 
 	logger.Info("Starting hyperrr", "version", internal.Version)
 
-	// Initialize Event Fabric
-	bus := eventbus.NewInMemBus()
-
-	// Initialize Context Engine (Projector)
-	projector := domain.NewProjector(bus)
-	if err := projector.Start(context.Background()); err != nil {
-		return fmt.Errorf("failed to start context projector: %w", err)
+	// 2. Initialize Database
+	database, err := db.Connect(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// Setup GraphQL
+	// 3. Initialize Event Fabric
+	bus := eventbus.NewInMemBus()
+
+	// 4. Initialize Workflow Engine
+	runner := workflow.NewRunner(bus)
+
+	// 5. Register Core Modules
+	ctxMod := ctxEngine.NewModule()
+	registry.Register(ctxMod)
+
+	// 6. Discover and Initialize Modules (Plugins)
+	deps := &registry.Dependencies{
+		DB:       database,
+		EventBus: bus,
+		Runner:   runner,
+	}
+
+	for _, mod := range registry.List() {
+		logger.Info("Initializing module", "id", mod.ID())
+
+		// Auto-register models
+		if models := mod.Models(); len(models) > 0 {
+			db.Register(models...)
+		}
+
+		// Auto-register task handlers
+		for name, handler := range mod.Handlers() {
+			runner.RegisterTask(name, handler)
+		}
+
+		// Module-specific initialization
+		if err := mod.Init(context.Background(), deps); err != nil {
+			return fmt.Errorf("failed to initialize module %s: %w", mod.ID(), err)
+		}
+	}
+
+	// 7. Run database migrations for all registered models
+	if err := database.AutoMigrateAll(); err != nil {
+		return fmt.Errorf("failed to run database migrations: %w", err)
+	}
+
+	// 8. Setup GraphQL
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{
-		Resolvers: &graph.Resolver{Projector: projector},
+		Resolvers: &graph.Resolver{Projector: ctxMod.Projector()},
 	}))
 
 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
@@ -59,11 +100,6 @@ func RunWithConfig(cfg *config.Config) error {
 	addr := fmt.Sprintf(":%d", cfg.ServerPort)
 	logger.Info("Server is ready", "addr", addr, "playground", "http://localhost"+addr)
 
-	// In a real app, we'd handle graceful shutdown here.
-	// For MVP/Testing, we'll start it. 
-	// Note: http.ListenAndServe is blocking.
-	
-	// Check if we're in a test environment to avoid blocking tests
 	if cfg.AppEnv == "test" {
 		return nil
 	}
