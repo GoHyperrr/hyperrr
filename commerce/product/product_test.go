@@ -1,4 +1,4 @@
-package catalog
+package product
 
 import (
 	"context"
@@ -12,8 +12,8 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )
 
-func TestCatalogWorkflow(t *testing.T) {
-	dbFile := "catalog_test.db"
+func TestProductWorkflow(t *testing.T) {
+	dbFile := "product_test.db"
 	defer os.Remove(dbFile)
 
 	cfg := &config.Config{

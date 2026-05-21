@@ -1,0 +1,9 @@
+name: product.create
+version: v1
+steps:
+  - id: product.validate_product
+    uses: product.validate_product
+
+  - id: product.persist_product
+    uses: product.persist_product
+    depends_on: [product.validate_product]

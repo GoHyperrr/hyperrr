@@ -1,4 +1,4 @@
-package catalog
+package product
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )
 
-// Module implements the registry.Module interface for the Catalog.
+// Module implements the registry.Module interface for the Product.
 type Module struct {
 	repo *Repository
 }
@@ -17,7 +17,7 @@ func NewModule() *Module {
 }
 
 func (m *Module) ID() string {
-	return "commerce.catalog"
+	return "commerce.product"
 }
 
 func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
@@ -31,7 +31,11 @@ func (m *Module) Models() []any {
 
 func (m *Module) Handlers() map[string]workflow.TaskHandler {
 	return map[string]workflow.TaskHandler{
-		"catalog.validate_product": m.ValidateProduct,
-		"catalog.persist_product":  m.PersistProduct,
+		"product.validate_product": m.ValidateProduct,
+		"product.persist_product":  m.PersistProduct,
 	}
+}
+
+func (m *Module) Repo() *Repository {
+	return m.repo
 }

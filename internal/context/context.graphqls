@@ -1,6 +1,7 @@
-# schema.graphqls
-
-scalar Time
+extend type Query {
+  getWorkflowLineage(id: ID!): WorkflowLineage
+  listLineages: [WorkflowLineage!]!
+}
 
 type WorkflowLineage {
   id: ID!
@@ -29,9 +30,4 @@ type Event {
   type: String!
   timestamp: Time!
   payload: String # JSON string
-}
-
-type Query {
-  getWorkflowLineage(id: ID!): WorkflowLineage
-  listLineages: [WorkflowLineage!]!
 }

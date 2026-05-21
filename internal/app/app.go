@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/GoHyperrr/hyperrr/commerce/product"
 	"github.com/GoHyperrr/hyperrr/internal"
-	"github.com/GoHyperrr/hyperrr/internal/catalog"
+	"github.com/GoHyperrr/hyperrr/internal/api/graph"
 	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
-	"github.com/GoHyperrr/hyperrr/internal/context/graph"
 	"github.com/GoHyperrr/hyperrr/internal/identity"
 	"github.com/GoHyperrr/hyperrr/internal/storage"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
@@ -62,7 +62,10 @@ func RunWithConfig(cfg *config.Config) error {
 	registry.Register(ctxMod)
 	registry.Register(identity.NewModule())
 	registry.Register(storage.NewModule())
-	registry.Register(catalog.NewModule())
+	
+	// Register Commerce Modules
+	prodMod := product.NewModule()
+	registry.Register(prodMod)
 
 	// 6. Discover and Initialize Modules (Plugins)
 	deps := &registry.Dependencies{
@@ -97,7 +100,10 @@ func RunWithConfig(cfg *config.Config) error {
 
 	// 8. Setup GraphQL
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{
-		Resolvers: &graph.Resolver{Projector: ctxMod.Projector()},
+		Resolvers: &graph.Resolver{
+			Projector:     ctxMod.Projector(),
+			ProductModule: prodMod,
+		},
 	}))
 
 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))

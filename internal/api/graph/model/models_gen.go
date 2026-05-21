@@ -13,6 +13,14 @@ type Event struct {
 	Payload   *string   `json:"payload,omitempty"`
 }
 
+type Product struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Description *string `json:"description,omitempty"`
+	Price       float64 `json:"price"`
+	Currency    string  `json:"currency"`
+}
+
 type Query struct {
 }
 

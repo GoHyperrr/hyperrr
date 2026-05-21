@@ -1,9 +1,0 @@
-name: product.create
-version: v1
-steps:
-  - id: catalog.validate_product
-    uses: catalog.validate_product
-
-  - id: catalog.persist_product
-    uses: catalog.persist_product
-    depends_on: [catalog.validate_product]

@@ -3,7 +3,7 @@ package graph
 import (
 	"encoding/json"
 	"github.com/GoHyperrr/hyperrr/internal/context"
-	"github.com/GoHyperrr/hyperrr/internal/context/graph/model"
+	"github.com/GoHyperrr/hyperrr/internal/api/graph/model"
 )
 
 func mapToModel(l *context.Lineage) *model.WorkflowLineage {

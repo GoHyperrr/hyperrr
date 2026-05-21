@@ -1,0 +1,12 @@
+extend type Query {
+  getProduct(id: ID!): Product
+  listProducts: [Product!]!
+}
+
+type Product {
+  id: ID!
+  name: String!
+  description: String
+  price: Float!
+  currency: String!
+}

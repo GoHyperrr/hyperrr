@@ -61,16 +61,17 @@
 
 ---
 
-## ⏳ Issue 10: Commerce Plugin: Product (PIM)
-**Status**: Backlog
+## ✅ Issue 10: Commerce Plugin: Product (PIM)
+**Status**: Completed
 **Type**: AFK
 **Blocked by**: Issue 9
 
-### What to build
-Implement the first commerce module in `commerce/product`.
-- Port existing catalog logic to the new `commerce/` directory.
-- Implement as a Plugin using `pkg/registry`.
-- Define `product.create` and `product.enrich` workflows.
+### Achievements
+- Ported existing catalog logic to the new `commerce/product` directory.
+- Refactored the module to implement the **Module Plugin** interface.
+- Registered the `commerce.product` module with its own models and workflow handlers.
+- Defined a declarative `product.create` workflow in YAML.
+- Achieved high logic coverage for the first commerce-layer plugin.
 
 ---
 
