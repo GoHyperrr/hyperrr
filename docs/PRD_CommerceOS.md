@@ -32,6 +32,7 @@ Build hyperrr, an AI-native commerce operating system where workflows, events, a
 - **Identity vs. Customer**: `internal/identity` handles the security boundary (User, Auth, API Keys, Actor Types: Human/AI/System) without knowledge of commerce domains. `commerce/customer` handles business profiles and ML segmentations.
 - **Authentication**: JWT-based authentication at the OS level. `internal/auth` manages token lifecycles, and a central middleware injects the validated `Actor` into the request context.
 - **Object Storage**: Centralized `internal/storage` module provides an abstraction for file handling (Local/S3/GCS) required by commerce plugins (images, labels, invoices).
+- **Workflow-Driven Mutations**: Adhering to the "Nothing mutates state directly" doctrine, all GraphQL mutations (e.g., `createProduct`, `updateCustomer`) trigger declarative Workflows rather than direct DB calls. This ensures every change is auditable, replayable, and AI-observable via the Context Engine.
 - **Standardized Observability**: Centralized logging system (`pkg/logger`) using structured logging (`slog`). Supports swappable handlers for future integrations (Sentry, GCP, OpenTelemetry).
 - **AI Integration**: AI is an observable participant runtime. It does not dictate policy but can provide suggestions and operate within explicit workflow steps or asynchronously via events.
 - **Observability**: Dedicated Context Engine to aggregate state, event history, and operational metrics for both human operators and AI consumption.

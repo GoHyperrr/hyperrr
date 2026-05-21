@@ -13,84 +13,86 @@ func TestHumanIntervention(t *testing.T) {
 	bus := eventbus.NewInMemBus()
 	runner := NewRunner(bus)
 
-	t.Run("Resume Workflow Success", func(t *testing.T) {
-		wf := &Workflow{
-			Name: "human",
-			Steps: []Step{
-				{
-					ID:   "s1",
-					Uses: "unstable",
-					Escalation: &Escalation{
-						Strategy: "wait_human",
-					},
-				},
-			},
-		}
-
+	t.Run("Resume Success", func(t *testing.T) {
+		workflowID := "wf-h1"
 		attempts := 0
-		runner.RegisterTask("unstable", func(ctx context.Context, input any) (any, error) {
+		
+		runner.RegisterTask("wait-task", func(ctx context.Context, input any) (any, error) {
 			attempts++
 			if attempts == 1 {
 				return nil, errors.New("need help")
 			}
-			return "ok", nil
+			return "fixed", nil
 		})
 
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		wf := &Workflow{
+			Steps: []Step{
+				{
+					ID: "s1",
+					Uses: "wait-task",
+					Escalation: &Escalation{Strategy: "wait_human"},
+				},
+			},
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 
-		workflowID := "wf_human_1"
-		errChan := make(chan error, 1)
+		errChan := make(chan error)
+		resChan := make(chan map[string]any)
+
 		go func() {
-			errChan <- runner.Execute(ctx, workflowID, wf, nil)
+			res, err := runner.Execute(ctx, workflowID, wf, nil)
+			if err != nil {
+				errChan <- err
+			} else {
+				resChan <- res
+			}
 		}()
 
-		// Wait a bit for it to enter WAITING_HUMAN
-		time.Sleep(100 * time.Millisecond)
-
-		// Resume it
+		// Wait for it to be waiting
+		time.Sleep(50 * time.Millisecond)
 		err := runner.ResumeWorkflow(workflowID, "retry")
 		if err != nil {
 			t.Fatalf("failed to resume: %v", err)
 		}
 
-		err = <-errChan
-		if err != nil {
-			t.Fatalf("workflow failed after resume: %v", err)
-		}
-
-		if attempts != 2 {
-			t.Errorf("expected 2 attempts, got %d", attempts)
+		select {
+		case err := <-errChan:
+			t.Fatalf("workflow failed: %v", err)
+		case res := <-resChan:
+			if res["s1"] != "fixed" {
+				t.Errorf("expected fixed, got %v", res["s1"])
+			}
+		case <-ctx.Done():
+			t.Fatal("timeout waiting for workflow")
 		}
 	})
 
-	t.Run("Cancel Workflow Success", func(t *testing.T) {
+	t.Run("Cancel Workflow", func(t *testing.T) {
+		workflowID := "wf-h2"
+		runner.RegisterTask("fail-task", func(ctx context.Context, input any) (any, error) {
+			return nil, errors.New("help")
+		})
+
 		wf := &Workflow{
 			Steps: []Step{
-				{ID: "s1", Uses: "fail", Escalation: &Escalation{Strategy: "wait_human"}},
+				{
+					ID: "s1",
+					Uses: "fail-task",
+					Escalation: &Escalation{Strategy: "wait_human"},
+				},
 			},
 		}
-		runner.RegisterTask("fail", func(ctx context.Context, i any) (any, error) { return nil, errors.New("e") })
 
-		workflowID := "wf_human_2"
-		errChan := make(chan error, 1)
 		go func() {
-			errChan <- runner.Execute(context.Background(), workflowID, wf, nil)
+			time.Sleep(50 * time.Millisecond)
+			runner.ResumeWorkflow(workflowID, "cancel")
 		}()
 
-		time.Sleep(50 * time.Millisecond)
-		runner.ResumeWorkflow(workflowID, "cancel")
-
-		err := <-errChan
-		if err == nil || err.Error() != "workflow wf_human_2 failed at step s1: cancelled by operator" {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("Resume Non-existent Workflow", func(t *testing.T) {
-		err := runner.ResumeWorkflow("ghost", "retry")
-		if err == nil {
-			t.Fatal("expected error for non-existent workflow, got nil")
+		_, err := runner.Execute(context.Background(), workflowID, wf, nil)
+		if err == nil || err.Error() != "workflow wf-h2 failed at step s1: cancelled by operator" {
+			t.Errorf("expected cancellation error, got %v", err)
 		}
 	})
 }

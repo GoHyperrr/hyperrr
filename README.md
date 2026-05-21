@@ -32,6 +32,15 @@ hyperrr is an AI-native commerce operating system where workflows, events, and o
 └──────────────────┘               └──────────────────┘
 ```
 
+hyperrr is built as a **Modular Monolith** with a strict separation between the **Core OS** and **Commerce Plugins**.
+
+- **Workflow Engine**: A custom DAG executor that handles retries, fallbacks, and Sagas.
+- **Doctrine**: "Nothing mutates state directly." All GraphQL mutations trigger declarative Workflows. This ensures every change is auditable, replayable, and AI-observable.
+- **Event Fabric**: An asynchronous event bus for inter-module communication and cross-module consistency.
+- **Context Engine**: Aggregates execution lineage and entity graphs, providing rich operational context for AI and human operators.
+- **Unified API**: A pluggable GraphQL API that automatically discovers schemas from all modules.
+- **Mission Control**: A rich terminal-based console (TUI) for real-time monitoring and manual intervention.
+
 ## 🚀 Key Features
 
 - **Event-Native**: All state changes flow through the Event Fabric.

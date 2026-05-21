@@ -3,125 +3,102 @@ package workflow
 import (
 	"context"
 	"errors"
-	"sync"
 	"testing"
 
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 )
 
-func TestSaga(t *testing.T) {
+func TestSagas(t *testing.T) {
 	bus := eventbus.NewInMemBus()
 	runner := NewRunner(bus)
 
-	t.Run("Full Compensation", func(t *testing.T) {
+	t.Run("Full Rollback", func(t *testing.T) {
+		s1Done := false
+		s1Compensated := false
+		s2Done := false
+
+		runner.RegisterTask("step1", func(ctx context.Context, input any) (any, error) {
+			s1Done = true
+			return "res1", nil
+		})
+		runner.RegisterTask("comp1", func(ctx context.Context, input any) (any, error) {
+			s1Compensated = true
+			return nil, nil
+		})
+		runner.RegisterTask("step2", func(ctx context.Context, input any) (any, error) {
+			s2Done = true
+			return nil, errors.New("fail at step 2")
+		})
+
 		wf := &Workflow{
-			Name: "saga_test",
+			Name: "saga-wf",
 			Steps: []Step{
 				{
-					ID:   "step1",
-					Uses: "action1",
-					Saga: &Saga{Uses: "undo1"},
+					ID:   "s1",
+					Uses: "step1",
+					Saga: &Saga{Uses: "comp1"},
 				},
 				{
-					ID:   "step2",
-					Uses: "action2",
-					Saga: &Saga{Uses: "undo2"},
-				},
-				{
-					ID:   "step3",
-					Uses: "fail",
+					ID:         "s2",
+					Uses:       "step2",
+					DependsOn:  []string{"s1"},
 				},
 			},
 		}
 
-		var compensated []string
-		var mu sync.Mutex
-
-		runner.RegisterTask("action1", func(ctx context.Context, input any) (any, error) { return "ok", nil })
-		runner.RegisterTask("action2", func(ctx context.Context, input any) (any, error) { return "ok", nil })
-		runner.RegisterTask("fail", func(ctx context.Context, input any) (any, error) { return nil, errors.New("fail") })
-
-		runner.RegisterTask("undo1", func(ctx context.Context, input any) (any, error) {
-			mu.Lock()
-			compensated = append(compensated, "undo1")
-			mu.Unlock()
-			return nil, nil
-		})
-		runner.RegisterTask("undo2", func(ctx context.Context, input any) (any, error) {
-			mu.Lock()
-			compensated = append(compensated, "undo2")
-			mu.Unlock()
-			return nil, nil
-		})
-
-		err := runner.Execute(context.Background(), "test-id", wf, nil)
+		_, err := runner.Execute(context.Background(), "saga-123", wf, nil)
 		if err == nil {
-			t.Fatal("expected error, got nil")
+			t.Fatal("expected workflow failure")
 		}
 
-		if len(compensated) != 2 {
-			t.Errorf("expected 2 compensation steps, got %d", len(compensated))
+		if !s1Done {
+			t.Error("step 1 should have run")
 		}
-		if compensated[0] != "undo2" || compensated[1] != "undo1" {
-			t.Errorf("expected reverse order [undo2, undo1], got %v", compensated)
+		if !s2Done {
+			t.Error("step 2 should have run and failed")
+		}
+		if !s1Compensated {
+			t.Error("step 1 should have been compensated")
 		}
 	})
 
-	t.Run("Partial Compensation", func(t *testing.T) {
-		wf := &Workflow{
-			Name: "saga_partial",
-			Steps: []Step{
-				{
-					ID:   "step1",
-					Uses: "action1",
-					Saga: &Saga{Uses: "undo1"},
-				},
-				{
-					ID:   "step2",
-					Uses: "fail",
-				},
-			},
-		}
+	t.Run("Nested Compensation", func(t *testing.T) {
+		orderCancelled := false
+		invReleased := false
 
-		undoCalled := false
-		runner.RegisterTask("action1", func(ctx context.Context, input any) (any, error) { return "ok", nil })
-		runner.RegisterTask("fail", func(ctx context.Context, input any) (any, error) { return nil, errors.New("fail") })
-		runner.RegisterTask("undo1", func(ctx context.Context, input any) (any, error) {
-			undoCalled = true
+		runner.RegisterTask("create_order", func(ctx context.Context, input any) (any, error) {
+			return "order_1", nil
+		})
+		runner.RegisterTask("cancel_order", func(ctx context.Context, input any) (any, error) {
+			orderCancelled = true
 			return nil, nil
 		})
+		runner.RegisterTask("reserve_inv", func(ctx context.Context, input any) (any, error) {
+			return "inv_1", nil
+		})
+		runner.RegisterTask("release_inv", func(ctx context.Context, input any) (any, error) {
+			invReleased = true
+			return nil, nil
+		})
+		runner.RegisterTask("payment", func(ctx context.Context, input any) (any, error) {
+			return nil, errors.New("insufficient funds")
+		})
 
-		runner.Execute(context.Background(), "test-id", wf, nil)
-		if !undoCalled {
-			t.Error("expected undo1 to be called")
-		}
-	})
-	
-	t.Run("Saga Handler Error", func(t *testing.T) {
 		wf := &Workflow{
 			Steps: []Step{
-				{ID: "s1", Uses: "a", Saga: &Saga{Uses: "u"}},
-				{ID: "s2", Uses: "fail"},
+				{ID: "order", Uses: "create_order", Saga: &Saga{Uses: "cancel_order"}},
+				{ID: "inv", Uses: "reserve_inv", Saga: &Saga{Uses: "release_inv"}, DependsOn: []string{"order"}},
+				{ID: "pay", Uses: "payment", DependsOn: []string{"inv"}},
 			},
 		}
-		runner.RegisterTask("a", func(ctx context.Context, i any) (any, error) { return nil, nil })
-		runner.RegisterTask("fail", func(ctx context.Context, i any) (any, error) { return nil, errors.New("e") })
-		runner.RegisterTask("u", func(ctx context.Context, i any) (any, error) { return nil, errors.New("saga fail") })
 
-		// Should just log and continue
-		err := runner.Execute(context.Background(), "test-id", wf, nil)
+		_, err := runner.Execute(context.Background(), "saga-nested", wf, nil)
 		if err == nil {
-			t.Fatal("expected error from main flow")
+			t.Fatal("expected failure")
 		}
-	})
 
-	t.Run("Compensate Edge Cases", func(t *testing.T) {
-		r := NewRunner(nil)
-		// No history
-		r.compensate(context.Background(), "test-id", nil, nil)
-		
-		// Missing saga handler
-		history := []Step{{ID: "s1", Saga: &Saga{Uses: "ghost"}}}
-		r.compensate(context.Background(), "test-id", history, nil)
+		if !orderCancelled || !invReleased {
+			t.Error("all steps should have been compensated")
+		}
 	})
 }

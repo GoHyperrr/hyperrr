@@ -22,7 +22,7 @@ func TestDeadlock(t *testing.T) {
 		
 		runner.RegisterTask("task", func(ctx context.Context, input any) (any, error) { return nil, nil })
 
-		err := runner.Execute(context.Background(), "dl1", wf, nil)
+		_, err := runner.Execute(context.Background(), "dl1", wf, nil)
 		if err == nil {
 			t.Fatal("expected deadlock error")
 		}

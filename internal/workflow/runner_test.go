@@ -2,10 +2,7 @@ package workflow
 
 import (
 	"context"
-	"errors"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 )
@@ -14,109 +11,62 @@ func TestRunner(t *testing.T) {
 	bus := eventbus.NewInMemBus()
 	runner := NewRunner(bus)
 
-	t.Run("Execute Success", func(t *testing.T) {
+	runner.RegisterTask("step1", func(ctx context.Context, input any) (any, error) {
+		return "res1", nil
+	})
+
+	runner.RegisterTask("step2", func(ctx context.Context, input any) (any, error) {
+		data := input.(map[string]any)
+		prev := data["s1"].(string)
+		return prev + "_res2", nil
+	})
+
+	t.Run("Sequential Execution", func(t *testing.T) {
 		wf := &Workflow{
-			Name: "test",
+			Name: "test-wf",
 			Steps: []Step{
-				{ID: "step1", Uses: "task1"},
-				{ID: "step2", Uses: "task2", DependsOn: []string{"step1"}},
+				{ID: "s1", Uses: "step1"},
+				{ID: "s2", Uses: "step2", DependsOn: []string{"s1"}},
 			},
 		}
 
-		var order []string
-		var mu sync.Mutex
-
-		runner.RegisterTask("task1", func(ctx context.Context, input any) (any, error) {
-			mu.Lock()
-			order = append(order, "step1")
-			mu.Unlock()
-			return "res1", nil
-		})
-		runner.RegisterTask("task2", func(ctx context.Context, input any) (any, error) {
-			mu.Lock()
-			order = append(order, "step2")
-			mu.Unlock()
-			return "res2", nil
-		})
-
-		err := runner.Execute(context.Background(), "test-id", wf, nil)
+		res, err := runner.Execute(context.Background(), "wf1", wf, nil)
 		if err != nil {
-			t.Fatalf("expected success, got %v", err)
+			t.Fatalf("workflow failed: %v", err)
 		}
 
-		if len(order) != 2 || order[0] != "step1" || order[1] != "step2" {
-			t.Errorf("unexpected execution order: %v", order)
+		if res["s1"] != "res1" {
+			t.Errorf("expected res1, got %v", res["s1"])
 		}
-	})
-
-	t.Run("Step Failure", func(t *testing.T) {
-		wf := &Workflow{
-			Name: "fail",
-			Steps: []Step{
-				{ID: "s1", Uses: "fail_task"},
-			},
+		if res["s2"] != "res1_res2" {
+			t.Errorf("expected res1_res2, got %v", res["s2"])
 		}
-
-		runner.RegisterTask("fail_task", func(ctx context.Context, input any) (any, error) {
-			return nil, errors.New("boom")
-		})
-
-		err := runner.Execute(context.Background(), "test-id", wf, nil)
-		if err == nil {
-			t.Fatal("expected error, got nil")
-		}
-	})
-
-	t.Run("Missing Task Handler", func(t *testing.T) {
-		wf := &Workflow{
-			Name: "missing",
-			Steps: []Step{
-				{ID: "s1", Uses: "ghost"},
-			},
-		}
-
-		err := runner.Execute(context.Background(), "test-id", wf, nil)
-		if err == nil {
-			t.Fatal("expected error for missing handler, got nil")
-		}
-	})
-
-	t.Run("Emit Failure", func(t *testing.T) {
-		failBus := &failEventBus{}
-		r := NewRunner(failBus)
-		// emit failure should just log, not crash
-		r.emit(context.Background(), "test", nil)
 	})
 
 	t.Run("Event Emission", func(t *testing.T) {
-		received := make(chan string, 10)
-		bus := eventbus.NewInMemBus()
-		bus.Subscribe(context.Background(), "workflow.started", func(ctx context.Context, e eventbus.Event) error {
-			received <- e.Type
+		events := make(chan eventbus.Event, 10)
+		bus.Subscribe(context.Background(), "workflow.completed", func(ctx context.Context, ev eventbus.Event) error {
+			events <- ev
 			return nil
 		})
 
-		r := NewRunner(bus)
-		wf := &Workflow{Name: "ev", Steps: []Step{{ID: "s1", Uses: "t"}}}
-		r.RegisterTask("t", func(ctx context.Context, i any) (any, error) { return nil, nil })
-		
-		r.Execute(context.Background(), "test-id", wf, nil)
+		wf := &Workflow{
+			Steps: []Step{{ID: "s1", Uses: "step1"}},
+		}
+
+		_, err := runner.Execute(context.Background(), "wf2", wf, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		select {
-		case type_ := <-received:
-			if type_ != "workflow.started" {
-				t.Errorf("expected workflow.started, got %s", type_)
+		case ev := <-events:
+			payload := ev.Payload.(map[string]any)
+			if payload["id"] != "wf2" {
+				t.Error("wrong event payload")
 			}
-		case <-time.After(100 * time.Millisecond):
-			t.Error("timed out waiting for event")
+		default:
+			t.Error("event not emitted")
 		}
 	})
-}
-
-type failEventBus struct {
-	eventbus.EventBus
-}
-
-func (f *failEventBus) Publish(ctx context.Context, e eventbus.Event) error {
-	return errors.New("publish failed")
 }

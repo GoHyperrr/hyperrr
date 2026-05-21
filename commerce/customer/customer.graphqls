@@ -2,6 +2,10 @@ extend type Query {
   getCustomer(id: ID!): Customer
 }
 
+extend type Mutation {
+  updateCustomer(id: ID!, input: UpdateCustomerInput!): Customer!
+}
+
 type Customer {
   id: ID!
   userId: String!
@@ -19,4 +23,9 @@ type Address {
   state: String!
   zip: String!
   country: String!
+}
+
+input UpdateCustomerInput {
+  name: String
+  email: String
 }

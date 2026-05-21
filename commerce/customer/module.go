@@ -65,7 +65,9 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 			},
 		}
 
-		go deps.Runner.Execute(ctx, workflowID, wf, payload)
+		go func() {
+			_, _ = deps.Runner.Execute(ctx, workflowID, wf, payload)
+		}()
 		return nil 
 	})
 
@@ -80,6 +82,7 @@ func (m *Module) Handlers() map[string]workflow.TaskHandler {
 	return map[string]workflow.TaskHandler{
 		"customer.calculate_persona": m.CalculatePersona,
 		"customer.update_persona":    m.UpdatePersona,
+		"customer.update_details":    m.UpdateCustomerDetails,
 	}
 }
 

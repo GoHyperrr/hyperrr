@@ -38,8 +38,8 @@ func (r *Runner) RegisterTask(name string, handler TaskHandler) {
 	r.handlers[name] = handler
 }
 
-// Execute runs a workflow end-to-end with failure policies, sagas, and human intervention.
-func (r *Runner) Execute(ctx context.Context, id string, wf *Workflow, input any) error {
+// Execute runs a workflow end-to-end and returns the results map.
+func (r *Runner) Execute(ctx context.Context, id string, wf *Workflow, input any) (map[string]any, error) {
 	logger.Info("starting workflow", "name", wf.Name, "id", id)
 	r.emit(ctx, "workflow.started", map[string]any{
 		"id":      id,
@@ -75,7 +75,7 @@ func (r *Runner) Execute(ctx context.Context, id string, wf *Workflow, input any
 					r.emit(ctx, "workflow.failed", map[string]any{"id": id, "error": err.Error()})
 					
 					r.compensate(ctx, id, history, results)
-					return fmt.Errorf("workflow %s failed at step %s: %w", id, step.ID, err)
+					return results, fmt.Errorf("workflow %s failed at step %s: %w", id, step.ID, err)
 				}
 
 				results[step.ID] = res
@@ -86,14 +86,14 @@ func (r *Runner) Execute(ctx context.Context, id string, wf *Workflow, input any
 		}
 
 		if !madeProgress {
-			return fmt.Errorf("deadlock detected in workflow DAG")
+			return results, fmt.Errorf("deadlock detected in workflow DAG")
 		}
 	}
 
 	logger.Info("workflow completed", "id", id)
 	r.emit(ctx, "workflow.completed", map[string]any{"id": id, "name": wf.Name})
 
-	return nil
+	return results, nil
 }
 
 func (r *Runner) executeStepWithPolicies(ctx context.Context, id string, step Step, results map[string]any) (any, error) {

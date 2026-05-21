@@ -33,6 +33,7 @@ func (m *Module) Handlers() map[string]workflow.TaskHandler {
 	return map[string]workflow.TaskHandler{
 		"product.validate_product": m.ValidateProduct,
 		"product.persist_product":  m.PersistProduct,
+		"product.update_details":   m.UpdateProductDetails,
 	}
 }
 

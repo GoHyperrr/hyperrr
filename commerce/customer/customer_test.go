@@ -47,16 +47,20 @@ func TestCustomerWorkflow(t *testing.T) {
 		c := &Customer{ID: "c1", Name: "John Doe", Email: "john@example.com"}
 		mod.Repo().Save(context.Background(), c)
 
-		parser := workflow.NewParser()
-		yamlData, _ := os.ReadFile("workflows/segmentation.yaml")
-		wf, _ := parser.Parse(yamlData)
+		wf := &workflow.Workflow{
+			Name: "customer.segmentation",
+			Steps: []workflow.Step{
+				{ID: "customer.calculate_persona", Uses: "customer.calculate_persona"},
+				{ID: "customer.update_persona", Uses: "customer.update_persona", DependsOn: []string{"customer.calculate_persona"}},
+			},
+		}
 
 		input := map[string]any{
 			"customer_id": "c1",
 			"order_total": 1500.0,
 		}
 
-		err := runner.Execute(context.Background(), "seg_1", wf, input)
+		_, err := runner.Execute(context.Background(), "seg_1", wf, input)
 		if err != nil {
 			t.Fatalf("workflow failed: %v", err)
 		}

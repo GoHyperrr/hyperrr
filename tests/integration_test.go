@@ -33,7 +33,7 @@ func TestFullIntegration(t *testing.T) {
 	}
 	
 	workflowID := "int-123"
-	err := runner.Execute(ctx, workflowID, wf, nil)
+	_, err := runner.Execute(ctx, workflowID, wf, nil)
 	if err != nil {
 		t.Fatalf("workflow failed: %v", err)
 	}

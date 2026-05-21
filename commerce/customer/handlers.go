@@ -60,3 +60,35 @@ func (m *Module) UpdatePersona(ctx context.Context, input any) (any, error) {
 
 	return c, nil
 }
+
+// UpdateCustomerDetails updates the customer's profile information.
+func (m *Module) UpdateCustomerDetails(ctx context.Context, input any) (any, error) {
+	data, ok := input.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid input type")
+	}
+
+	workflowInput, ok := data["input"].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("missing workflow input")
+	}
+
+	customerID, _ := workflowInput["id"].(string)
+	c, err := m.repo.GetByID(ctx, customerID)
+	if err != nil {
+		return nil, fmt.Errorf("customer not found: %w", err)
+	}
+
+	if name, ok := workflowInput["name"].(string); ok && name != "" {
+		c.Name = name
+	}
+	if email, ok := workflowInput["email"].(string); ok && email != "" {
+		c.Email = email
+	}
+
+	if err := m.repo.Save(ctx, c); err != nil {
+		return nil, fmt.Errorf("failed to update customer: %w", err)
+	}
+
+	return c, nil
+}

@@ -5,9 +5,12 @@ import (
 	"os"
 	"testing"
 
+	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/commerce/product"
 	"github.com/GoHyperrr/hyperrr/commerce/customer"
 	domain "github.com/GoHyperrr/hyperrr/internal/context"
+	"github.com/GoHyperrr/hyperrr/internal/identity"
+	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
@@ -17,6 +20,7 @@ import (
 func TestResolvers(t *testing.T) {
 	ctx := context.Background()
 	bus := eventbus.NewInMemBus()
+	runner := workflow.NewRunner(bus)
 	projector := domain.NewProjector(bus)
 	projector.Start(ctx)
 
@@ -31,19 +35,36 @@ func TestResolvers(t *testing.T) {
 	}()
 
 	prodMod := product.NewModule()
-	prodMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus})
+	prodMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
 	db.Register(prodMod.Models()...)
+	for name, h := range prodMod.Handlers() {
+		runner.RegisterTask(name, h)
+	}
+
+	identMod := identity.NewModule()
+	identMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	db.Register(identMod.Models()...)
+	for name, h := range identMod.Handlers() {
+		runner.RegisterTask(name, h)
+	}
 
 	custMod := customer.NewModule()
-	custMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus})
+	custMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
 	db.Register(custMod.Models()...)
+	for name, h := range custMod.Handlers() {
+		runner.RegisterTask(name, h)
+	}
 
 	database.AutoMigrateAll()
 
 	resolver := &Resolver{
-		Projector:     projector,
-		ProductModule: prodMod,
+		Projector:      projector,
+		ProductModule:  prodMod,
+		CustomerModule: custMod,
+		IdentityModule: identMod,
+		Runner:         runner,
 	}
+
 
 	t.Run("Health Query", func(t *testing.T) {
 		res, err := resolver.Query().Health(ctx)
@@ -74,17 +95,44 @@ func TestResolvers(t *testing.T) {
 		}
 	})
 
-	t.Run("Customer Resolvers", func(t *testing.T) {
-		custMod := customer.NewModule()
-		custMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus})
-		
+	t.Run("Product Mutations", func(t *testing.T) {
+		// Create
+		createInput := model.CreateProductInput{
+			ID:    "p_new",
+			Name:  "New Product",
+			Price: 50.0,
+		}
+		res, err := resolver.Mutation().CreateProduct(ctx, createInput)
+		if err != nil || res.Name != "New Product" {
+			t.Fatalf("CreateProduct failed: %v", err)
+		}
+
+		// Update
+		newName := "Updated Name"
+		updateInput := model.UpdateProductInput{Name: &newName}
+		upRes, err := resolver.Mutation().UpdateProduct(ctx, "p_new", updateInput)
+		if err != nil || upRes.Name != newName {
+			t.Fatalf("UpdateProduct failed: %v", err)
+		}
+
+		// Delete
+		delRes, err := resolver.Mutation().DeleteProduct(ctx, "p_new")
+		if err != nil || !delRes {
+			t.Fatalf("DeleteProduct failed: %v", err)
+		}
+	})
+
+	t.Run("Customer Mutations", func(t *testing.T) {
+		// Create a customer first
 		c := &customer.Customer{ID: "c1", Name: "John Doe", Email: "john@example.com"}
 		custMod.Repo().Save(ctx, c)
 
-		resolver.CustomerModule = custMod
-		res, err := resolver.Query().GetCustomer(ctx, "c1")
-		if err != nil || res.Name != "John Doe" {
-			t.Errorf("GetCustomer failed: %v", err)
+		// Update
+		newName := "Jane Doe"
+		updateInput := model.UpdateCustomerInput{Name: &newName}
+		upRes, err := resolver.Mutation().UpdateCustomer(ctx, "c1", updateInput)
+		if err != nil || upRes.Name != newName {
+			t.Fatalf("UpdateCustomer failed: %v", err)
 		}
 	})
 

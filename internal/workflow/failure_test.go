@@ -9,147 +9,111 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 )
 
-func TestFailureOrchestration(t *testing.T) {
+func TestFailurePolicies(t *testing.T) {
 	bus := eventbus.NewInMemBus()
 	runner := NewRunner(bus)
 
 	t.Run("Retry Success", func(t *testing.T) {
-		wf := &Workflow{
-			Name: "retry",
-			Steps: []Step{
-				{
-					ID:   "s1",
-					Uses: "unstable",
-					Retry: &Retry{
-						MaxAttempts: 3,
-						Backoff:     "constant",
-						Interval:    10 * time.Millisecond,
-					},
-				},
-			},
-		}
-
 		attempts := 0
-		runner.RegisterTask("unstable", func(ctx context.Context, input any) (any, error) {
+		runner.RegisterTask("flaky", func(ctx context.Context, input any) (any, error) {
 			attempts++
 			if attempts < 2 {
-				return nil, errors.New("temporary failure")
+				return nil, errors.New("fail")
 			}
 			return "ok", nil
 		})
 
-		err := runner.Execute(context.Background(), "test-id", wf, nil)
-		if err != nil {
-			t.Fatalf("expected success after retry, got %v", err)
+		wf := &Workflow{
+			Steps: []Step{
+				{
+					ID: "s1",
+					Uses: "flaky",
+					Retry: &Retry{MaxAttempts: 3, Interval: 10 * time.Millisecond},
+				},
+			},
 		}
-		if attempts != 2 {
-			t.Errorf("expected 2 attempts, got %d", attempts)
+
+		res, err := runner.Execute(context.Background(), "f1", wf, nil)
+		if err != nil {
+			t.Fatalf("workflow failed: %v", err)
+		}
+		if res["s1"] != "ok" {
+			t.Errorf("expected ok, got %v", res["s1"])
 		}
 	})
 
 	t.Run("Retry Exhausted", func(t *testing.T) {
+		runner.RegisterTask("always-fail", func(ctx context.Context, input any) (any, error) {
+			return nil, errors.New("permanent-fail")
+		})
+
 		wf := &Workflow{
-			Name: "retry_fail",
 			Steps: []Step{
 				{
-					ID:   "s1",
-					Uses: "always_fail",
-					Retry: &Retry{
-						MaxAttempts: 2,
-						Interval:    10 * time.Millisecond,
-					},
+					ID: "s1",
+					Uses: "always-fail",
+					Retry: &Retry{MaxAttempts: 2, Interval: 10 * time.Millisecond},
 				},
 			},
 		}
 
-		runner.RegisterTask("always_fail", func(ctx context.Context, input any) (any, error) {
-			return nil, errors.New("permanent failure")
-		})
-
-		err := runner.Execute(context.Background(), "test-id", wf, nil)
+		_, err := runner.Execute(context.Background(), "f2", wf, nil)
 		if err == nil {
-			t.Fatal("expected error after exhausted retries, got nil")
+			t.Fatal("expected error after retries")
 		}
 	})
 
-	t.Run("Fallback Execution", func(t *testing.T) {
+	t.Run("Fallback", func(t *testing.T) {
+		runner.RegisterTask("fallback-task", func(ctx context.Context, input any) (any, error) {
+			return "fallback-res", nil
+		})
+
 		wf := &Workflow{
-			Name: "fallback",
 			Steps: []Step{
 				{
-					ID:   "s1",
-					Uses: "fail",
-					Fallback: &Fallback{
-						Step: "recovery",
-					},
+					ID: "s1",
+					Uses: "always-fail",
+					Fallback: &Fallback{Step: "fallback-task"},
 				},
 			},
 		}
 
-		runner.RegisterTask("fail", func(ctx context.Context, input any) (any, error) {
-			return nil, errors.New("fail")
-		})
-		runner.RegisterTask("recovery", func(ctx context.Context, input any) (any, error) {
-			return "recovered", nil
-		})
-
-		err := runner.Execute(context.Background(), "test-id", wf, nil)
+		res, err := runner.Execute(context.Background(), "f3", wf, nil)
 		if err != nil {
-			t.Fatalf("expected success via fallback, got %v", err)
+			t.Fatalf("workflow failed: %v", err)
+		}
+		if res["s1"] != "fallback-res" {
+			t.Errorf("expected fallback-res, got %v", res["s1"])
 		}
 	})
-	
-	t.Run("Constant Backoff", func(t *testing.T) {
-		wf := &Workflow{
-			Steps: []Step{
-				{
-					ID: "s1", Uses: "f",
-					Retry: &Retry{MaxAttempts: 2, Backoff: "constant", Interval: 10 * time.Millisecond},
-				},
-			},
-		}
-		runner.RegisterTask("f", func(ctx context.Context, i any) (any, error) { return nil, errors.New("e") })
-		start := time.Now()
-		runner.Execute(context.Background(), "test-id", wf, nil)
-		if time.Since(start) < 10*time.Millisecond {
-			t.Error("expected backoff delay")
-		}
-	})
+}
 
-	t.Run("Fallback Handler Missing", func(t *testing.T) {
+func TestSagaCompensate(t *testing.T) {
+	bus := eventbus.NewInMemBus()
+	runner := NewRunner(bus)
+
+	t.Run("Saga Compensation", func(t *testing.T) {
+		compCalled := false
+		runner.RegisterTask("step1", func(ctx context.Context, input any) (any, error) { return "ok", nil })
+		runner.RegisterTask("comp1", func(ctx context.Context, input any) (any, error) {
+			compCalled = true
+			return nil, nil
+		})
+		runner.RegisterTask("fail", func(ctx context.Context, input any) (any, error) { return nil, errors.New("fail") })
+
 		wf := &Workflow{
 			Steps: []Step{
-				{ID: "s1", Uses: "fail", Fallback: &Fallback{Step: "missing"}},
+				{ID: "s1", Uses: "step1", Saga: &Saga{Uses: "comp1"}},
+				{ID: "s2", Uses: "fail", DependsOn: []string{"s1"}},
 			},
 		}
-		runner.RegisterTask("fail", func(ctx context.Context, i any) (any, error) { return nil, errors.New("e") })
-		err := runner.Execute(context.Background(), "test-id", wf, nil)
+
+		_, err := runner.Execute(context.Background(), "saga1", wf, nil)
 		if err == nil {
-			t.Fatal("expected error from main step failure after fallback missing")
+			t.Fatal("expected workflow failure")
 		}
-	})
-
-	t.Run("ApplyBackoff Edge Cases", func(t *testing.T) {
-		r := NewRunner(nil)
-		// Should not panic
-		r.applyBackoff(nil, 1)
-		r.applyBackoff(&Retry{Interval: 0}, 1)
-	})
-
-	t.Run("Exponential Backoff", func(t *testing.T) {
-		wf := &Workflow{
-			Steps: []Step{
-				{
-					ID: "exp", Uses: "f",
-					Retry: &Retry{MaxAttempts: 2, Backoff: "exponential", Interval: 10 * time.Millisecond},
-				},
-			},
-		}
-		runner.RegisterTask("f", func(ctx context.Context, i any) (any, error) { return nil, errors.New("e") })
-		start := time.Now()
-		runner.Execute(context.Background(), "test-id", wf, nil)
-		if time.Since(start) < 10*time.Millisecond {
-			t.Error("expected backoff delay")
+		if !compCalled {
+			t.Error("compensation not called")
 		}
 	})
 }

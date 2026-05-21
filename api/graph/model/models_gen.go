@@ -27,6 +27,14 @@ type AuthResponse struct {
 	Actor *Actor `json:"actor"`
 }
 
+type CreateProductInput struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Description *string `json:"description,omitempty"`
+	Price       float64 `json:"price"`
+	Currency    *string `json:"currency,omitempty"`
+}
+
 type Customer struct {
 	ID        string     `json:"id"`
 	UserID    string     `json:"userId"`
@@ -64,6 +72,18 @@ type StepExecution struct {
 	EndedAt   *time.Time `json:"endedAt,omitempty"`
 	Attempts  int        `json:"attempts"`
 	Error     *string    `json:"error,omitempty"`
+}
+
+type UpdateCustomerInput struct {
+	Name  *string `json:"name,omitempty"`
+	Email *string `json:"email,omitempty"`
+}
+
+type UpdateProductInput struct {
+	Name        *string  `json:"name,omitempty"`
+	Description *string  `json:"description,omitempty"`
+	Price       *float64 `json:"price,omitempty"`
+	Currency    *string  `json:"currency,omitempty"`
 }
 
 type WorkflowLineage struct {

@@ -110,6 +110,7 @@ func RunWithConfig(cfg *config.Config) error {
 			ProductModule:  prodMod,
 			CustomerModule: custMod,
 			IdentityModule: identMod,
+			Runner:         runner,
 		},
 	}))
 

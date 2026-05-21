@@ -36,3 +36,8 @@ func (r *Repository) List(ctx context.Context) ([]*Product, error) {
 	err := r.db.WithContext(ctx).Find(&products).Error
 	return products, err
 }
+
+// Delete removes a product from the database.
+func (r *Repository) Delete(ctx context.Context, id string) error {
+	return r.db.WithContext(ctx).Delete(&Product{}, "id = ?", id).Error
+}

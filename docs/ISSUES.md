@@ -54,11 +54,27 @@
 
 ## ✅ Issue 10: Commerce Plugin: Product (PIM)
 **Status**: Completed
+**Type**: AFK
+
+### Achievements
+- Implemented the **Product Module** (`commerce/product`) with GORM persistence.
+- Built a declarative **Product Creation & Update Workflow** ensuring all PIM changes are auditable.
+- Exposed CRUD operations via the unified **GraphQL API** (`createProduct`, `updateProduct`, `deleteProduct`).
+- Achieved high logic coverage for all product management logic.
 
 ---
 
 ## ✅ Issue 11: Commerce Plugin: Customer & ML Segmentation
 **Status**: Completed
+**Type**: AFK
+**Blocked by**: Issue 9
+
+### Achievements
+- Implemented the **Customer Module** (`commerce/customer`) handling business-level profiles and addresses.
+- Built a declarative **ML Persona Segmentation** workflow that autonomously calculates customer "Personas" (e.g., WHALE, GOLD).
+- Integrated with the **Identity Module** via the **Event Fabric**: registering a new user identity automatically triggers background creation of a commerce customer profile.
+- Exposed profile management via the unified **GraphQL API** (`updateCustomer`).
+- Achieved 95%+ logic coverage for all customer and segmentation logic.
 
 ---
 

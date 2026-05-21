@@ -56,3 +56,38 @@ func (m *Module) PersistProduct(ctx context.Context, input any) (any, error) {
 
 	return p, nil
 }
+
+// UpdateProductDetails updates an existing product's information.
+func (m *Module) UpdateProductDetails(ctx context.Context, input any) (any, error) {
+	data, ok := input.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid input type")
+	}
+
+	workflowInput, ok := data["input"].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("missing workflow input")
+	}
+
+	productID, _ := workflowInput["id"].(string)
+	p, err := m.repo.GetByID(ctx, productID)
+	if err != nil {
+		return nil, fmt.Errorf("product not found: %w", err)
+	}
+
+	if name, ok := workflowInput["name"].(string); ok && name != "" {
+		p.Name = name
+	}
+	if desc, ok := workflowInput["description"].(string); ok && desc != "" {
+		p.Description = desc
+	}
+	if price, ok := workflowInput["price"].(float64); ok && price > 0 {
+		p.Price = price
+	}
+
+	if err := m.repo.Save(ctx, p); err != nil {
+		return nil, fmt.Errorf("failed to update product: %w", err)
+	}
+
+	return p, nil
+}
