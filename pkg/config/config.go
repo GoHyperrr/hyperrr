@@ -13,6 +13,7 @@ type Config struct {
 	AppEnv            string `mapstructure:"APP_ENV"`
 	LogLevel          string `mapstructure:"LOG_LEVEL"`
 	LogFormat         string `mapstructure:"LOG_FORMAT"`
+	ServerPort        int    `mapstructure:"SERVER_PORT"`
 	EventBusProvider  string `mapstructure:"EVENT_BUS_PROVIDER"`
 	DBDriver          string `mapstructure:"DB_DRIVER"`
 	DBDSN             string `mapstructure:"DB_DSN"`
@@ -30,6 +31,7 @@ func LoadWithFile(filename string) (*Config, error) {
 	v.SetDefault("APP_ENV", "local")
 	v.SetDefault("LOG_LEVEL", "info")
 	v.SetDefault("LOG_FORMAT", "text")
+	v.SetDefault("SERVER_PORT", 8080)
 	v.SetDefault("EVENT_BUS_PROVIDER", "inmem")
 	v.SetDefault("DB_DRIVER", "sqlite")
 	v.SetDefault("DB_DSN", "hyperrr.db")

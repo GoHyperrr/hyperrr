@@ -1,11 +1,14 @@
 package app
 
 import (
+	"os"
 	"testing"
 )
 
 func TestRun(t *testing.T) {
 	t.Run("Run with defaults", func(t *testing.T) {
+		os.Setenv("APP_ENV", "test")
+		defer os.Unsetenv("APP_ENV")
 		err := Run()
 		if err != nil {
 			t.Errorf("Run() failed: %v", err)

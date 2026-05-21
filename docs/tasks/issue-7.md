@@ -25,3 +25,7 @@ Parent PRD: docs/PRD_CommerceOS.md
 ### 5. Exhaustive Testing for Context API & Projections ✅
 **Status**: Completed  
 **Implementation**: Achieved high logic coverage by testing the Projector, Mapper, and Resolvers. Integrated cross-package coverage reporting in the `Makefile`.
+
+### 6. Expose GraphQL API via HTTP Server ✅
+**Status**: Completed  
+**Implementation**: Integrated the GraphQL handler into `internal/app`. The server now listens on a configurable port (default `:8080`) and serves a GraphQL Playground at the root. Added `APP_ENV=test` logic to ensure tests don't block on network listeners.

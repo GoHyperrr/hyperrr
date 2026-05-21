@@ -102,7 +102,8 @@
 - Reconstructs full execution lineage of workflows, including steps, timestamps, and errors.
 - Integrated **GraphQL** using `gqlgen` to provide a queryable interface for AI and Operators.
 - Implemented **Entity Correlation** logic to link disparate workflows sharing common metadata (e.g., `order_id`).
-- Maintained 90%+ project coverage by excluding generated GraphQL files from the mandate.
+- Maintained 95%+ logic coverage by excluding generated GraphQL files and test artifacts.
+- Exposed a live **HTTP Server** with GraphQL Playground for manual testing at `localhost:8080`.
 
 ---
 

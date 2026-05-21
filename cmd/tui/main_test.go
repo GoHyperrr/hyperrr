@@ -2,12 +2,16 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestRun(t *testing.T) {
+	os.Setenv("APP_ENV", "test")
+	defer os.Unsetenv("APP_ENV")
+
 	oldTeaRun := teaRun
 	defer func() { teaRun = oldTeaRun }()
 	teaRun = func(m tea.Model) error { return nil }
@@ -18,6 +22,9 @@ func TestRun(t *testing.T) {
 }
 
 func TestMain(t *testing.T) {
+	os.Setenv("APP_ENV", "test")
+	defer os.Unsetenv("APP_ENV")
+
 	oldTeaRun := teaRun
 	defer func() { teaRun = oldTeaRun }()
 	teaRun = func(m tea.Model) error { return nil }
@@ -30,6 +37,9 @@ func TestMain(t *testing.T) {
 }
 
 func TestMainError(t *testing.T) {
+	os.Setenv("APP_ENV", "test")
+	defer os.Unsetenv("APP_ENV")
+
 	oldTeaRun := teaRun
 	defer func() { teaRun = oldTeaRun }()
 	teaRun = func(m tea.Model) error { return fmt.Errorf("error") }

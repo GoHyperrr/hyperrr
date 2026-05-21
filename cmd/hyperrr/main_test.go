@@ -2,10 +2,14 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"testing"
 )
 
 func TestMainFunc(t *testing.T) {
+	os.Setenv("APP_ENV", "test")
+	defer os.Unsetenv("APP_ENV")
+
 	t.Run("main success", func(t *testing.T) {
 		oldExit := osExit
 		defer func() { osExit = oldExit }()
