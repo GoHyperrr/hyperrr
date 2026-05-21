@@ -1,7 +1,8 @@
 # gqlgen.yml
 schema:
-  - ../../internal/**/*.graphqls
-  - ../../commerce/**/*.graphqls
+  - graph/*.graphqls
+  - ../internal/**/*.graphqls
+  - ../commerce/**/*.graphqls
 exec:
   filename: graph/generated.go
   package: graph

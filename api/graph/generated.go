@@ -15,7 +15,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
-	"github.com/GoHyperrr/hyperrr/internal/api/graph/model"
+	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -386,7 +386,7 @@ func sourceData(filename string) string {
 
 var sources = []*ast.Source{
 	{Name: "schema.graphqls", Input: sourceData("schema.graphqls"), BuiltIn: false},
-	{Name: "../../context/context.graphqls", Input: `extend type Query {
+	{Name: "../../internal/context/context.graphqls", Input: `extend type Query {
   getWorkflowLineage(id: ID!): WorkflowLineage
   listLineages: [WorkflowLineage!]!
 }
@@ -420,7 +420,7 @@ type Event {
   payload: String # JSON string
 }
 `, BuiltIn: false},
-	{Name: "../../../commerce/product/product.graphqls", Input: `extend type Query {
+	{Name: "../../commerce/product/product.graphqls", Input: `extend type Query {
   getProduct(id: ID!): Product
   listProducts: [Product!]!
 }
@@ -980,7 +980,7 @@ func (ec *executionContext) _Query_getWorkflowLineage(ctx context.Context, field
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *model.WorkflowLineage) graphql.Marshaler {
-			return ec.marshalOWorkflowLineage2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐWorkflowLineage(ctx, selections, v)
+			return ec.marshalOWorkflowLineage2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐWorkflowLineage(ctx, selections, v)
 		},
 		true,
 		false,
@@ -1023,7 +1023,7 @@ func (ec *executionContext) _Query_listLineages(ctx context.Context, field graph
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v []*model.WorkflowLineage) graphql.Marshaler {
-			return ec.marshalNWorkflowLineage2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐWorkflowLineageᚄ(ctx, selections, v)
+			return ec.marshalNWorkflowLineage2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐWorkflowLineageᚄ(ctx, selections, v)
 		},
 		true,
 		true,
@@ -1056,7 +1056,7 @@ func (ec *executionContext) _Query_getProduct(ctx context.Context, field graphql
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *model.Product) graphql.Marshaler {
-			return ec.marshalOProduct2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐProduct(ctx, selections, v)
+			return ec.marshalOProduct2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐProduct(ctx, selections, v)
 		},
 		true,
 		false,
@@ -1099,7 +1099,7 @@ func (ec *executionContext) _Query_listProducts(ctx context.Context, field graph
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v []*model.Product) graphql.Marshaler {
-			return ec.marshalNProduct2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐProductᚄ(ctx, selections, v)
+			return ec.marshalNProduct2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐProductᚄ(ctx, selections, v)
 		},
 		true,
 		true,
@@ -1483,7 +1483,7 @@ func (ec *executionContext) _WorkflowLineage_steps(ctx context.Context, field gr
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v []*model.StepExecution) graphql.Marshaler {
-			return ec.marshalNStepExecution2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐStepExecutionᚄ(ctx, selections, v)
+			return ec.marshalNStepExecution2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐStepExecutionᚄ(ctx, selections, v)
 		},
 		true,
 		true,
@@ -1515,7 +1515,7 @@ func (ec *executionContext) _WorkflowLineage_events(ctx context.Context, field g
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v []*model.Event) graphql.Marshaler {
-			return ec.marshalNEvent2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐEventᚄ(ctx, selections, v)
+			return ec.marshalNEvent2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐEventᚄ(ctx, selections, v)
 		},
 		true,
 		true,
@@ -1570,7 +1570,7 @@ func (ec *executionContext) _WorkflowLineage_relatedLineages(ctx context.Context
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v []*model.WorkflowLineage) graphql.Marshaler {
-			return ec.marshalNWorkflowLineage2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐWorkflowLineageᚄ(ctx, selections, v)
+			return ec.marshalNWorkflowLineage2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐWorkflowLineageᚄ(ctx, selections, v)
 		},
 		true,
 		true,
@@ -3466,11 +3466,11 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) marshalNEvent2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐEventᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Event) graphql.Marshaler {
+func (ec *executionContext) marshalNEvent2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐEventᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Event) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
-		return ec.marshalNEvent2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐEvent(ctx, sel, v[i])
+		return ec.marshalNEvent2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐEvent(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {
@@ -3482,7 +3482,7 @@ func (ec *executionContext) marshalNEvent2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyper
 	return ret
 }
 
-func (ec *executionContext) marshalNEvent2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐEvent(ctx context.Context, sel ast.SelectionSet, v *model.Event) graphql.Marshaler {
+func (ec *executionContext) marshalNEvent2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐEvent(ctx context.Context, sel ast.SelectionSet, v *model.Event) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
@@ -3540,11 +3540,11 @@ func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.Selecti
 	return res
 }
 
-func (ec *executionContext) marshalNProduct2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐProductᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Product) graphql.Marshaler {
+func (ec *executionContext) marshalNProduct2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐProductᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Product) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
-		return ec.marshalNProduct2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐProduct(ctx, sel, v[i])
+		return ec.marshalNProduct2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐProduct(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {
@@ -3556,7 +3556,7 @@ func (ec *executionContext) marshalNProduct2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyp
 	return ret
 }
 
-func (ec *executionContext) marshalNProduct2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐProduct(ctx context.Context, sel ast.SelectionSet, v *model.Product) graphql.Marshaler {
+func (ec *executionContext) marshalNProduct2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐProduct(ctx context.Context, sel ast.SelectionSet, v *model.Product) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
@@ -3566,11 +3566,11 @@ func (ec *executionContext) marshalNProduct2ᚖgithubᚗcomᚋGoHyperrrᚋhyperr
 	return ec._Product(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNStepExecution2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐStepExecutionᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.StepExecution) graphql.Marshaler {
+func (ec *executionContext) marshalNStepExecution2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐStepExecutionᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.StepExecution) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
-		return ec.marshalNStepExecution2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐStepExecution(ctx, sel, v[i])
+		return ec.marshalNStepExecution2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐStepExecution(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {
@@ -3582,7 +3582,7 @@ func (ec *executionContext) marshalNStepExecution2ᚕᚖgithubᚗcomᚋGoHyperrr
 	return ret
 }
 
-func (ec *executionContext) marshalNStepExecution2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐStepExecution(ctx context.Context, sel ast.SelectionSet, v *model.StepExecution) graphql.Marshaler {
+func (ec *executionContext) marshalNStepExecution2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐStepExecution(ctx context.Context, sel ast.SelectionSet, v *model.StepExecution) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
@@ -3624,11 +3624,11 @@ func (ec *executionContext) marshalNTime2timeᚐTime(ctx context.Context, sel as
 	return res
 }
 
-func (ec *executionContext) marshalNWorkflowLineage2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐWorkflowLineageᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.WorkflowLineage) graphql.Marshaler {
+func (ec *executionContext) marshalNWorkflowLineage2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐWorkflowLineageᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.WorkflowLineage) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
-		return ec.marshalNWorkflowLineage2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐWorkflowLineage(ctx, sel, v[i])
+		return ec.marshalNWorkflowLineage2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐWorkflowLineage(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {
@@ -3640,7 +3640,7 @@ func (ec *executionContext) marshalNWorkflowLineage2ᚕᚖgithubᚗcomᚋGoHyper
 	return ret
 }
 
-func (ec *executionContext) marshalNWorkflowLineage2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐWorkflowLineage(ctx context.Context, sel ast.SelectionSet, v *model.WorkflowLineage) graphql.Marshaler {
+func (ec *executionContext) marshalNWorkflowLineage2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐWorkflowLineage(ctx context.Context, sel ast.SelectionSet, v *model.WorkflowLineage) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
@@ -3821,7 +3821,7 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return res
 }
 
-func (ec *executionContext) marshalOProduct2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐProduct(ctx context.Context, sel ast.SelectionSet, v *model.Product) graphql.Marshaler {
+func (ec *executionContext) marshalOProduct2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐProduct(ctx context.Context, sel ast.SelectionSet, v *model.Product) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -3864,7 +3864,7 @@ func (ec *executionContext) marshalOTime2ᚖtimeᚐTime(ctx context.Context, sel
 	return res
 }
 
-func (ec *executionContext) marshalOWorkflowLineage2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋinternalᚋapiᚋgraphᚋmodelᚐWorkflowLineage(ctx context.Context, sel ast.SelectionSet, v *model.WorkflowLineage) graphql.Marshaler {
+func (ec *executionContext) marshalOWorkflowLineage2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐWorkflowLineage(ctx context.Context, sel ast.SelectionSet, v *model.WorkflowLineage) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
