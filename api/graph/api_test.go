@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/GoHyperrr/hyperrr/commerce/product"
+	"github.com/GoHyperrr/hyperrr/commerce/customer"
 	domain "github.com/GoHyperrr/hyperrr/internal/context"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
@@ -32,6 +33,11 @@ func TestResolvers(t *testing.T) {
 	prodMod := product.NewModule()
 	prodMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus})
 	db.Register(prodMod.Models()...)
+
+	custMod := customer.NewModule()
+	custMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus})
+	db.Register(custMod.Models()...)
+
 	database.AutoMigrateAll()
 
 	resolver := &Resolver{
@@ -65,6 +71,20 @@ func TestResolvers(t *testing.T) {
 		list, err := resolver.Query().ListProducts(ctx)
 		if err != nil || len(list) == 0 {
 			t.Errorf("ListProducts failed: %v", err)
+		}
+	})
+
+	t.Run("Customer Resolvers", func(t *testing.T) {
+		custMod := customer.NewModule()
+		custMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus})
+		
+		c := &customer.Customer{ID: "c1", Name: "John Doe", Email: "john@example.com"}
+		custMod.Repo().Save(ctx, c)
+
+		resolver.CustomerModule = custMod
+		res, err := resolver.Query().GetCustomer(ctx, "c1")
+		if err != nil || res.Name != "John Doe" {
+			t.Errorf("GetCustomer failed: %v", err)
 		}
 	})
 

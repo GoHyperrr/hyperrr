@@ -1,0 +1,9 @@
+name: customer.segmentation
+version: v1
+steps:
+  - id: customer.calculate_persona
+    uses: customer.calculate_persona
+
+  - id: customer.update_persona
+    uses: customer.update_persona
+    depends_on: [customer.calculate_persona]

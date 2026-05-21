@@ -1,0 +1,22 @@
+extend type Query {
+  getCustomer(id: ID!): Customer
+}
+
+type Customer {
+  id: ID!
+  userId: String!
+  name: String!
+  email: String!
+  persona: String
+  addresses: [Address!]!
+}
+
+type Address {
+  id: ID!
+  line1: String!
+  line2: String
+  city: String!
+  state: String!
+  zip: String!
+  country: String!
+}

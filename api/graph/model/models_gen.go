@@ -6,6 +6,25 @@ import (
 	"time"
 )
 
+type Address struct {
+	ID      string  `json:"id"`
+	Line1   string  `json:"line1"`
+	Line2   *string `json:"line2,omitempty"`
+	City    string  `json:"city"`
+	State   string  `json:"state"`
+	Zip     string  `json:"zip"`
+	Country string  `json:"country"`
+}
+
+type Customer struct {
+	ID        string     `json:"id"`
+	UserID    string     `json:"userId"`
+	Name      string     `json:"name"`
+	Email     string     `json:"email"`
+	Persona   *string    `json:"persona,omitempty"`
+	Addresses []*Address `json:"addresses"`
+}
+
 type Event struct {
 	ID        string    `json:"id"`
 	Type      string    `json:"type"`

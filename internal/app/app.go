@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/GoHyperrr/hyperrr/commerce/product"
+	"github.com/GoHyperrr/hyperrr/commerce/customer"
 	"github.com/GoHyperrr/hyperrr/internal"
 	"github.com/GoHyperrr/hyperrr/api/graph"
 	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
@@ -66,6 +67,8 @@ func RunWithConfig(cfg *config.Config) error {
 	// Register Commerce Modules
 	prodMod := product.NewModule()
 	registry.Register(prodMod)
+	custMod := customer.NewModule()
+	registry.Register(custMod)
 
 	// 6. Discover and Initialize Modules (Plugins)
 	deps := &registry.Dependencies{
@@ -101,8 +104,9 @@ func RunWithConfig(cfg *config.Config) error {
 	// 8. Setup GraphQL
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{
 		Resolvers: &graph.Resolver{
-			Projector:     ctxMod.Projector(),
-			ProductModule: prodMod,
+			Projector:      ctxMod.Projector(),
+			ProductModule:  prodMod,
+			CustomerModule: custMod,
 		},
 	}))
 

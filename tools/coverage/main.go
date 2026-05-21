@@ -92,6 +92,7 @@ func calculateCoverage(r io.Reader) (float64, error) {
 
 	var totalStatements, coveredStatements int64
 	for rangePart, statements := range statementsMap {
+		// We already filtered statementsMap in the loop above
 		totalStatements += statements
 		if coveredMap[rangePart] {
 			coveredStatements += statements
