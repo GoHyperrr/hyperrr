@@ -6,8 +6,11 @@ import (
 	"net/http"
 
 	"github.com/GoHyperrr/hyperrr/internal"
+	"github.com/GoHyperrr/hyperrr/internal/catalog"
 	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
 	"github.com/GoHyperrr/hyperrr/internal/context/graph"
+	"github.com/GoHyperrr/hyperrr/internal/identity"
+	"github.com/GoHyperrr/hyperrr/internal/storage"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
@@ -57,6 +60,9 @@ func RunWithConfig(cfg *config.Config) error {
 	// 5. Register Core Modules
 	ctxMod := ctxEngine.NewModule()
 	registry.Register(ctxMod)
+	registry.Register(identity.NewModule())
+	registry.Register(storage.NewModule())
+	registry.Register(catalog.NewModule())
 
 	// 6. Discover and Initialize Modules (Plugins)
 	deps := &registry.Dependencies{
