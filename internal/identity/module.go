@@ -2,15 +2,19 @@ package identity
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
+	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )
 
 // Module implements the registry.Module interface for Identity.
 type Module struct {
 	database *db.DB
+	bus      eventbus.EventBus
 }
 
 // NewModule creates a new Identity module.
@@ -26,6 +30,7 @@ func (m *Module) ID() string {
 // Init initializes the module with its dependencies.
 func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 	m.database = deps.DB
+	m.bus = deps.EventBus
 	return nil
 }
 
@@ -43,4 +48,17 @@ func (m *Module) Handlers() map[string]workflow.TaskHandler {
 	return map[string]workflow.TaskHandler{
 		"identity.validate_actor": m.ValidateActor,
 	}
+}
+
+func (m *Module) emit(ctx context.Context, eventType string, payload any) {
+	if m.bus == nil {
+		return
+	}
+	event := eventbus.Event{
+		ID:        fmt.Sprintf("evt_%d", time.Now().UnixNano()),
+		Type:      eventType,
+		Payload:   payload,
+		Timestamp: time.Now(),
+	}
+	m.bus.Publish(ctx, event)
 }

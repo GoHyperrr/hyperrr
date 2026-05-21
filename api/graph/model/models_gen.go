@@ -6,6 +6,12 @@ import (
 	"time"
 )
 
+type Actor struct {
+	ID   string `json:"id"`
+	Type string `json:"type"`
+	Name string `json:"name"`
+}
+
 type Address struct {
 	ID      string  `json:"id"`
 	Line1   string  `json:"line1"`
@@ -14,6 +20,11 @@ type Address struct {
 	State   string  `json:"state"`
 	Zip     string  `json:"zip"`
 	Country string  `json:"country"`
+}
+
+type AuthResponse struct {
+	Token string `json:"token"`
+	Actor *Actor `json:"actor"`
 }
 
 type Customer struct {
@@ -30,6 +41,9 @@ type Event struct {
 	Type      string    `json:"type"`
 	Timestamp time.Time `json:"timestamp"`
 	Payload   *string   `json:"payload,omitempty"`
+}
+
+type Mutation struct {
 }
 
 type Product struct {

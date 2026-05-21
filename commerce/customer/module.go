@@ -5,6 +5,7 @@ import (
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
+	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )
 
@@ -24,6 +25,29 @@ func (m *Module) ID() string {
 func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 	m.repo = NewRepository(deps.DB)
 	
+	// Subscribe to user creation to create a business profile
+	deps.EventBus.Subscribe(ctx, "identity.user_created", func(ctx context.Context, event eventbus.Event) error {
+		payload, ok := event.Payload.(map[string]any)
+		if !ok {
+			return nil
+		}
+
+		c := &Customer{
+			ID:     "cust_" + payload["user_id"].(string),
+			UserID: payload["actor_id"].(string),
+			Name:   payload["name"].(string),
+			Email:  payload["email"].(string),
+		}
+
+		if err := m.repo.Save(ctx, c); err != nil {
+			logger.Error("failed to create customer from event", "error", err)
+			return err
+		}
+
+		logger.Info("Customer profile created for user", "id", c.ID)
+		return nil
+	})
+
 	// Subscribe to order completions to trigger ML segmentation
 	deps.EventBus.Subscribe(ctx, "order.completed", func(ctx context.Context, event eventbus.Event) error {
 		payload, ok := event.Payload.(map[string]any)
@@ -31,13 +55,8 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 			return nil
 		}
 
-		// Trigger segmentation workflow asynchronously
-		// For MVP, we load the workflow from a file or a predefined string
-		// In a real system, the Registry or a WorkflowStore would provide this.
-		
 		workflowID := "seg_" + payload["customer_id"].(string)
 		
-		// In a real system, we'd load this from a store.
 		wf := &workflow.Workflow{
 			Name: "customer.segmentation",
 			Steps: []workflow.Step{

@@ -30,6 +30,7 @@ Build hyperrr, an AI-native commerce operating system where workflows, events, a
 - **Event Fabric**: Abstracted `EventBus` interface allowing swappable providers (NATS/Kafka/Redis) with at-least-once delivery guarantees.
 - **Modular Data Persistence**: Database-agnostic abstraction (`pkg/db`) supporting SQLite and Postgres. Modules own their schemas and interact via Repositories. Cross-module foreign keys are prohibited; consistency is maintained via events.
 - **Identity vs. Customer**: `internal/identity` handles the security boundary (User, Auth, API Keys, Actor Types: Human/AI/System) without knowledge of commerce domains. `commerce/customer` handles business profiles and ML segmentations.
+- **Authentication**: JWT-based authentication at the OS level. `internal/auth` manages token lifecycles, and a central middleware injects the validated `Actor` into the request context.
 - **Object Storage**: Centralized `internal/storage` module provides an abstraction for file handling (Local/S3/GCS) required by commerce plugins (images, labels, invoices).
 - **Standardized Observability**: Centralized logging system (`pkg/logger`) using structured logging (`slog`). Supports swappable handlers for future integrations (Sentry, GCP, OpenTelemetry).
 - **AI Integration**: AI is an observable participant runtime. It does not dictate policy but can provide suggestions and operate within explicit workflow steps or asynchronously via events.

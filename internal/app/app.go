@@ -18,6 +18,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"github.com/GoHyperrr/hyperrr/api/middleware"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
 )
@@ -61,7 +62,8 @@ func RunWithConfig(cfg *config.Config) error {
 	// 5. Register Core Modules
 	ctxMod := ctxEngine.NewModule()
 	registry.Register(ctxMod)
-	registry.Register(identity.NewModule())
+	identMod := identity.NewModule()
+	registry.Register(identMod)
 	registry.Register(storage.NewModule())
 	
 	// Register Commerce Modules
@@ -107,11 +109,15 @@ func RunWithConfig(cfg *config.Config) error {
 			Projector:      ctxMod.Projector(),
 			ProductModule:  prodMod,
 			CustomerModule: custMod,
+			IdentityModule: identMod,
 		},
 	}))
 
-	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	http.Handle("/query", srv)
+	// Middleware chain
+	authMW := middleware.AuthMiddleware()
+
+	http.Handle("/", authMW(playground.Handler("GraphQL playground", "/query")))
+	http.Handle("/query", authMW(srv))
 
 	addr := fmt.Sprintf(":%d", cfg.ServerPort)
 	logger.Info("Server is ready", "addr", addr, "playground", "http://localhost"+addr)

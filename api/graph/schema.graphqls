@@ -3,3 +3,7 @@ scalar Time
 type Query {
   health: String!
 }
+
+type Mutation {
+  _health: String!
+}

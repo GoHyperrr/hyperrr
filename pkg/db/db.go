@@ -50,3 +50,10 @@ func Connect(cfg *config.Config) (*DB, error) {
 
 	return &DB{db}, nil
 }
+
+// Transaction executes the given function within a database transaction.
+func (db *DB) Transaction(fn func(tx *DB) error) error {
+	return db.DB.Transaction(func(gtx *gorm.DB) error {
+		return fn(&DB{gtx})
+	})
+}

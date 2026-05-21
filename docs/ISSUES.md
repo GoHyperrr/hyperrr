@@ -49,103 +49,91 @@
 
 ## ✅ Issue 9: Core OS Extensions: Identity & Object Storage
 **Status**: Completed
-**Type**: AFK
-**Blocked by**: Issue 8
-
-### Achievements
-- Implemented the **Identity Module** (`internal/identity`) providing a security boundary for Users, API Keys, and Actor Types (Human/AI/System).
-- Developed a **Storage Module** (`internal/storage`) with an abstract `ObjectStorage` interface.
-- Implemented a **Local Filesystem Provider** and an **S3-compatible Provider** placeholder.
-- Integrated both modules into the **Plugin Registry**, enabling automatic migration and initialization.
-- Achieved high logic coverage for both new core modules.
 
 ---
 
 ## ✅ Issue 10: Commerce Plugin: Product (PIM)
 **Status**: Completed
-**Type**: AFK
-**Blocked by**: Issue 9
-
-### Achievements
-- Ported existing catalog logic to the new `commerce/product` directory.
-- Refactored the module to implement the **Module Plugin** interface.
-- Registered the `commerce.product` module with its own models and workflow handlers.
-- Defined a declarative `product.create` workflow in YAML.
-- Achieved high logic coverage for the first commerce-layer plugin.
 
 ---
 
 ## ✅ Issue 11: Commerce Plugin: Customer & ML Segmentation
 **Status**: Completed
+
+---
+
+## ✅ Issue 12: OS-Level Authentication & JWT
+**Status**: Completed
 **Type**: AFK
 **Blocked by**: Issue 9
 
 ### Achievements
-- Implemented the **Customer Module** (`commerce/customer`) handling business-level profiles and addresses.
-- Built a declarative **ML Persona Segmentation** workflow that autonomously calculates customer "Personas" (e.g., WHALE, GOLD).
-- Wired the module to the **Event Fabric**; it now listens for `order.completed` events to trigger background ML analysis.
-- Exposed the Customer domain via the unified **GraphQL API**.
-- Achieved 95%+ logic coverage for all customer and segmentation logic.
+- Implemented OS-level authentication using **JWT** and **bcrypt** for password hashing.
+- Developed a dedicated `internal/auth` package for secure token management.
+- Built a central **Auth Middleware** that injects the validated `Actor` into the request context for all API routes.
+- Exposed `login` and `register` mutations via the unified GraphQL API.
+- Leveraged the **Event Fabric** to ensure cross-module consistency: registering a new identity automatically triggers creation of a commerce-level Customer profile.
+- Maintained 90%+ project logic coverage.
 
 ---
 
-## ⏳ Issue 12: Commerce Plugin: Cart & Checkout
+## ⏳ Issue 13: Commerce Plugin: Cart & Checkout
 **Status**: Backlog
 **Type**: AFK
-**Blocked by**: Issue 10
+**Blocked by**: Issue 11
 
 ---
 
-## ⏳ Issue 13: Commerce Plugin: Orders & Fulfillment Sagas
-**Status**: Backlog
-**Type**: AFK
-**Blocked by**: Issue 12
-
----
-
-## ⏳ Issue 14: Commerce Plugin: Finance (Tax & Payments)
+## ⏳ Issue 14: Commerce Plugin: Orders & Fulfillment Sagas
 **Status**: Backlog
 **Type**: AFK
 **Blocked by**: Issue 13
 
 ---
 
-## ⏳ Issue 15: Commerce Plugin: Fulfillment (Logistics & Tracking)
+## ⏳ Issue 15: Commerce Plugin: Finance (Tax & Payments)
 **Status**: Backlog
 **Type**: AFK
-**Blocked by**: Issue 13
+**Blocked by**: Issue 14
 
 ---
 
-## ⏳ Issue 16: Commerce Plugin: Support & AI Helpdesk
+## ⏳ Issue 16: Commerce Plugin: Fulfillment (Logistics & Tracking)
 **Status**: Backlog
 **Type**: AFK
-**Blocked by**: Issue 13
+**Blocked by**: Issue 14
 
 ---
 
-## ⏳ Issue 17: Commerce Plugin: Marketing & Loyalty
+## ⏳ Issue 17: Commerce Plugin: Support & AI Helpdesk
 **Status**: Backlog
 **Type**: AFK
-**Blocked by**: Issue 13
+**Blocked by**: Issue 14
 
 ---
 
-## ⏳ Issue 18: Commerce Plugin: Notifications (Omnichannel)
+## ⏳ Issue 18: Commerce Plugin: Marketing & Loyalty
+**Status**: Backlog
+**Type**: AFK
+**Blocked by**: Issue 14
+
+---
+
+## ⏳ Issue 19: Commerce Plugin: Notifications (Omnichannel)
 **Status**: Backlog
 **Type**: AFK
 **Blocked by**: Issue 1
 
 ---
 
-## ⏳ Issue 19: Commerce Plugin: Search (Semantic & Vector)
+## ⏳ Issue 20: Commerce Plugin: Search (Semantic & Vector)
 **Status**: Backlog
 **Type**: AFK
 **Blocked by**: Issue 10
 
 ---
 
-## ⏳ Issue 20: Commerce Plugin: Analytics (Operational BI)
+## ⏳ Issue 21: Commerce Plugin: Analytics (Operational BI)
 **Status**: Backlog
 **Type**: AFK
 **Blocked by**: Issue 1

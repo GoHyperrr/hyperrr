@@ -27,13 +27,14 @@ type Actor struct {
 
 // User represents a human entity in the system.
 type User struct {
-	ID        string         `gorm:"primaryKey" json:"id"`
-	Email     string         `gorm:"uniqueIndex;not null" json:"email"`
-	ActorID   string         `gorm:"not null" json:"actor_id"`
-	Actor     Actor          `gorm:"foreignKey:ActorID" json:"actor"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	ID           string         `gorm:"primaryKey" json:"id"`
+	Email        string         `gorm:"uniqueIndex;not null" json:"email"`
+	PasswordHash string         `gorm:"not null" json:"-"`
+	ActorID      string         `gorm:"not null" json:"actor_id"`
+	Actor        Actor          `gorm:"foreignKey:ActorID" json:"actor"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 // APIKey represents a secret key used for authentication.
