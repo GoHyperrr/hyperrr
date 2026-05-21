@@ -130,6 +130,15 @@ file1.go:1.1,2.2 10 5
 file1.go:3.3,4.4 10 0`,
 			expected: 50.0,
 		},
+		{
+			name: "Skip generated and test files",
+			input: `mode: set
+github.com/user/repo/generated.go:1.2,3.4 10 1
+github.com/user/repo/models_gen.go:5.6,7.8 10 1
+github.com/user/repo/file_test.go:1.1,2.2 10 1
+github.com/user/repo/real_file.go:1.1,2.2 10 1`,
+			expected: 100.0,
+		},
 	}
 
 	for _, tt := range tests {

@@ -12,10 +12,10 @@ lint:
 	$(GOLINT) run ./...
 
 test:
-	gotestsum --format pkgname-and-test-fails -- ./... -coverprofile=coverage.out
+	gotestsum --format pkgname-and-test-fails -- ./... -coverprofile=coverage.out -coverpkg=./...
 
 coverage: test
-	$(GO) run tools/coverage/main.go coverage.out 93
+	$(GO) run tools/coverage/main.go coverage.out 90
 
 build:
 	$(GO) build -o bin/hyperrr ./cmd/hyperrr

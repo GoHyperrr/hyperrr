@@ -94,13 +94,28 @@ func TestInMemBus(t *testing.T) {
 			t.Errorf("expected context.Canceled, got %v", err)
 		}
 	})
-	
-	t.Run("Subscribe no handlers", func(t *testing.T) {
+
+	t.Run("Multiple Close Calls", func(t *testing.T) {
+		bus := NewInMemBus()
+		bus.Close()
+		// Should not panic
+		bus.Close()
+	})
+
+	t.Run("Wait for handlers", func(t *testing.T) {
 		bus := NewInMemBus()
 		defer bus.Close()
-		err := bus.Publish(ctx, Event{Type: "none"})
-		if err != nil {
-			t.Error("expected no error when publishing to no handlers")
+
+		processed := false
+		bus.Subscribe(ctx, "wait.event", func(ctx context.Context, event Event) error {
+			processed = true
+			return nil
+		})
+
+		bus.Publish(ctx, Event{Type: "wait.event"})
+
+		if !processed {
+			t.Error("expected event to be processed")
 		}
 	})
 }

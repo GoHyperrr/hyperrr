@@ -1,0 +1,37 @@
+# schema.graphqls
+
+scalar Time
+
+type WorkflowLineage {
+  id: ID!
+  name: String!
+  version: String!
+  state: String!
+  startedAt: Time!
+  endedAt: Time
+  steps: [StepExecution!]!
+  events: [Event!]!
+  error: String
+  relatedLineages: [WorkflowLineage!]!
+}
+
+type StepExecution {
+  stepId: String!
+  state: String!
+  startedAt: Time!
+  endedAt: Time
+  attempts: Int!
+  error: String
+}
+
+type Event {
+  id: ID!
+  type: String!
+  timestamp: Time!
+  payload: String # JSON string
+}
+
+type Query {
+  getWorkflowLineage(id: ID!): WorkflowLineage
+  listLineages: [WorkflowLineage!]!
+}

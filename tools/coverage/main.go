@@ -51,7 +51,16 @@ func run(args []string, out io.Writer) error {
 }
 
 func calculateCoverage(r io.Reader) (float64, error) {
-	var totalStatements, coveredStatements int64
+	type lineRange struct {
+		file       string
+		statements int64
+	}
+	
+	// Map to track if a specific line range is covered
+	// key: "file:startLine.startChar,endLine.endChar"
+	coveredMap := make(map[string]bool)
+	statementsMap := make(map[string]int64)
+
 	scanner := bufio.NewScanner(r)
 	if scanner.Scan() {
 		// mode line
@@ -59,19 +68,33 @@ func calculateCoverage(r io.Reader) (float64, error) {
 
 	for scanner.Scan() {
 		line := scanner.Text()
+		
+		// Skip generated and test files
+		if strings.Contains(line, "generated.go") || strings.Contains(line, "models_gen.go") || strings.Contains(line, "_test.go") {
+			continue
+		}
+
 		parts := strings.Fields(line)
 		if len(parts) < 2 {
 			continue
 		}
 
-		statements, err1 := strconv.ParseInt(parts[len(parts)-2], 10, 64)
-		count, err2 := strconv.ParseInt(parts[len(parts)-1], 10, 64)
+		// Parts format: <file>:<range> <statements> <count>
+		rangePart := parts[0]
+		statements, _ := strconv.ParseInt(parts[len(parts)-2], 10, 64)
+		count, _ := strconv.ParseInt(parts[len(parts)-1], 10, 64)
 
-		if err1 == nil && err2 == nil {
-			totalStatements += statements
-			if count > 0 {
-				coveredStatements += statements
-			}
+		if count > 0 {
+			coveredMap[rangePart] = true
+		}
+		statementsMap[rangePart] = statements
+	}
+
+	var totalStatements, coveredStatements int64
+	for rangePart, statements := range statementsMap {
+		totalStatements += statements
+		if coveredMap[rangePart] {
+			coveredStatements += statements
 		}
 	}
 

@@ -16,10 +16,12 @@ var teaRun = func(m tea.Model) error {
 	return err
 }
 
+var osExit = os.Exit
+
 func main() {
 	if err := run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
-		os.Exit(1)
+		osExit(1)
 	}
 }
 

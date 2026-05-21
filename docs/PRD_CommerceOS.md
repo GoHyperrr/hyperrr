@@ -79,9 +79,9 @@ Build hyperrr, an AI-native commerce operating system where workflows, events, a
 - **Workflow Engine**: YAML DSL parser and execution runner with DAG support.
 - **Resilient Execution**: Policy-driven retries (exponential backoff), fallbacks, and Saga-based compensation.
 - **Mission Control**: Bubbletea-based TUI for real-time monitoring and manual intervention (Pause/Resume/Cancel).
+- **Context Engine**: Execution lineage graph and GraphQL API to provide rich operational context for AI.
 
 ### ⏳ Next Milestones
-- **Context Engine**: Execution lineage graph and GraphQL API.
 - **Commerce Modules**: Catalog, Inventory, and Order plugins.
 - **AI Integration**: Orchestration logic for LLM participants.
 
