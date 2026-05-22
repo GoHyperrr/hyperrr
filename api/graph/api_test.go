@@ -10,6 +10,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/commerce/customer"
 	"github.com/GoHyperrr/hyperrr/commerce/cart"
 	"github.com/GoHyperrr/hyperrr/commerce/order"
+	"github.com/GoHyperrr/hyperrr/commerce/finance"
 	domain "github.com/GoHyperrr/hyperrr/internal/context"
 	"github.com/GoHyperrr/hyperrr/internal/identity"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
@@ -71,6 +72,13 @@ func TestResolvers(t *testing.T) {
 		runner.RegisterTask(name, h)
 	}
 
+	financeMod := finance.NewModule()
+	financeMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	db.Register(financeMod.Models()...)
+	for name, h := range financeMod.Handlers() {
+		runner.RegisterTask(name, h)
+	}
+
 	database.AutoMigrateAll()
 
 	resolver := &Resolver{
@@ -79,6 +87,7 @@ func TestResolvers(t *testing.T) {
 		CustomerModule: custMod,
 		CartModule:     cartMod,
 		OrderModule:    orderMod,
+		FinanceModule:  financeMod,
 		IdentityModule: identMod,
 		Runner:         runner,
 	}

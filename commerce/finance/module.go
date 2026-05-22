@@ -1,4 +1,4 @@
-package order
+package finance
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )
 
-// Module implements the registry.Module interface for Order.
+// Module implements the registry.Module interface for Finance.
 type Module struct {
 	repo *Repository
 }
@@ -17,7 +17,7 @@ func NewModule() *Module {
 }
 
 func (m *Module) ID() string {
-	return "commerce.order"
+	return "commerce.finance"
 }
 
 func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
@@ -26,14 +26,13 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 }
 
 func (m *Module) Models() []any {
-	return []any{&Order{}, &OrderItem{}}
+	return []any{&Payment{}}
 }
 
 func (m *Module) Handlers() map[string]workflow.TaskHandler {
 	return map[string]workflow.TaskHandler{
-		"order.create":             m.CreateOrder,
-		"order.finalize":           m.FinalizeOrder,
-		"order.compensate_payment": m.CompensatePayment,
+		"finance.process_payment":    m.ProcessPayment,
+		"finance.compensate_payment": m.CompensatePayment,
 	}
 }
 

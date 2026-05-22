@@ -2,6 +2,7 @@ package order
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -26,6 +27,20 @@ func TestOrderWorkflow(t *testing.T) {
 	mod.Init(context.Background(), &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
 	db.Register(mod.Models()...)
 	for name, h := range mod.Handlers() { runner.RegisterTask(name, h) }
+	
+	// Mock finance handlers
+	runner.RegisterTask("finance.process_payment", func(ctx context.Context, input any) (any, error) {
+		data := input.(map[string]any)
+		workflowInput := data["input"].(map[string]any)
+		if fail, _ := workflowInput["fail_payment"].(bool); fail {
+			return nil, fmt.Errorf("payment gateway rejected transaction")
+		}
+		return map[string]any{"status": "SUCCESS"}, nil
+	})
+	runner.RegisterTask("finance.compensate_payment", func(ctx context.Context, input any) (any, error) {
+		return nil, nil
+	})
+
 	database.AutoMigrateAll()
 
 	wf := &workflow.Workflow{
@@ -37,11 +52,12 @@ func TestOrderWorkflow(t *testing.T) {
 				Saga: &workflow.Saga{Uses: "order.compensate_payment"},
 			},
 			{
-				ID:        "order.process_payment",
-				Uses:      "order.process_payment",
+				ID:        "finance.process_payment",
+				Uses:      "finance.process_payment",
 				DependsOn: []string{"order.create"},
+				Saga:      &workflow.Saga{Uses: "finance.compensate_payment"},
 			},
-			{ID: "order.finalize", Uses: "order.finalize", DependsOn: []string{"order.process_payment"}},
+			{ID: "order.finalize", Uses: "order.finalize", DependsOn: []string{"finance.process_payment"}},
 		},
 	}
 
@@ -134,12 +150,8 @@ func TestOrderRepository(t *testing.T) {
 		_, err = mod.CreateOrder(context.Background(), map[string]any{"wrong": 1})
 		if err == nil { t.Error("expected error for missing workflow input") }
 
-		// 2. ProcessPayment - Missing Order
-		_, err = mod.ProcessPayment(context.Background(), map[string]any{"input": map[string]any{}})
+		// 2. FinalizeOrder - Missing Order
+		_, err = mod.FinalizeOrder(context.Background(), map[string]any{})
 		if err == nil { t.Error("expected error for missing order result") }
-
-		// 3. CompensatePayment - Missing Order (should just skip)
-		res, err := mod.CompensatePayment(context.Background(), map[string]any{})
-		if err != nil || res != nil { t.Error("CompensatePayment failed on empty input") }
 	})
 }

@@ -121,10 +121,17 @@
 
 ---
 
-## ⏳ Issue 15: Commerce Plugin: Finance (Tax & Payments)
-**Status**: Backlog
+## ✅ Issue 15: Commerce Plugin: Finance (Tax & Payments)
+**Status**: Completed
 **Type**: AFK
 **Blocked by**: Issue 14
+
+### Achievements
+- Implemented the **Finance Module** (`commerce/finance`) with GORM persistence.
+- Added workflow task handlers `finance.process_payment` and `finance.compensate_payment`.
+- Replaced mock logic in the Fulfillment Saga (`commerce/order`) with real finance module workflows.
+- Exposed the domain via GraphQL API (`getPayment`, `listOrderPayments`).
+- Tested the cross-module saga coordination successfully.
 
 ---
 

@@ -51,14 +51,15 @@ func (r *mutationResolver) CreateOrderFromCart(ctx context.Context, cartID strin
 				Saga: &workflow.Saga{Uses: "order.compensate_payment"},
 			},
 			{
-				ID:         "order.process_payment",
-				Uses:       "order.process_payment",
+				ID:         "finance.process_payment",
+				Uses:       "finance.process_payment",
 				DependsOn:  []string{"order.create"},
+				Saga:       &workflow.Saga{Uses: "finance.compensate_payment"},
 			},
 			{
 				ID:         "order.finalize",
 				Uses:       "order.finalize",
-				DependsOn:  []string{"order.process_payment"},
+				DependsOn:  []string{"finance.process_payment"},
 			},
 		},
 	}

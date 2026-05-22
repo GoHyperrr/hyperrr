@@ -1,0 +1,11 @@
+extend type Query {
+  getPayment(id: ID!): Payment
+  listOrderPayments(orderId: ID!): [Payment!]!
+}
+
+type Payment {
+  id: ID!
+  orderId: String!
+  amount: Float!
+  status: String!
+}

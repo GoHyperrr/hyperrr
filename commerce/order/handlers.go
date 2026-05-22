@@ -59,35 +59,21 @@ func (m *Module) CreateOrder(ctx context.Context, input any) (any, error) {
 	return o, nil
 }
 
-// ProcessPayment simulates payment processing.
-func (m *Module) ProcessPayment(ctx context.Context, input any) (any, error) {
-	data := input.(map[string]any)
-	
-	// We need the order created in the previous step
-	oRaw, ok := data["order.create"]
-	if !ok {
-		return nil, fmt.Errorf("missing order from create step")
-	}
-	o := oRaw.(*Order)
-
-	workflowInput := data["input"].(map[string]any)
-	forceFail, _ := workflowInput["fail_payment"].(bool)
-
-	if forceFail {
-		return nil, fmt.Errorf("payment gateway rejected transaction")
-	}
-
-	logger.Info("Payment processed successfully", "order_id", o.ID, "amount", o.TotalPrice)
-	return map[string]any{
-		"transaction_id": fmt.Sprintf("tx_%d", time.Now().UnixNano()),
-		"status":         "SUCCESS",
-	}, nil
-}
-
 // FinalizeOrder updates status to PAID.
 func (m *Module) FinalizeOrder(ctx context.Context, input any) (any, error) {
-	data := input.(map[string]any)
-	o := data["order.create"].(*Order)
+	data, ok := input.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid input type")
+	}
+
+	oRaw, ok := data["order.create"]
+	if !ok || oRaw == nil {
+		return nil, fmt.Errorf("missing order from create step")
+	}
+	o, ok := oRaw.(*Order)
+	if !ok {
+		return nil, fmt.Errorf("invalid order type in create step")
+	}
 
 	o.Status = OrderPaid
 	if err := m.repo.Save(ctx, o); err != nil {
@@ -100,14 +86,20 @@ func (m *Module) FinalizeOrder(ctx context.Context, input any) (any, error) {
 
 // CompensatePayment handles payment failure by cancelling the order.
 func (m *Module) CompensatePayment(ctx context.Context, input any) (any, error) {
-	data := input.(map[string]any)
-	
+	data, ok := input.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid input type")
+	}
+
 	// Check if order was created
 	oRaw, ok := data["order.create"]
-	if !ok {
+	if !ok || oRaw == nil {
 		return nil, nil // Nothing to compensate if order wasn't even created
 	}
-	o := oRaw.(*Order)
+	o, ok := oRaw.(*Order)
+	if !ok {
+		return nil, fmt.Errorf("invalid order type in create step")
+	}
 
 	o.Status = OrderCancelled
 	if err := m.repo.Save(ctx, o); err != nil {

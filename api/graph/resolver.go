@@ -5,6 +5,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/commerce/customer"
 	"github.com/GoHyperrr/hyperrr/commerce/cart"
 	"github.com/GoHyperrr/hyperrr/commerce/order"
+	"github.com/GoHyperrr/hyperrr/commerce/finance"
 	"github.com/GoHyperrr/hyperrr/internal/context"
 	"github.com/GoHyperrr/hyperrr/internal/identity"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
@@ -16,6 +17,7 @@ type Resolver struct {
 	CustomerModule *customer.Module
 	CartModule     *cart.Module
 	OrderModule    *order.Module
+	FinanceModule  *finance.Module
 	IdentityModule *identity.Module
 	Runner         *workflow.Runner
 }

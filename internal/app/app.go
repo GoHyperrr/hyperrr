@@ -9,6 +9,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/commerce/customer"
 	"github.com/GoHyperrr/hyperrr/commerce/cart"
 	"github.com/GoHyperrr/hyperrr/commerce/order"
+	"github.com/GoHyperrr/hyperrr/commerce/finance"
 	"github.com/GoHyperrr/hyperrr/internal"
 	"github.com/GoHyperrr/hyperrr/api/graph"
 	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
@@ -77,6 +78,8 @@ func RunWithConfig(cfg *config.Config) error {
 	registry.Register(cartMod)
 	orderMod := order.NewModule()
 	registry.Register(orderMod)
+	financeMod := finance.NewModule()
+	registry.Register(financeMod)
 
 	// 6. Discover and Initialize Modules (Plugins)
 	deps := &registry.Dependencies{
@@ -117,6 +120,7 @@ func RunWithConfig(cfg *config.Config) error {
 			CustomerModule: custMod,
 			CartModule:     cartMod,
 			OrderModule:    orderMod,
+			FinanceModule:  financeMod,
 			IdentityModule: identMod,
 			Runner:         runner,
 		},
