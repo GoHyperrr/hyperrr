@@ -9,6 +9,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"github.com/GoHyperrr/hyperrr/pkg/utils"
 )
 
 // Module implements the registry.Module interface for Notification.
@@ -38,8 +39,8 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 			return nil
 		}
 
-		email, _ := payload["email"].(string)
-		name, _ := payload["name"].(string)
+		email := utils.GetString(payload, "email")
+		name := utils.GetString(payload, "name")
 
 		wf := &workflow.Workflow{
 			Steps: []workflow.Step{{ID: "send", Uses: "notification.send"}},
@@ -63,7 +64,7 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 			return nil
 		}
 
-		wfName, _ := payload["name"].(string)
+		wfName := utils.GetString(payload, "name")
 		if wfName != "fulfillment.v1" {
 			return nil
 		}

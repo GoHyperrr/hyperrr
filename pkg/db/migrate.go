@@ -5,7 +5,7 @@ import (
 )
 
 // Registry maintains a list of all models to be migrated.
-var Registry = []interface{}{&OutboxEvent{}}
+var Registry = []interface{}{&OutboxEvent{}, &IdempotencyKey{}}
 
 // Register adds models to the global migration registry.
 func Register(models ...interface{}) {

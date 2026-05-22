@@ -7,6 +7,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"github.com/GoHyperrr/hyperrr/pkg/utils"
 )
 
 // Module implements the registry.Module interface for Customer.
@@ -43,13 +44,17 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 			return nil
 		}
 
-		actorID, _ := payload["actor_id"].(string)
-		userID, _ := payload["user_id"].(string)
+		actorID := utils.GetString(payload, "actor_id")
+		userID := utils.GetString(payload, "user_id")
 		if userID == "" {
 			userID = actorID
 		}
-		name, _ := payload["name"].(string)
-		email, _ := payload["email"].(string)
+		name := utils.GetString(payload, "name")
+		email := utils.GetString(payload, "email")
+
+		if actorID == "" {
+			return nil
+		}
 
 		c := &Customer{
 			ID:     "cust_" + userID,

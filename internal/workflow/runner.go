@@ -50,6 +50,7 @@ func (r *Runner) Execute(ctx context.Context, id string, wf *Workflow, input any
 	completed := make(map[string]bool)
 	results := make(map[string]any)
 	results["input"] = input
+	results["_workflow_id"] = id
 	
 	var history []Step
 

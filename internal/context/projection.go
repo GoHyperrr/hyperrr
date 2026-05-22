@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
+	"github.com/GoHyperrr/hyperrr/pkg/utils"
 )
 
 // Lineage represents the execution history of a workflow.
@@ -39,6 +40,7 @@ type Projector struct {
 	lineages    map[string]*Lineage
 	correlation map[string]map[string][]string // key -> value -> []workflowID
 	bus         eventbus.EventBus
+	store       *LineageStore
 }
 
 // NewProjector creates a new Projector.
@@ -81,13 +83,14 @@ func (p *Projector) handleEvent(ctx context.Context, event eventbus.Event) error
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	payload, ok := event.Payload.(map[string]any)
+	// Actually event.Payload is interface{}, usually map[string]any
+	rawPayload, ok := event.Payload.(map[string]any)
 	if !ok {
 		return nil
 	}
 
-	id, ok := payload["id"].(string)
-	if !ok {
+	id := utils.GetString(rawPayload, "id")
+	if id == "" {
 		return nil
 	}
 
@@ -122,34 +125,34 @@ func (p *Projector) handleEvent(ctx context.Context, event eventbus.Event) error
 
 	switch event.Type {
 	case "workflow.started":
-		payload := event.Payload.(map[string]any)
-		name, _ := payload["name"].(string)
-		version, _ := payload["version"].(string)
-		lineage.Name = name
-		lineage.Version = version
+		lineage.Name = utils.GetString(rawPayload, "name")
+		lineage.Version = utils.GetString(rawPayload, "version")
 		lineage.State = "RUNNING"
-		lineage.StartedAt = event.Timestamp
+		if lineage.StartedAt.IsZero() {
+			lineage.StartedAt = event.Timestamp
+		}
 
 	case "workflow.step.started":
-		stepID := event.Payload.(map[string]any)["step_id"].(string)
-		lineage.Steps = append(lineage.Steps, &StepLineage{
-			StepID:    stepID,
-			State:     "RUNNING",
-			StartedAt: event.Timestamp,
-			Attempts:  1,
-		})
+		stepID := utils.GetString(rawPayload, "step_id")
+		if p.findStep(lineage, stepID) == nil {
+			lineage.Steps = append(lineage.Steps, &StepLineage{
+				StepID:    stepID,
+				State:     "RUNNING",
+				StartedAt: event.Timestamp,
+				Attempts:  1,
+			})
+		}
 
 	case "workflow.step.completed":
-		stepID := event.Payload.(map[string]any)["step_id"].(string)
+		stepID := utils.GetString(rawPayload, "step_id")
 		if step := p.findStep(lineage, stepID); step != nil {
 			step.State = "COMPLETED"
 			step.EndedAt = &event.Timestamp
 		}
 
 	case "workflow.step.failed":
-		payload := event.Payload.(map[string]any)
-		stepID := payload["step_id"].(string)
-		errMsg := payload["error"].(string)
+		stepID := utils.GetString(rawPayload, "step_id")
+		errMsg := utils.GetString(rawPayload, "error")
 		if step := p.findStep(lineage, stepID); step != nil {
 			step.State = "FAILED"
 			step.Error = errMsg
@@ -157,7 +160,7 @@ func (p *Projector) handleEvent(ctx context.Context, event eventbus.Event) error
 		}
 
 	case "workflow.step.retrying":
-		stepID := event.Payload.(map[string]any)["step_id"].(string)
+		stepID := utils.GetString(rawPayload, "step_id")
 		if step := p.findStep(lineage, stepID); step != nil {
 			step.State = "RETRYING"
 			step.Attempts++
@@ -171,10 +174,13 @@ func (p *Projector) handleEvent(ctx context.Context, event eventbus.Event) error
 		lineage.EndedAt = &event.Timestamp
 
 	case "workflow.failed":
-		payload := event.Payload.(map[string]any)
 		lineage.State = "FAILED"
-		lineage.Error = payload["error"].(string)
+		lineage.Error = utils.GetString(rawPayload, "error")
 		lineage.EndedAt = &event.Timestamp
+	}
+
+	if p.store != nil {
+		p.store.Save(ctx, lineage)
 	}
 
 	return nil

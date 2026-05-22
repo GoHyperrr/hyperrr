@@ -66,8 +66,18 @@ func RunWithConfig(cfg *config.Config) error {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// 4. Initialize Workflow Engine
-	bus := eventbus.NewInMemBus()
+	// 4. Initialize Event Fabric
+	var bus eventbus.EventBus
+	if cfg.EventBusProvider == "nats" {
+		var err error
+		bus, err = eventbus.NewNATSBus(cfg.NATSURL)
+		if err != nil {
+			return fmt.Errorf("failed to connect to NATS: %w", err)
+		}
+	} else {
+		bus = eventbus.NewInMemBus()
+	}
+	defer bus.Close()
 	runner := workflow.NewRunner(bus)
 	registryStore := workflow.NewRegistry()
 

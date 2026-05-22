@@ -7,6 +7,7 @@ import (
 
 	"github.com/GoHyperrr/hyperrr/commerce/order"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
+	"github.com/GoHyperrr/hyperrr/pkg/utils"
 )
 
 // ValidateCoupon checks if a coupon is valid and returns it.
@@ -75,9 +76,22 @@ func (m *Module) AddLoyaltyPoints(ctx context.Context, input any) (any, error) {
 		}
 	}
 
+	// Idempotency check
+	wfID := utils.GetString(data, "_workflow_id")
+	if wfID != "" {
+		if m.repo.db.IsProcessed(ctx, "marketing.add_loyalty_points", wfID) {
+			logger.Info("Loyalty points already added for this workflow, skipping", "wf_id", wfID)
+			return lp, nil
+		}
+	}
+
 	lp.Balance += pointsToAdd
 	if err := m.repo.SaveLoyaltyPoints(ctx, lp); err != nil {
 		return nil, err
+	}
+
+	if wfID != "" {
+		m.repo.db.MarkProcessed(ctx, "marketing.add_loyalty_points", wfID)
 	}
 
 	logger.Info("Loyalty points added", "customer_id", o.CustomerID, "points", pointsToAdd, "new_balance", lp.Balance)
