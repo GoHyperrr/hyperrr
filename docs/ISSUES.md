@@ -225,12 +225,13 @@
 **Blocked by**: Issue 13
 
 ### What to build
-Harden the OS foundations and replace MVP shortcuts with production-grade logic.
+Harden the OS foundations and replace MVP shortcuts with production-grade logic, addressing structural tech debt and findings from the comprehensive code review.
 - **Workflow Registry & Store**: Move from inline DAG definitions in resolvers to a central `WorkflowRegistry`. Implement persistence for workflow definitions (YAML/JSON) in the database.
 - **Transactional Outbox Pattern**: Ensure that Event Fabric publications are atomic with database commits. Prevent "ghost events" if a transaction fails after an event is already sent.
 - **ML Brain v2**: Replace the simple `if/else` persona logic in `commerce/customer` with a real `AI_Agent` actor that observes the Context Engine's lineage graph to make segmentation decisions.
 - **JWT Refresh & Rotation**: Implement a secure refresh token flow. Add a "Token Blacklist" to `internal/auth` to support immediate revocation of sessions.
 - **Dependency Injection Cleanup**: Standardize how modules receive and share utilities like the Logger and Config to reduce boilerplate in `Init`.
+- **Code Review Hardening**: Fix Goroutine leaks in `Runner.ResumeWorkflow`, secure JWT secrets (no hardcoded strings), enforce safe type coercion across all module handlers, halt on invalid tokens in auth middleware, and remove all remaining `panic` blocks in resolvers.
 
 ---
 

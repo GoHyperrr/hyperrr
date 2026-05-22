@@ -39,3 +39,38 @@ Implement token refresh rotations. Add a database table to track revoked tokens,
 **Depends on**: 4
 
 Standardize how common utilities (Logger, Config, DB) are injected into modules to reduce boilerplate and improve testability.
+
+### 6. Fix Goroutine Leak in Workflow Runner
+**Type**: BUGFIX
+**Output**: `internal/workflow/runner.go`
+**Depends on**: none
+
+Update `ResumeWorkflow` to handle channel communication safely using a `select` with a timeout or non-blocking send to prevent a permanent goroutine leak if the executing thread has already timed out or completed.
+
+### 7. Secure JWT Secret Handling
+**Type**: SECURITY
+**Output**: `internal/auth/jwt.go`
+**Depends on**: none
+
+Remove the hardcoded `hyperrr-secret-key` string and properly inject the signing secret via the application's configuration `config.Config`.
+
+### 8. Enforce Safe Type Coercion in Handlers
+**Type**: BUGFIX
+**Output**: `commerce/*/handlers.go`
+**Depends on**: none
+
+Replace unsafe type assertions (e.g., `quantity, _ := workflowInput["quantity"].(int)`) with explicit `ok` checks and proper error returns across all commerce module handlers to prevent silent zero-value logic errors.
+
+### 9. Secure Auth Middleware Error Handling
+**Type**: SECURITY
+**Output**: `api/middleware/auth.go`
+**Depends on**: none
+
+Halt the request and return an HTTP 401 Unauthorized error when an invalid token is encountered, rather than silently degrading the request to an unauthenticated/anonymous state.
+
+### 10. Remove Resolver Panics
+**Type**: REFACTOR
+**Output**: `api/graph/schema.resolvers.go`
+**Depends on**: none
+
+Replace `panic` calls (e.g., in the Health mutation) with proper standard Go `error` returns to ensure the server handles incomplete endpoints gracefully without crashing.
