@@ -22,6 +22,29 @@ func (m *Module) ID() string {
 
 func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 	m.repo = NewRepository(deps.DB)
+
+	// Register Workflows
+	deps.Registry.Register(&workflow.Workflow{
+		Name: "cart.add",
+		Steps: []workflow.Step{
+			{ID: "add", Uses: "cart.add_item"},
+		},
+	})
+
+	deps.Registry.Register(&workflow.Workflow{
+		Name: "cart.remove",
+		Steps: []workflow.Step{
+			{ID: "remove", Uses: "cart.remove_item"},
+		},
+	})
+
+	deps.Registry.Register(&workflow.Workflow{
+		Name: "cart.checkout",
+		Steps: []workflow.Step{
+			{ID: "checkout", Uses: "cart.checkout"},
+		},
+	})
+
 	return nil
 }
 

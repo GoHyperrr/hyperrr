@@ -31,6 +31,7 @@ func TestResolvers(t *testing.T) {
 	ctx := context.Background()
 	bus := eventbus.NewInMemBus()
 	runner := workflow.NewRunner(bus)
+	registryStore := workflow.NewRegistry()
 	projector := domain.NewProjector(bus)
 	projector.Start(ctx)
 
@@ -45,63 +46,63 @@ func TestResolvers(t *testing.T) {
 	}()
 
 	prodMod := product.NewModule()
-	prodMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	prodMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 	db.Register(prodMod.Models()...)
 	for name, h := range prodMod.Handlers() {
 		runner.RegisterTask(name, h)
 	}
 
 	identMod := identity.NewModule()
-	identMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	identMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 	db.Register(identMod.Models()...)
 	for name, h := range identMod.Handlers() {
 		runner.RegisterTask(name, h)
 	}
 
 	custMod := customer.NewModule()
-	custMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	custMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 	db.Register(custMod.Models()...)
 	for name, h := range custMod.Handlers() {
 		runner.RegisterTask(name, h)
 	}
 
 	cartMod := cart.NewModule()
-	cartMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	cartMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 	db.Register(cartMod.Models()...)
 	for name, h := range cartMod.Handlers() {
 		runner.RegisterTask(name, h)
 	}
 
 	orderMod := order.NewModule()
-	orderMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	orderMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 	db.Register(orderMod.Models()...)
 	for name, h := range orderMod.Handlers() {
 		runner.RegisterTask(name, h)
 	}
 
 	financeMod := finance.NewModule()
-	financeMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	financeMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 	db.Register(financeMod.Models()...)
 	for name, h := range financeMod.Handlers() {
 		runner.RegisterTask(name, h)
 	}
 
 	fulfillMod := fulfillment.NewModule()
-	fulfillMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	fulfillMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 	db.Register(fulfillMod.Models()...)
 	for name, h := range fulfillMod.Handlers() {
 		runner.RegisterTask(name, h)
 	}
 
 	notifMod := notification.NewModule(nil)
-	notifMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	notifMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 	db.Register(notifMod.Models()...)
 	for name, h := range notifMod.Handlers() {
 		runner.RegisterTask(name, h)
 	}
 
 	supportMod := support.NewModule()
-	supportMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	supportMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 	supportMod.SetProjector(projector)
 	db.Register(supportMod.Models()...)
 	for name, h := range supportMod.Handlers() {
@@ -109,14 +110,14 @@ func TestResolvers(t *testing.T) {
 	}
 
 	marketingMod := marketing.NewModule()
-	marketingMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	marketingMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 	db.Register(marketingMod.Models()...)
 	for name, h := range marketingMod.Handlers() {
 		runner.RegisterTask(name, h)
 	}
 
 	searchMod := search.NewModule()
-	searchMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	searchMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 	searchMod.SetProductModule(prodMod)
 	db.Register(searchMod.Models()...)
 	for name, h := range searchMod.Handlers() {
@@ -124,7 +125,7 @@ func TestResolvers(t *testing.T) {
 	}
 
 	analyticsMod := analytics.NewModule()
-	analyticsMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	analyticsMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 	analyticsMod.SetProjector(projector)
 
 	database.AutoMigrateAll()
@@ -144,6 +145,7 @@ func TestResolvers(t *testing.T) {
 		AnalyticsModule:    analyticsMod,
 		IdentityModule:     identMod,
 		Runner:             runner,
+		Registry:           registryStore,
 	}
 
 

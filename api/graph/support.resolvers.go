@@ -12,17 +12,13 @@ import (
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/commerce/support"
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
 )
 
 // CreateTicket is the resolver for the createTicket field.
 func (r *mutationResolver) CreateTicket(ctx context.Context, customerID string, subject string, message string) (*model.Ticket, error) {
-	wf := &workflow.Workflow{
-		Name: "support.create",
-		Steps: []workflow.Step{
-			{ID: "ticket", Uses: "support.create_ticket"},
-			{ID: "ai_reply", Uses: "support.dispatch_ai_response", DependsOn: []string{"ticket"}},
-		},
+	wf, err := r.Registry.Get("support.create")
+	if err != nil {
+		return nil, err
 	}
 
 	workflowInput := map[string]any{
@@ -37,8 +33,7 @@ func (r *mutationResolver) CreateTicket(ctx context.Context, customerID string, 
 		return nil, err
 	}
 
-	// The CreateTicket handler returns map[string]any{"ticket": *support.Ticket}
-	// The results map stores the output of each step under its ID.
+	// CreateTicket handler returns map[string]any{"ticket": *support.Ticket} under step ID "ticket"
 	resRaw, ok := results["ticket"]
 	if !ok {
 		return nil, fmt.Errorf("missing ticket from workflow results")

@@ -32,4 +32,5 @@ type Resolver struct {
 	AnalyticsModule    *analytics.Module
 	IdentityModule     *identity.Module
 	Runner             *workflow.Runner
+	Registry           *workflow.Registry
 }

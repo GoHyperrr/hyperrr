@@ -12,16 +12,13 @@ import (
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/commerce/product"
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
 )
 
 // SearchProducts is the resolver for the searchProducts field.
 func (r *queryResolver) SearchProducts(ctx context.Context, query string, limit *int) ([]*model.Product, error) {
-	wf := &workflow.Workflow{
-		Name: "search.products",
-		Steps: []workflow.Step{
-			{ID: "search", Uses: "search.product_catalog"},
-		},
+	wf, err := r.Registry.Get("search.products")
+	if err != nil {
+		return nil, err
 	}
 
 	lim := 10.0

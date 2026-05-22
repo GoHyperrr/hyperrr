@@ -24,12 +24,14 @@ func TestProductWorkflow(t *testing.T) {
 	database, _ := db.Connect(cfg)
 	bus := eventbus.NewInMemBus()
 	runner := workflow.NewRunner(bus)
+	registryStore := workflow.NewRegistry()
 
 	mod := NewModule()
 	deps := &registry.Dependencies{
 		DB:       database,
 		EventBus: bus,
 		Runner:   runner,
+		Registry: registryStore,
 	}
 
 	if err := mod.Init(context.Background(), deps); err != nil {
@@ -43,14 +45,11 @@ func TestProductWorkflow(t *testing.T) {
 	database.AutoMigrateAll()
 
 	t.Run("Create Product Workflow", func(t *testing.T) {
-		wf := &workflow.Workflow{
-			Name: "product.create",
-			Steps: []workflow.Step{
-				{ID: "product.validate_product", Uses: "product.validate_product"},
-				{ID: "product.persist_product", Uses: "product.persist_product", DependsOn: []string{"product.validate_product"}},
-			},
+		wf, err := deps.Registry.Get("product.create")
+		if err != nil {
+			t.Fatalf("failed to get workflow: %v", err)
 		}
-
+		
 		input := map[string]any{
 			"id":          "p1",
 			"name":        "Test Product",
@@ -63,9 +62,9 @@ func TestProductWorkflow(t *testing.T) {
 			t.Fatalf("workflow failed: %v", err)
 		}
 
-		p, ok := res["product.persist_product"].(*Product)
+		p, ok := res["persist"].(*Product)
 		if !ok || p.Name != "Test Product" {
-			t.Errorf("expected Test Product, got %v", res["product.persist_product"])
+			t.Errorf("expected Test Product, got %v", res["persist"])
 		}
 	})
 
@@ -94,9 +93,12 @@ func TestProductWorkflow(t *testing.T) {
 		database, _ := db.Connect(cfg)
 		bus := eventbus.NewInMemBus()
 		runner := workflow.NewRunner(bus)
+		registryStore := workflow.NewRegistry()
+
 		mod := NewModule()
-		mod.Init(context.Background(), &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+		mod.Init(context.Background(), &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 		db.Register(mod.Models()...)
+
 		database.AutoMigrateAll()
 
 		// 1. ValidateProduct - Invalid Input

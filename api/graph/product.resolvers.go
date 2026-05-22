@@ -12,17 +12,13 @@ import (
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/commerce/product"
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
 )
 
 // CreateProduct is the resolver for the createProduct field.
 func (r *mutationResolver) CreateProduct(ctx context.Context, input model.CreateProductInput) (*model.Product, error) {
-	wf := &workflow.Workflow{
-		Name: "product.create",
-		Steps: []workflow.Step{
-			{ID: "product.validate_product", Uses: "product.validate_product"},
-			{ID: "product.persist_product", Uses: "product.persist_product", DependsOn: []string{"product.validate_product"}},
-		},
+	wf, err := r.Registry.Get("product.create")
+	if err != nil {
+		return nil, err
 	}
 
 	desc := ""
@@ -43,7 +39,7 @@ func (r *mutationResolver) CreateProduct(ctx context.Context, input model.Create
 		return nil, err
 	}
 
-	domainRes, ok := results["product.persist_product"].(*product.Product)
+	domainRes, ok := results["persist"].(*product.Product)
 	if !ok {
 		return nil, fmt.Errorf("failed to retrieve created product from workflow results")
 	}
@@ -53,11 +49,9 @@ func (r *mutationResolver) CreateProduct(ctx context.Context, input model.Create
 
 // UpdateProduct is the resolver for the updateProduct field.
 func (r *mutationResolver) UpdateProduct(ctx context.Context, id string, input model.UpdateProductInput) (*model.Product, error) {
-	wf := &workflow.Workflow{
-		Name: "product.update",
-		Steps: []workflow.Step{
-			{ID: "product.update_details", Uses: "product.update_details"},
-		},
+	wf, err := r.Registry.Get("product.update")
+	if err != nil {
+		return nil, err
 	}
 
 	workflowInput := map[string]any{
@@ -79,7 +73,7 @@ func (r *mutationResolver) UpdateProduct(ctx context.Context, id string, input m
 		return nil, err
 	}
 
-	domainRes, ok := results["product.update_details"].(*product.Product)
+	domainRes, ok := results["update"].(*product.Product)
 	if !ok {
 		return nil, fmt.Errorf("failed to retrieve updated product from workflow results")
 	}

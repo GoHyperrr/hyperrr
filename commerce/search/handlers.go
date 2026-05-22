@@ -23,7 +23,13 @@ func (m *Module) SearchProducts(ctx context.Context, input any) (any, error) {
 	}
 
 	query, _ := workflowInput["query"].(string)
-	limit, _ := workflowInput["limit"].(float64)
+	var limit int
+	if l, ok := workflowInput["limit"].(int); ok {
+		limit = l
+	} else if lf, ok := workflowInput["limit"].(float64); ok {
+		limit = int(lf)
+	}
+
 	if limit <= 0 {
 		limit = 10
 	}

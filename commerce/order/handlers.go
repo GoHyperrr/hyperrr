@@ -27,6 +27,10 @@ func (m *Module) CreateOrder(ctx context.Context, input any) (any, error) {
 		return nil, fmt.Errorf("missing items in input")
 	}
 
+	if customerID == "" || cartID == "" || len(itemsRaw) == 0 {
+		return nil, fmt.Errorf("invalid or missing input fields")
+	}
+
 	orderID := fmt.Sprintf("ord_%d", time.Now().UnixNano())
 	o := &Order{
 		ID:         orderID,
@@ -36,14 +40,32 @@ func (m *Module) CreateOrder(ctx context.Context, input any) (any, error) {
 
 	var totalPrice float64
 	for _, itemRaw := range itemsRaw {
-		itemMap := itemRaw.(map[string]any)
-		quantity := int(itemMap["quantity"].(float64))
-		price := itemMap["price"].(float64)
+		itemMap, ok := itemRaw.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		var quantity int
+		if q, ok := itemMap["quantity"].(int); ok {
+			quantity = q
+		} else if qf, ok := itemMap["quantity"].(float64); ok {
+			quantity = int(qf)
+		}
+
+		var price float64
+		if p, ok := itemMap["price"].(float64); ok {
+			price = p
+		}
+
+		productID, _ := itemMap["product_id"].(string)
+		if productID == "" || quantity <= 0 {
+			continue
+		}
 		
 		o.Items = append(o.Items, OrderItem{
-			ID:        fmt.Sprintf("oi_%d_%s", time.Now().UnixNano(), itemMap["product_id"].(string)),
+			ID:        fmt.Sprintf("oi_%d_%s", time.Now().UnixNano(), productID),
 			OrderID:   orderID,
-			ProductID: itemMap["product_id"].(string),
+			ProductID: productID,
 			Quantity:  quantity,
 			UnitPrice: price,
 		})

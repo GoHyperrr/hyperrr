@@ -25,8 +25,15 @@ func (m *Module) ID() string {
 
 func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 	m.db = deps.DB
-	// Note: prodMod will be set via app registration if needed, 
-	// or we find it in registry
+
+	// Register Workflows
+	deps.Registry.Register(&workflow.Workflow{
+		Name: "search.products",
+		Steps: []workflow.Step{
+			{ID: "search", Uses: "search.product_catalog"},
+		},
+	})
+
 	return nil
 }
 

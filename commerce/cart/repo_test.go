@@ -9,6 +9,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"github.com/GoHyperrr/hyperrr/internal/workflow"
 )
 
 func TestCartRepository(t *testing.T) {
@@ -20,7 +21,7 @@ func TestCartRepository(t *testing.T) {
 	bus := eventbus.NewInMemBus()
 
 	mod := NewModule()
-	mod.Init(context.Background(), &registry.Dependencies{DB: database, EventBus: bus})
+	mod.Init(context.Background(), &registry.Dependencies{DB: database, EventBus: bus, Registry: workflow.NewRegistry()})
 	db.Register(mod.Models()...)
 	database.AutoMigrateAll()
 

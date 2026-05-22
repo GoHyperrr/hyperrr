@@ -21,14 +21,15 @@ func TestSearchModule(t *testing.T) {
 	database, _ := db.Connect(cfg)
 	bus := eventbus.NewInMemBus()
 	runner := workflow.NewRunner(bus)
+	registryStore := workflow.NewRegistry()
 
 	// Mock Product module
 	prodMod := product.NewModule()
-	prodMod.Init(context.Background(), &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	prodMod.Init(context.Background(), &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 	db.Register(prodMod.Models()...)
 	
 	mod := NewModule()
-	mod.Init(context.Background(), &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	mod.Init(context.Background(), &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 	mod.SetProductModule(prodMod)
 	db.Register(mod.Models()...)
 	for name, h := range mod.Handlers() { runner.RegisterTask(name, h) }
@@ -63,7 +64,7 @@ func TestSearchModule(t *testing.T) {
 		if err == nil { t.Error("expected error for missing workflow input") }
 
 		mNoProd := NewModule()
-		mNoProd.Init(context.Background(), &registry.Dependencies{DB: database})
+		mNoProd.Init(context.Background(), &registry.Dependencies{DB: database, Registry: workflow.NewRegistry()})
 		_, err = mNoProd.SearchProducts(context.Background(), map[string]any{"input": map[string]any{"query": "x"}})
 		if err == nil { t.Error("expected error for missing product module") }
 	})

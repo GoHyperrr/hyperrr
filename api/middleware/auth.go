@@ -30,11 +30,9 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 			}
 
 			token := parts[1]
-			actor, err := auth.ValidateToken(token)
+			actor, err := auth.ValidateToken(r.Context(), token)
 			if err != nil {
-				// We don't necessarily want to fail the request here, 
-				// resolvers will check if actor is required.
-				next.ServeHTTP(w, r)
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return
 			}
 

@@ -37,10 +37,14 @@ func (m *Module) PersistProduct(ctx context.Context, input any) (any, error) {
 		return nil, fmt.Errorf("invalid input type")
 	}
 
-	// Result from previous step "product.validate_product"
-	validatedData, ok := data["product.validate_product"].(map[string]any)
+	// Result from previous step "validate"
+	resRaw, ok := data["validate"]
 	if !ok {
 		return nil, fmt.Errorf("missing validated product data")
+	}
+	validatedData, ok := resRaw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid validated product data format")
 	}
 
 	p := &Product{

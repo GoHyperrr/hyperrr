@@ -2,14 +2,17 @@ package customer
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
 )
 
 func TestCustomerWorkflow(t *testing.T) {
@@ -24,17 +27,22 @@ func TestCustomerWorkflow(t *testing.T) {
 	database, _ := db.Connect(cfg)
 	bus := eventbus.NewInMemBus()
 	runner := workflow.NewRunner(bus)
+	registryStore := workflow.NewRegistry()
+	projector := ctxEngine.NewProjector(bus)
+	projector.Start(context.Background())
 
 	mod := NewModule()
 	deps := &registry.Dependencies{
 		DB:       database,
 		EventBus: bus,
 		Runner:   runner,
+		Registry: registryStore,
 	}
 
 	if err := mod.Init(context.Background(), deps); err != nil {
 		t.Fatalf("failed to init module: %v", err)
 	}
+	mod.SetProjector(projector)
 
 	db.Register(mod.Models()...)
 	for name, handler := range mod.Handlers() {
@@ -46,6 +54,30 @@ func TestCustomerWorkflow(t *testing.T) {
 		// Create a customer first
 		c := &Customer{ID: "c1", Name: "John Doe", Email: "john@example.com"}
 		mod.Repo().Save(context.Background(), c)
+
+		// Seed lineages to get WHALE persona (needs > 5 orders)
+		for i := 0; i < 6; i++ {
+			wfID := fmt.Sprintf("wf_%d", i)
+			bus.Publish(context.Background(), eventbus.Event{
+				ID:   wfID + "_start",
+				Type: "workflow.started",
+				Payload: map[string]any{
+					"name":    "fulfillment.v1",
+					"id":      wfID,
+					"version": "v1",
+				},
+			})
+			bus.Publish(context.Background(), eventbus.Event{
+				ID:   wfID + "_end",
+				Type: "workflow.completed",
+				Payload: map[string]any{
+					"name": "fulfillment.v1",
+					"id":   wfID,
+				},
+			})
+		}
+		// Give projector a moment to process events
+		time.Sleep(100 * time.Millisecond)
 
 		wf := &workflow.Workflow{
 			Name: "customer.segmentation",
@@ -94,9 +126,12 @@ func TestCustomerWorkflow(t *testing.T) {
 		database, _ := db.Connect(cfg)
 		bus := eventbus.NewInMemBus()
 		runner := workflow.NewRunner(bus)
+		registryStore := workflow.NewRegistry()
+
 		mod := NewModule()
-		mod.Init(context.Background(), &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+		mod.Init(context.Background(), &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 		db.Register(mod.Models()...)
+
 		database.AutoMigrateAll()
 
 		// 1. CalculatePersona - Invalid Input

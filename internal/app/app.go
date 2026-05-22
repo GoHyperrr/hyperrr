@@ -16,6 +16,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/commerce/marketing"
 	"github.com/GoHyperrr/hyperrr/commerce/search"
 	"github.com/GoHyperrr/hyperrr/commerce/analytics"
+	"github.com/GoHyperrr/hyperrr/internal/auth"
 	"github.com/GoHyperrr/hyperrr/internal"
 	"github.com/GoHyperrr/hyperrr/api/graph"
 	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
@@ -56,23 +57,27 @@ func RunWithConfig(cfg *config.Config) error {
 
 	logger.Info("Starting hyperrr", "version", internal.Version)
 
-	// 2. Initialize Database
+	// 2. Set Auth Key
+	auth.SetSigningKey(cfg.JWTSecret)
+
+	// 3. Initialize Database
 	database, err := db.Connect(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// 3. Initialize Event Fabric
-	bus := eventbus.NewInMemBus()
-
 	// 4. Initialize Workflow Engine
+	bus := eventbus.NewInMemBus()
 	runner := workflow.NewRunner(bus)
+	registryStore := workflow.NewRegistry()
 
 	// 5. Register Core Modules
 	ctxMod := ctxEngine.NewModule()
 	registry.Register(ctxMod)
 	identMod := identity.NewModule()
 	registry.Register(identMod)
+	authMod := auth.NewModule()
+	registry.Register(authMod)
 	registry.Register(storage.NewModule())
 	
 	// Register Commerce Modules
@@ -107,6 +112,7 @@ func RunWithConfig(cfg *config.Config) error {
 		DB:       database,
 		EventBus: bus,
 		Runner:   runner,
+		Registry: registryStore,
 	}
 
 	for _, mod := range registry.List() {
@@ -151,6 +157,7 @@ func RunWithConfig(cfg *config.Config) error {
 			IdentityModule:     identMod,
 
 			Runner:         runner,
+			Registry:       registryStore,
 		},
 	}))
 

@@ -12,17 +12,13 @@ import (
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/commerce/cart"
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
 )
 
 // ApplyCouponToCart is the resolver for the applyCouponToCart field.
 func (r *mutationResolver) ApplyCouponToCart(ctx context.Context, cartID string, couponCode string) (*model.Cart, error) {
-	wf := &workflow.Workflow{
-		Name: "marketing.apply_coupon",
-		Steps: []workflow.Step{
-			{ID: "validate", Uses: "marketing.validate_coupon"},
-			{ID: "apply", Uses: "cart.add_item", DependsOn: []string{"validate"}},
-		},
+	wf, err := r.Registry.Get("marketing.apply_coupon")
+	if err != nil {
+		return nil, err
 	}
 
 	// In a real system, cart.add_item would be specialized to handle discounts.
@@ -30,6 +26,9 @@ func (r *mutationResolver) ApplyCouponToCart(ctx context.Context, cartID string,
 	workflowInput := map[string]any{
 		"cart_id":     cartID,
 		"coupon_code": couponCode,
+		"product_id":  "DISCOUNT_PROMO",
+		"quantity":    1.0,
+		"price":       0.0, // Simplified
 	}
 
 	execID := fmt.Sprintf("promo_%d", time.Now().UnixNano())
@@ -38,7 +37,7 @@ func (r *mutationResolver) ApplyCouponToCart(ctx context.Context, cartID string,
 		return nil, err
 	}
 
-	// The cart.add_item handler returns the updated cart
+	// The cart.add_item handler returns the updated cart under step ID "apply"
 	c, ok := results["apply"].(*cart.Cart)
 	if !ok {
 		// If apply didn't run because validate returned something else, just fetch the cart

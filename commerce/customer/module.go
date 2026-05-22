@@ -1,8 +1,8 @@
 package customer
-
 import (
 	"context"
 
+	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
@@ -11,7 +11,9 @@ import (
 
 // Module implements the registry.Module interface for Customer.
 type Module struct {
-	repo *Repository
+	repo    *Repository
+	brain   *MLBrainV2
+	projector *ctxEngine.Projector
 }
 
 func NewModule() *Module {
@@ -24,7 +26,16 @@ func (m *Module) ID() string {
 
 func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 	m.repo = NewRepository(deps.DB)
-	
+
+	// Register Workflows
+	deps.Registry.Register(&workflow.Workflow{
+		Name: "customer.segmentation",
+		Steps: []workflow.Step{
+			{ID: "calculate", Uses: "customer.calculate_persona"},
+			{ID: "update", Uses: "customer.update_persona", DependsOn: []string{"calculate"}},
+		},
+	})
+
 	// Subscribe to user creation to create a business profile
 	deps.EventBus.Subscribe(ctx, "identity.user_created", func(ctx context.Context, event eventbus.Event) error {
 		payload, ok := event.Payload.(map[string]any)
@@ -64,13 +75,9 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 		}
 
 		workflowID := "seg_" + payload["customer_id"].(string)
-		
-		wf := &workflow.Workflow{
-			Name: "customer.segmentation",
-			Steps: []workflow.Step{
-				{ID: "customer.calculate_persona", Uses: "customer.calculate_persona"},
-				{ID: "customer.update_persona", Uses: "customer.update_persona", DependsOn: []string{"customer.calculate_persona"}},
-			},
+		wf, err := deps.Registry.Get("customer.segmentation")
+		if err != nil {
+			return err
 		}
 
 		go func() {
@@ -96,4 +103,9 @@ func (m *Module) Handlers() map[string]workflow.TaskHandler {
 
 func (m *Module) Repo() *Repository {
 	return m.repo
+}
+
+func (m *Module) SetProjector(p *ctxEngine.Projector) {
+	m.projector = p
+	m.brain = NewMLBrainV2(p)
 }

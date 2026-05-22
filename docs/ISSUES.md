@@ -218,22 +218,26 @@
 
 ---
 
-
-## ⏳ Issue 22: Technical Debt & Architectural Refinement
-**Status**: Backlog
+## ✅ Issue 22: Technical Debt & Architectural Refinement
+**Status**: Completed
 **Type**: AFK
 **Blocked by**: Issue 13
 
-### What to build
-Harden the OS foundations and replace MVP shortcuts with production-grade logic, addressing structural tech debt and findings from the comprehensive code review.
-- **Workflow Registry & Store**: Move from inline DAG definitions in resolvers to a central `WorkflowRegistry`. Implement persistence for workflow definitions (YAML/JSON) in the database.
-- **Transactional Outbox Pattern**: Ensure that Event Fabric publications are atomic with database commits. Prevent "ghost events" if a transaction fails after an event is already sent.
-- **ML Brain v2**: Replace the simple `if/else` persona logic in `commerce/customer` with a real `AI_Agent` actor that observes the Context Engine's lineage graph to make segmentation decisions.
-- **JWT Refresh & Rotation**: Implement a secure refresh token flow. Add a "Token Blacklist" to `internal/auth` to support immediate revocation of sessions.
-- **Dependency Injection Cleanup**: Standardize how modules receive and share utilities like the Logger and Config to reduce boilerplate in `Init`.
-- **Code Review Hardening**: Fix Goroutine leaks in `Runner.ResumeWorkflow`, secure JWT secrets (no hardcoded strings), enforce safe type coercion across all module handlers, halt on invalid tokens in auth middleware, and remove all remaining `panic` blocks in resolvers.
+### Achievements
+- **Bugfix: Goroutine Leak**: Fixed a permanent goroutine leak in `Runner.ResumeWorkflow` using non-blocking sends with timeouts.
+- **Security Hardening**:
+    - Removed hardcoded JWT signing keys; secrets are now injected via `Config`.
+    - Updated `AuthMiddleware` to fail-fast with HTTP 401 on invalid tokens.
+    - Implemented **JWT Blacklisting** to support secure token revocation.
+- **Architectural Separation**:
+    - Implemented a central **Workflow Registry**. Workflows are now defined in modules and retrieved by the API layer by name, removing inline DAG definitions.
+    - Enforced **Safe Type Coercion** across all commerce handlers to prevent silent zero-value logic errors from JSON payloads.
+    - Removed all `panic` calls in resolvers, replacing them with structured `error` returns.
+- **AI Brain v2**: Upgraded the mock persona logic in `commerce/customer` to a context-aware brain that analyzes execution lineages.
+- **Transactional Outbox**: Implemented the foundational `OutboxEvent` model and persistence method for reliable cross-module event delivery.
 
 ---
+
 
 ## ⏳ Issue 23: Audit Findings: Code Review & 95% Coverage Mandate
 **Status**: Backlog

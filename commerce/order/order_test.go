@@ -22,13 +22,14 @@ func TestOrderWorkflow(t *testing.T) {
 	database, _ := db.Connect(cfg)
 	bus := eventbus.NewInMemBus()
 	runner := workflow.NewRunner(bus)
+	registryStore := workflow.NewRegistry()
 
 	mod := NewModule()
-	mod.Init(context.Background(), &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	mod.Init(context.Background(), &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 	db.Register(mod.Models()...)
 	for name, h := range mod.Handlers() { runner.RegisterTask(name, h) }
 	
-	// Mock finance handlers
+	// Mock external handlers
 	runner.RegisterTask("finance.process_payment", func(ctx context.Context, input any) (any, error) {
 		data := input.(map[string]any)
 		workflowInput := data["input"].(map[string]any)
@@ -165,8 +166,9 @@ func TestOrderRepository(t *testing.T) {
 		database, _ := db.Connect(cfg)
 		bus := eventbus.NewInMemBus()
 		runner := workflow.NewRunner(bus)
+		registryStore := workflow.NewRegistry()
 		mod := NewModule()
-		mod.Init(context.Background(), &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+		mod.Init(context.Background(), &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 		db.Register(mod.Models()...)
 		database.AutoMigrateAll()
 

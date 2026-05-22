@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// CalculatePersona is a mock ML handler that determines a customer's persona.
+// CalculatePersona determines a customer's persona using the MLBrainV2.
 func (m *Module) CalculatePersona(ctx context.Context, input any) (any, error) {
 	data, ok := input.(map[string]any)
 	if !ok {
@@ -17,18 +17,22 @@ func (m *Module) CalculatePersona(ctx context.Context, input any) (any, error) {
 		return nil, fmt.Errorf("missing workflow input")
 	}
 
-	orderTotal, _ := workflowInput["order_total"].(float64)
-	
-	// Mock ML logic
-	persona := "BRONZE"
-	if orderTotal > 1000 {
-		persona = "WHALE"
-	} else if orderTotal > 500 {
-		persona = "GOLD"
+	customerID, _ := workflowInput["customer_id"].(string)
+	if customerID == "" {
+		return nil, fmt.Errorf("customer_id is required")
+	}
+
+	if m.brain == nil {
+		return nil, fmt.Errorf("ML brain not initialized")
+	}
+
+	persona, err := m.brain.Analyze(ctx, customerID)
+	if err != nil {
+		return nil, err
 	}
 
 	return map[string]any{
-		"customer_id": workflowInput["customer_id"],
+		"customer_id": customerID,
 		"persona":     persona,
 	}, nil
 }

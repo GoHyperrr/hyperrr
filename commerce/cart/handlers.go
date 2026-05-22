@@ -22,8 +22,22 @@ func (m *Module) AddItem(ctx context.Context, input any) (any, error) {
 
 	cartID, _ := workflowInput["cart_id"].(string)
 	productID, _ := workflowInput["product_id"].(string)
-	quantity, _ := workflowInput["quantity"].(int)
-	price, _ := workflowInput["price"].(float64)
+
+	var quantity int
+	if q, ok := workflowInput["quantity"].(int); ok {
+		quantity = q
+	} else if qf, ok := workflowInput["quantity"].(float64); ok {
+		quantity = int(qf)
+	}
+
+	var price float64
+	if p, ok := workflowInput["price"].(float64); ok {
+		price = p
+	}
+
+	if cartID == "" || productID == "" || quantity <= 0 {
+		return nil, fmt.Errorf("invalid or missing input fields")
+	}
 
 	c, err := m.repo.GetByID(ctx, cartID)
 	if err != nil {

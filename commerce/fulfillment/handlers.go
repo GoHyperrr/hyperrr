@@ -29,9 +29,22 @@ func (m *Module) ReserveInventory(ctx context.Context, input any) (any, error) {
 	var reservedItems []string
 
 	for _, itemRaw := range itemsRaw {
-		itemMap := itemRaw.(map[string]any)
-		productID := itemMap["product_id"].(string)
-		quantity := int(itemMap["quantity"].(float64))
+		itemMap, ok := itemRaw.(map[string]any)
+		if !ok {
+			continue
+		}
+		productID, _ := itemMap["product_id"].(string)
+		
+		var quantity int
+		if q, ok := itemMap["quantity"].(int); ok {
+			quantity = q
+		} else if qf, ok := itemMap["quantity"].(float64); ok {
+			quantity = int(qf)
+		}
+
+		if productID == "" || quantity <= 0 {
+			continue
+		}
 
 		inv, err := m.repo.GetInventoryByProductID(ctx, productID)
 		if err != nil {
@@ -73,9 +86,22 @@ func (m *Module) ReleaseInventory(ctx context.Context, input any) (any, error) {
 	itemsRaw := resMap["items"].([]any)
 
 	for _, itemRaw := range itemsRaw {
-		itemMap := itemRaw.(map[string]any)
-		productID := itemMap["product_id"].(string)
-		quantity := int(itemMap["quantity"].(float64))
+		itemMap, ok := itemRaw.(map[string]any)
+		if !ok {
+			continue
+		}
+		productID, _ := itemMap["product_id"].(string)
+		
+		var quantity int
+		if q, ok := itemMap["quantity"].(int); ok {
+			quantity = q
+		} else if qf, ok := itemMap["quantity"].(float64); ok {
+			quantity = int(qf)
+		}
+
+		if productID == "" || quantity <= 0 {
+			continue
+		}
 
 		inv, err := m.repo.GetInventoryByProductID(ctx, productID)
 		if err == nil {

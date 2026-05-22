@@ -8,12 +8,14 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 )
 
-// Dependencies provides access to core OS services for modules.
+// Dependencies provides common utilities to modules.
 type Dependencies struct {
 	DB       *db.DB
 	EventBus eventbus.EventBus
 	Runner   *workflow.Runner
+	Registry *workflow.Registry
 }
+
 
 // Module is the standard interface for all hyperrr plugins.
 type Module interface {

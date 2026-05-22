@@ -12,7 +12,6 @@ import (
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/commerce/order"
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
 )
 
 // CreateOrderFromCart is the resolver for the createOrderFromCart field.
@@ -42,43 +41,9 @@ func (r *mutationResolver) CreateOrderFromCart(ctx context.Context, cartID strin
 		"items":       items,
 	}
 
-	// Define Fulfillment Saga
-	wf := &workflow.Workflow{
-		Name: "fulfillment.v1",
-		Steps: []workflow.Step{
-			{
-				ID:   "fulfillment.reserve_inventory",
-				Uses: "fulfillment.reserve_inventory",
-				Saga: &workflow.Saga{Uses: "fulfillment.release_inventory"},
-			},
-			{
-				ID:        "order.create",
-				Uses:      "order.create",
-				Saga:      &workflow.Saga{Uses: "order.compensate_payment"},
-				DependsOn: []string{"fulfillment.reserve_inventory"},
-			},
-			{
-				ID:        "finance.process_payment",
-				Uses:      "finance.process_payment",
-				DependsOn: []string{"order.create"},
-				Saga:      &workflow.Saga{Uses: "finance.compensate_payment"},
-			},
-			{
-				ID:        "fulfillment.create_shipment",
-				Uses:      "fulfillment.create_shipment",
-				DependsOn: []string{"finance.process_payment"},
-			},
-			{
-				ID:        "order.finalize",
-				Uses:      "order.finalize",
-				DependsOn: []string{"fulfillment.create_shipment"},
-			},
-			{
-				ID:        "marketing.add_loyalty_points",
-				Uses:      "marketing.add_loyalty_points",
-				DependsOn: []string{"order.finalize"},
-			},
-		},
+	wf, err := r.Registry.Get("fulfillment.v1")
+	if err != nil {
+		return nil, err
 	}
 
 	execID := fmt.Sprintf("fulfill_%d", time.Now().UnixNano())
@@ -87,17 +52,22 @@ func (r *mutationResolver) CreateOrderFromCart(ctx context.Context, cartID strin
 		return nil, err
 	}
 
-	o, ok := results["order.finalize"].(*order.Order)
+	oRaw, ok := results["order.finalize"]
 	if !ok {
-		// Fallback to order from create step if finalize didn't return it for some reason
-		o, ok = results["order.create"].(*order.Order)
-		if !ok {
-			return nil, fmt.Errorf("failed to retrieve order from workflow results")
-		}
+		oRaw, ok = results["order.create"]
+	}
+	if !ok {
+		return nil, fmt.Errorf("failed to retrieve order from workflow results")
+	}
+
+	o, ok := oRaw.(*order.Order)
+	if !ok {
+		return nil, fmt.Errorf("invalid order type in results")
 	}
 
 	return mapOrderToModel(o), nil
 }
+
 
 // GetOrder is the resolver for the getOrder field.
 func (r *queryResolver) GetOrder(ctx context.Context, id string) (*model.Order, error) {

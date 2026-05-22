@@ -12,16 +12,13 @@ import (
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/commerce/fulfillment"
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
 )
 
 // UpdateShipmentStatus is the resolver for the updateShipmentStatus field.
 func (r *mutationResolver) UpdateShipmentStatus(ctx context.Context, shipmentID string, trackingNumber *string, carrier *string) (*model.Shipment, error) {
-	wf := &workflow.Workflow{
-		Name: "fulfillment.ship_order",
-		Steps: []workflow.Step{
-			{ID: "ship", Uses: "fulfillment.ship_order"},
-		},
+	wf, err := r.Registry.Get("fulfillment.ship_order")
+	if err != nil {
+		return nil, err
 	}
 
 	workflowInput := map[string]any{

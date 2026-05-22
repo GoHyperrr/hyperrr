@@ -12,7 +12,7 @@ import (
 
 // Health is the resolver for the _health field.
 func (r *mutationResolver) Health(ctx context.Context) (string, error) {
-	panic(fmt.Errorf("not implemented: Health - _health"))
+	return "", fmt.Errorf("not implemented: Health - _health")
 }
 
 // Health is the resolver for the health field.

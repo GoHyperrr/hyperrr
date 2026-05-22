@@ -194,8 +194,12 @@ func (r *Runner) ResumeWorkflow(id string, action string) error {
 		return fmt.Errorf("workflow %s is not waiting for intervention", id)
 	}
 
-	ch <- action
-	return nil
+	select {
+	case ch <- action:
+		return nil
+	case <-time.After(5 * time.Second):
+		return fmt.Errorf("timeout waiting for workflow %s to receive signal", id)
+	}
 }
 
 func (r *Runner) applyBackoff(policy *Retry, attempt int) {

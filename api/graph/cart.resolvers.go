@@ -12,16 +12,13 @@ import (
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/commerce/cart"
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
 )
 
 // AddItemToCart is the resolver for the addItemToCart field.
 func (r *mutationResolver) AddItemToCart(ctx context.Context, cartID string, input model.AddItemInput) (*model.Cart, error) {
-	wf := &workflow.Workflow{
-		Name: "cart.add_item",
-		Steps: []workflow.Step{
-			{ID: "add", Uses: "cart.add_item"},
-		},
+	wf, err := r.Registry.Get("cart.add")
+	if err != nil {
+		return nil, err
 	}
 
 	workflowInput := map[string]any{
@@ -47,11 +44,9 @@ func (r *mutationResolver) AddItemToCart(ctx context.Context, cartID string, inp
 
 // RemoveItemFromCart is the resolver for the removeItemFromCart field.
 func (r *mutationResolver) RemoveItemFromCart(ctx context.Context, cartID string, itemID string) (*model.Cart, error) {
-	wf := &workflow.Workflow{
-		Name: "cart.remove_item",
-		Steps: []workflow.Step{
-			{ID: "remove", Uses: "cart.remove_item"},
-		},
+	wf, err := r.Registry.Get("cart.remove")
+	if err != nil {
+		return nil, err
 	}
 
 	workflowInput := map[string]any{
@@ -75,11 +70,9 @@ func (r *mutationResolver) RemoveItemFromCart(ctx context.Context, cartID string
 
 // CheckoutCart is the resolver for the checkoutCart field.
 func (r *mutationResolver) CheckoutCart(ctx context.Context, cartID string) (bool, error) {
-	wf := &workflow.Workflow{
-		Name: "cart.checkout",
-		Steps: []workflow.Step{
-			{ID: "checkout", Uses: "cart.checkout"},
-		},
+	wf, err := r.Registry.Get("cart.checkout")
+	if err != nil {
+		return false, err
 	}
 
 	workflowInput := map[string]any{
@@ -87,7 +80,7 @@ func (r *mutationResolver) CheckoutCart(ctx context.Context, cartID string) (boo
 	}
 
 	execID := fmt.Sprintf("checkout_%d", time.Now().UnixNano())
-	_, err := r.Runner.Execute(ctx, execID, wf, workflowInput)
+	_, err = r.Runner.Execute(ctx, execID, wf, workflowInput)
 	if err != nil {
 		return false, err
 	}

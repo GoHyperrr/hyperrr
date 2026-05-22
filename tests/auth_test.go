@@ -9,6 +9,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/api/middleware"
 	"github.com/GoHyperrr/hyperrr/commerce/customer"
 	"github.com/GoHyperrr/hyperrr/internal/identity"
+	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
@@ -35,7 +36,12 @@ func TestAuthFlow(t *testing.T) {
 
 	// Setup Customer
 	custMod := customer.NewModule()
-	custMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus})
+	custMod.Init(ctx, &registry.Dependencies{
+		DB:       database,
+		EventBus: bus,
+		Runner:   workflow.NewRunner(bus),
+		Registry: workflow.NewRegistry(),
+	})
 	db.Register(custMod.Models()...)
 
 	database.AutoMigrateAll()

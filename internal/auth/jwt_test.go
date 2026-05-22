@@ -1,10 +1,15 @@
 package auth
 
 import (
+	"context"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/GoHyperrr/hyperrr/internal/identity"
+	"github.com/GoHyperrr/hyperrr/pkg/config"
+	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -20,7 +25,7 @@ func TestJWT(t *testing.T) {
 			t.Fatalf("failed to generate token: %v", err)
 		}
 
-		got, err := ValidateToken(token)
+		got, err := ValidateToken(context.Background(), token)
 		if err != nil {
 			t.Fatalf("failed to validate token: %v", err)
 		}
@@ -31,20 +36,38 @@ func TestJWT(t *testing.T) {
 	})
 
 	t.Run("Invalid Token", func(t *testing.T) {
-		_, err := ValidateToken("invalid.token.string")
+		_, err := ValidateToken(context.Background(), "invalid.token.string")
 		if err == nil {
 			t.Error("expected error for invalid token, got nil")
 		}
 	})
 
-	t.Run("Unexpected Signing Method", func(t *testing.T) {
-		// Create a token with a different signing method (e.g., None)
-		token := jwt.NewWithClaims(jwt.SigningMethodNone, &Claims{ActorID: "test"})
-		tokenString, _ := token.SignedString(jwt.UnsafeAllowNoneSignatureType)
+	t.Run("Revoked Token", func(t *testing.T) {
+		// Mock DB for store
+		cfg := &config.Config{DBDriver: "sqlite", DBDSN: "auth_test_bl.db"}
+		database, _ := db.Connect(cfg)
+		defer os.Remove("auth_test_bl.db")
+		database.AutoMigrate(&Blacklist{})
 		
-		_, err := ValidateToken(tokenString)
-		if err == nil || !strings.Contains(err.Error(), "unexpected signing method") {
-			t.Errorf("expected error for unexpected signing method, got %v", err)
+		s := NewAuthStore(database)
+		SetStore(s)
+		defer SetStore(nil)
+
+		actor := identity.Actor{ID: "revoked-user", Type: identity.ActorHuman}
+		tokenString, _ := GenerateToken(actor)
+		
+		// Get JTI from token
+		token, _ := jwt.ParseWithClaims(tokenString, &Claims{}, func(t *jwt.Token) (interface{}, error) {
+			return signingKey, nil
+		})
+		claims := token.Claims.(*Claims)
+		
+		// Blacklist it
+		s.Blacklist(context.Background(), claims.ID, time.Now().Add(time.Hour))
+		
+		_, err := ValidateToken(context.Background(), tokenString)
+		if err == nil || !strings.Contains(err.Error(), "token is revoked") {
+			t.Errorf("expected revoked error, got %v", err)
 		}
 	})
 }

@@ -17,6 +17,7 @@ type Config struct {
 	EventBusProvider  string `mapstructure:"EVENT_BUS_PROVIDER"`
 	DBDriver          string `mapstructure:"DB_DRIVER"`
 	DBDSN             string `mapstructure:"DB_DSN"`
+	JWTSecret         string `mapstructure:"JWT_SECRET"`
 }
 
 // Load loads the configuration.
@@ -35,6 +36,7 @@ func LoadWithFile(filename string) (*Config, error) {
 	v.SetDefault("EVENT_BUS_PROVIDER", "inmem")
 	v.SetDefault("DB_DRIVER", "sqlite")
 	v.SetDefault("DB_DSN", "hyperrr.db")
+	v.SetDefault("JWT_SECRET", "hyperrr-secret-key")
 
 	if filename != "" {
 		v.SetConfigFile(filename)
