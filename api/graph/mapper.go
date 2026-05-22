@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/GoHyperrr/hyperrr/internal/context"
 	"github.com/GoHyperrr/hyperrr/commerce/cart"
+	"github.com/GoHyperrr/hyperrr/commerce/order"
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 )
 
@@ -61,6 +62,24 @@ func mapCartToModel(c *cart.Cart) *model.Cart {
 			ProductID: item.ProductID,
 			Quantity:  item.Quantity,
 			Price:     item.Price,
+		})
+	}
+	return res
+}
+
+func mapOrderToModel(o *order.Order) *model.Order {
+	res := &model.Order{
+		ID:         o.ID,
+		CustomerID: o.CustomerID,
+		Status:     string(o.Status),
+		TotalPrice: o.TotalPrice,
+	}
+	for _, item := range o.Items {
+		res.Items = append(res.Items, &model.OrderItem{
+			ID:        item.ID,
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+			UnitPrice: item.UnitPrice,
 		})
 	}
 	return res

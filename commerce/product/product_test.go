@@ -116,5 +116,9 @@ func TestProductWorkflow(t *testing.T) {
 		if err == nil { t.Error("expected error for invalid input type") }
 		_, err = mod.UpdateProductDetails(context.Background(), map[string]any{"wrong": 1})
 		if err == nil { t.Error("expected error for missing workflow input") }
+
+		// 4. UpdateProductDetails - Product Not Found
+		_, err = mod.UpdateProductDetails(context.Background(), map[string]any{"input": map[string]any{"id": "ghost"}})
+		if err == nil { t.Error("expected error for non-existent product") }
 	})
 }

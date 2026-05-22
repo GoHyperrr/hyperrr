@@ -9,6 +9,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/commerce/product"
 	"github.com/GoHyperrr/hyperrr/commerce/customer"
 	"github.com/GoHyperrr/hyperrr/commerce/cart"
+	"github.com/GoHyperrr/hyperrr/commerce/order"
 	domain "github.com/GoHyperrr/hyperrr/internal/context"
 	"github.com/GoHyperrr/hyperrr/internal/identity"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
@@ -63,6 +64,13 @@ func TestResolvers(t *testing.T) {
 		runner.RegisterTask(name, h)
 	}
 
+	orderMod := order.NewModule()
+	orderMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	db.Register(orderMod.Models()...)
+	for name, h := range orderMod.Handlers() {
+		runner.RegisterTask(name, h)
+	}
+
 	database.AutoMigrateAll()
 
 	resolver := &Resolver{
@@ -70,6 +78,7 @@ func TestResolvers(t *testing.T) {
 		ProductModule:  prodMod,
 		CustomerModule: custMod,
 		CartModule:     cartMod,
+		OrderModule:    orderMod,
 		IdentityModule: identMod,
 		Runner:         runner,
 	}
@@ -207,6 +216,63 @@ func TestResolvers(t *testing.T) {
 		cNew, err := resolver.Query().GetActiveCart(ctx, "c2")
 		if err != nil || cNew.CustomerID != "c2" {
 			t.Fatalf("GetActiveCart auto-creation failed: %v", err)
+		}
+
+		// 6. AddItem failure
+		_, err = resolver.Mutation().AddItemToCart(ctx, "ghost", model.AddItemInput{})
+		if err == nil {
+			t.Error("expected error for non-existent cart add")
+		}
+
+		// 7. RemoveItem failure
+		_, err = resolver.Mutation().RemoveItemFromCart(ctx, "ghost", "ghost")
+		if err == nil {
+			t.Error("expected error for non-existent cart remove")
+		}
+	})
+
+	t.Run("Order Resolvers", func(t *testing.T) {
+		// 1. Setup Cart with items
+		cartRes, _ := resolver.Query().GetActiveCart(ctx, "c3")
+		resolver.Mutation().AddItemToCart(ctx, cartRes.ID, model.AddItemInput{ProductID: "p3", Quantity: 1, Price: 150.0})
+
+		// 2. Create Order from Cart
+		o, err := resolver.Mutation().CreateOrderFromCart(ctx, cartRes.ID)
+		if err != nil {
+			t.Fatalf("CreateOrderFromCart failed: %v", err)
+		}
+		if o.Status != "PAID" {
+			t.Errorf("expected PAID status, got %s", o.Status)
+		}
+		if o.TotalPrice != 150.0 {
+			t.Errorf("expected total price 150, got %f", o.TotalPrice)
+		}
+		if len(o.Items) != 1 || o.Items[0].ProductID != "p3" {
+			t.Errorf("expected 1 item with p3, got %v", o.Items)
+		}
+
+		// 3. Get Order
+		got, err := resolver.Query().GetOrder(ctx, o.ID)
+		if err != nil || got.ID != o.ID {
+			t.Fatalf("GetOrder failed: %v", err)
+		}
+		
+		// 4. List Orders
+		list, _ := resolver.Query().ListOrders(ctx)
+		if len(list) == 0 {
+			t.Error("ListOrders empty")
+		}
+
+		// 5. List Customer Orders
+		custList, _ := resolver.Query().ListCustomerOrders(ctx, "c3")
+		if len(custList) == 0 {
+			t.Error("ListCustomerOrders empty")
+		}
+
+		// 6. Get Order failure
+		_, err = resolver.Query().GetOrder(ctx, "ghost")
+		if err == nil {
+			t.Error("expected error for non-existent order")
 		}
 	})
 

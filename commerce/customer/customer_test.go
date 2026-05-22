@@ -116,5 +116,9 @@ func TestCustomerWorkflow(t *testing.T) {
 		if err == nil { t.Error("expected error for invalid input type") }
 		_, err = mod.UpdateCustomerDetails(context.Background(), map[string]any{"wrong": 1})
 		if err == nil { t.Error("expected error for missing workflow input") }
+
+		// 4. UpdateCustomerDetails - Customer Not Found
+		_, err = mod.UpdateCustomerDetails(context.Background(), map[string]any{"input": map[string]any{"id": "ghost"}})
+		if err == nil { t.Error("expected error for non-existent customer") }
 	})
 }

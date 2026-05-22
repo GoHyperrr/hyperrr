@@ -74,6 +74,21 @@ type Event struct {
 type Mutation struct {
 }
 
+type Order struct {
+	ID         string       `json:"id"`
+	CustomerID string       `json:"customerId"`
+	Status     string       `json:"status"`
+	TotalPrice float64      `json:"totalPrice"`
+	Items      []*OrderItem `json:"items"`
+}
+
+type OrderItem struct {
+	ID        string  `json:"id"`
+	ProductID string  `json:"productId"`
+	Quantity  int     `json:"quantity"`
+	UnitPrice float64 `json:"unitPrice"`
+}
+
 type Product struct {
 	ID          string  `json:"id"`
 	Name        string  `json:"name"`

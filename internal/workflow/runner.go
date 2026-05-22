@@ -217,6 +217,7 @@ func (r *Runner) compensate(ctx context.Context, id string, history []Step, resu
 	if len(history) == 0 {
 		return
 	}
+	logger.Info("workflow compensating", "id", id, "steps_count", len(history))
 	r.emit(ctx, "workflow.compensating", map[string]any{"id": id, "steps_count": len(history)})
 	for i := len(history) - 1; i >= 0; i-- {
 		step := history[i]
@@ -227,7 +228,13 @@ func (r *Runner) compensate(ctx context.Context, id string, history []Step, resu
 		handler, ok := r.handlers[step.Saga.Uses]
 		r.mu.RUnlock()
 		if ok {
-			handler(ctx, results)
+			logger.Info("running compensation task", "id", id, "uses", step.Saga.Uses)
+			_, err := handler(ctx, results)
+			if err != nil {
+				logger.Error("compensation task failed", "id", id, "uses", step.Saga.Uses, "error", err)
+			}
+		} else {
+			logger.Warn("compensation handler not found", "id", id, "uses", step.Saga.Uses)
 		}
 	}
 }

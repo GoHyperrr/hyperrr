@@ -2,8 +2,10 @@ package identity
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
@@ -80,7 +82,8 @@ func TestIdentityHandlers(t *testing.T) {
 	})
 
 	t.Run("Register", func(t *testing.T) {
-		actor, err := mod.Register(context.Background(), "unique@example.com", "pass", "New User")
+		email := fmt.Sprintf("reg_%d@example.com", time.Now().UnixNano())
+		actor, err := mod.Register(context.Background(), email, "pass", "New User")
 		if err != nil {
 			t.Fatalf("failed to register: %v", err)
 		}
@@ -89,7 +92,7 @@ func TestIdentityHandlers(t *testing.T) {
 		}
 
 		// Test duplicate email
-		_, err = mod.Register(context.Background(), "unique@example.com", "pass", "Duplicate")
+		_, err = mod.Register(context.Background(), email, "pass", "Duplicate")
 		if err == nil {
 			t.Error("expected error for duplicate email")
 		}

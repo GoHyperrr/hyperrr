@@ -107,10 +107,17 @@
 
 ---
 
-## ⏳ Issue 14: Commerce Plugin: Orders & Fulfillment Sagas
-**Status**: Backlog
+## ✅ Issue 14: Commerce Plugin: Orders & Fulfillment Sagas
+**Status**: Completed
 **Type**: AFK
 **Blocked by**: Issue 13
+
+### Achievements
+- Implemented the **Order Module** (`commerce/order`) for managing finalized commerce transactions.
+- Built a multi-step **Fulfillment Saga** (`order.create` -> `order.process_payment` -> `order.finalize`) with explicit **Saga Compensation** (`order.compensate_payment`) to ensure distributed consistency.
+- Wired the **Cart Module** to trigger the fulfillment saga upon checkout, transitioning from temporary intent to a paid order.
+- Exposed the Order domain via the unified **GraphQL API** (`getOrder`, `listOrders`, `createOrderFromCart`).
+- Achieved high logic coverage for all order and fulfillment saga logic.
 
 ---
 
