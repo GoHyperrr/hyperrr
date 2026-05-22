@@ -69,4 +69,9 @@ func TestRunner(t *testing.T) {
 			t.Error("event not emitted")
 		}
 	})
+
+	t.Run("Emit with nil bus", func(t *testing.T) {
+		r := &Runner{}
+		r.emit(context.Background(), "test", nil) // Should not panic
+	})
 }

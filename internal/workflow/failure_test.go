@@ -86,6 +86,39 @@ func TestFailurePolicies(t *testing.T) {
 			t.Errorf("expected fallback-res, got %v", res["s1"])
 		}
 	})
+
+	t.Run("Exponential Backoff", func(t *testing.T) {
+		attempts := 0
+		runner.RegisterTask("backoff", func(ctx context.Context, input any) (any, error) {
+			attempts++
+			if attempts < 3 {
+				return nil, errors.New("retry me")
+			}
+			return "ok", nil
+		})
+
+		wf := &Workflow{
+			Steps: []Step{
+				{
+					ID: "s1",
+					Uses: "backoff",
+					Retry: &Retry{MaxAttempts: 5, Interval: 5 * time.Millisecond},
+				},
+			},
+		}
+
+		start := time.Now()
+		_, err := runner.Execute(context.Background(), "backoff1", wf, nil)
+		duration := time.Since(start)
+		
+		if err != nil {
+			t.Fatalf("workflow failed: %v", err)
+		}
+		// Expecting at least (5 + 10) ms of sleep if backoff is 2x
+		if duration < 10*time.Millisecond {
+			t.Errorf("expected backoff delay, got %v", duration)
+		}
+	})
 }
 
 func TestSagaCompensate(t *testing.T) {

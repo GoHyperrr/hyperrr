@@ -95,4 +95,11 @@ func TestHumanIntervention(t *testing.T) {
 			t.Errorf("expected cancellation error, got %v", err)
 		}
 	})
+
+	t.Run("Invalid Signal", func(t *testing.T) {
+		err := runner.ResumeWorkflow("ghost", "retry")
+		if err == nil {
+			t.Error("expected error for non-existent workflow")
+		}
+	})
 }

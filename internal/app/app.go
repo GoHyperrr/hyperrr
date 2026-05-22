@@ -121,8 +121,9 @@ func RunWithConfig(cfg *config.Config) error {
 	// Middleware chain
 	authMW := middleware.AuthMiddleware()
 
-	http.Handle("/", authMW(playground.Handler("GraphQL playground", "/query")))
-	http.Handle("/query", authMW(srv))
+	mux := http.NewServeMux()
+	mux.Handle("/", authMW(playground.Handler("GraphQL playground", "/query")))
+	mux.Handle("/query", authMW(srv))
 
 	addr := fmt.Sprintf(":%d", cfg.ServerPort)
 	logger.Info("Server is ready", "addr", addr, "playground", "http://localhost"+addr)
@@ -131,5 +132,5 @@ func RunWithConfig(cfg *config.Config) error {
 		return nil
 	}
 
-	return http.ListenAndServe(addr, nil)
+	return http.ListenAndServe(addr, mux)
 }

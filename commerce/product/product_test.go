@@ -86,4 +86,35 @@ func TestProductWorkflow(t *testing.T) {
 			t.Error("expected validation error")
 		}
 	})
+
+	t.Run("Handler Error Cases", func(t *testing.T) {
+		dbFile := "prod_err_test.db"
+		defer os.Remove(dbFile)
+		cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+		database, _ := db.Connect(cfg)
+		bus := eventbus.NewInMemBus()
+		runner := workflow.NewRunner(bus)
+		mod := NewModule()
+		mod.Init(context.Background(), &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+		db.Register(mod.Models()...)
+		database.AutoMigrateAll()
+
+		// 1. ValidateProduct - Invalid Input
+		_, err := mod.ValidateProduct(context.Background(), "string")
+		if err == nil { t.Error("expected error for invalid input type") }
+		_, err = mod.ValidateProduct(context.Background(), map[string]any{"wrong": 1})
+		if err == nil { t.Error("expected error for missing workflow input") }
+
+		// 2. PersistProduct - Invalid Input
+		_, err = mod.PersistProduct(context.Background(), "string")
+		if err == nil { t.Error("expected error for invalid input type") }
+		_, err = mod.PersistProduct(context.Background(), map[string]any{"wrong": 1})
+		if err == nil { t.Error("expected error for missing validation results") }
+
+		// 3. UpdateProductDetails - Invalid Input
+		_, err = mod.UpdateProductDetails(context.Background(), "string")
+		if err == nil { t.Error("expected error for invalid input type") }
+		_, err = mod.UpdateProductDetails(context.Background(), map[string]any{"wrong": 1})
+		if err == nil { t.Error("expected error for missing workflow input") }
+	})
 }

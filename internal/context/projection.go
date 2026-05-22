@@ -52,6 +52,9 @@ func NewProjector(bus eventbus.EventBus) *Projector {
 
 // Start begins listening for workflow events.
 func (p *Projector) Start(ctx context.Context) error {
+	if p.bus == nil {
+		return nil
+	}
 	eventTypes := []string{
 		"workflow.started",
 		"workflow.step.started",

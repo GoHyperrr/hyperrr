@@ -1,9 +1,11 @@
 package auth
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/GoHyperrr/hyperrr/internal/identity"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 func TestJWT(t *testing.T) {
@@ -32,6 +34,17 @@ func TestJWT(t *testing.T) {
 		_, err := ValidateToken("invalid.token.string")
 		if err == nil {
 			t.Error("expected error for invalid token, got nil")
+		}
+	})
+
+	t.Run("Unexpected Signing Method", func(t *testing.T) {
+		// Create a token with a different signing method (e.g., None)
+		token := jwt.NewWithClaims(jwt.SigningMethodNone, &Claims{ActorID: "test"})
+		tokenString, _ := token.SignedString(jwt.UnsafeAllowNoneSignatureType)
+		
+		_, err := ValidateToken(tokenString)
+		if err == nil || !strings.Contains(err.Error(), "unexpected signing method") {
+			t.Errorf("expected error for unexpected signing method, got %v", err)
 		}
 	})
 }

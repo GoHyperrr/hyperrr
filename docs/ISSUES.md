@@ -160,3 +160,33 @@
 **Status**: Backlog
 **Type**: AFK
 **Blocked by**: Issue 1
+
+---
+
+## ⏳ Issue 22: Technical Debt & Architectural Refinement
+**Status**: Backlog
+**Type**: AFK
+**Blocked by**: Issue 13
+
+### What to build
+Harden the OS foundations and replace MVP shortcuts with production-grade logic.
+- **Workflow Registry & Store**: Move from inline DAG definitions in resolvers to a central `WorkflowRegistry`. Implement persistence for workflow definitions (YAML/JSON) in the database.
+- **Transactional Outbox Pattern**: Ensure that Event Fabric publications are atomic with database commits. Prevent "ghost events" if a transaction fails after an event is already sent.
+- **ML Brain v2**: Replace the simple `if/else` persona logic in `commerce/customer` with a real `AI_Agent` actor that observes the Context Engine's lineage graph to make segmentation decisions.
+- **JWT Refresh & Rotation**: Implement a secure refresh token flow. Add a "Token Blacklist" to `internal/auth` to support immediate revocation of sessions.
+- **Dependency Injection Cleanup**: Standardize how modules receive and share utilities like the Logger and Config to reduce boilerplate in `Init`.
+
+---
+
+## ⏳ Issue 23: Audit Findings: Code Review & 95% Coverage Mandate
+**Status**: Backlog
+**Type**: AFK
+**Blocked by**: Issue 22
+
+### What to build
+Address critical findings from the Issue 0-13 audit and reach the project's quality bar.
+- **Logic Coverage (95%)**: Close the gap on the "Top 5 Uncovered Ranges" identified in `internal/context` (Projection logic) and `internal/workflow` (Compensation paths).
+- **Formal Workflow State Machine**: Introduce a strict `Status` transition table in `internal/workflow/runner.go` to prevent race conditions during human intervention (`WAITING_HUMAN` -> `RUNNING`).
+- **Unified Constants & Enums**: Eliminate magic strings by centralizing all system-wide statuses (Cart, Workflow, Actor) into `pkg/constants`.
+- **Soft-Delete Enforcement**: Update the GORM models and Repository interfaces to use `gorm.DeletedAt` correctly across all modules (Product, Customer, Cart).
+- **GraphQL Error Hardening**: Transition from `panic` calls to a unified `pkg/errors` that the API layer can translate into structured GraphQL errors with error codes.

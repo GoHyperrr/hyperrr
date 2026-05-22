@@ -36,7 +36,7 @@ func run(args []string, out io.Writer) error {
 	}
 	defer f.Close()
 
-	coverage, err := calculateCoverage(f)
+	coverage, coveredMap, statementsMap, err := calculateCoverage(f)
 	if err != nil {
 		return fmt.Errorf("error calculating coverage: %v", err)
 	}
@@ -44,20 +44,25 @@ func run(args []string, out io.Writer) error {
 	fmt.Fprintf(out, "Total coverage: %.2f%%\n", coverage)
 
 	if coverage < threshold {
+		fmt.Fprintf(out, "\nTop 5 Uncovered Ranges:\n")
+		count := 0
+		for rangePart, statements := range statementsMap {
+			if !coveredMap[rangePart] {
+				fmt.Fprintf(out, "- %s (%d statements)\n", rangePart, statements)
+				count++
+				if count >= 5 {
+					break
+				}
+			}
+		}
 		return fmt.Errorf("coverage below threshold: %.2f%% < %.2f%%", coverage, threshold)
 	}
 
 	return nil
 }
 
-func calculateCoverage(r io.Reader) (float64, error) {
-	type lineRange struct {
-		file       string
-		statements int64
-	}
-	
+func calculateCoverage(r io.Reader) (float64, map[string]bool, map[string]int64, error) {
 	// Map to track if a specific line range is covered
-	// key: "file:startLine.startChar,endLine.endChar"
 	coveredMap := make(map[string]bool)
 	statementsMap := make(map[string]int64)
 
@@ -69,8 +74,8 @@ func calculateCoverage(r io.Reader) (float64, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		
-		// Skip generated and test files
-		if strings.Contains(line, "generated.go") || strings.Contains(line, "models_gen.go") || strings.Contains(line, "_test.go") {
+		// Skip generated, test, and main files
+		if strings.Contains(line, "generated.go") || strings.Contains(line, "models_gen.go") || strings.Contains(line, "_test.go") || strings.Contains(line, "main.go") {
 			continue
 		}
 
@@ -92,7 +97,6 @@ func calculateCoverage(r io.Reader) (float64, error) {
 
 	var totalStatements, coveredStatements int64
 	for rangePart, statements := range statementsMap {
-		// We already filtered statementsMap in the loop above
 		totalStatements += statements
 		if coveredMap[rangePart] {
 			coveredStatements += statements
@@ -100,8 +104,8 @@ func calculateCoverage(r io.Reader) (float64, error) {
 	}
 
 	if totalStatements == 0 {
-		return 100.0, nil
+		return 100.0, coveredMap, statementsMap, nil
 	}
 
-	return (float64(coveredStatements) / float64(totalStatements)) * 100, nil
+	return (float64(coveredStatements) / float64(totalStatements)) * 100, coveredMap, statementsMap, nil
 }

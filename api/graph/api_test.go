@@ -129,6 +129,12 @@ func TestResolvers(t *testing.T) {
 		if err != nil || !delRes {
 			t.Fatalf("DeleteProduct failed: %v", err)
 		}
+
+		// Create failure (missing name)
+		_, err = resolver.Mutation().CreateProduct(ctx, model.CreateProductInput{ID: "fail", Price: 10.0})
+		if err == nil {
+			t.Error("expected error for invalid product create")
+		}
 	})
 
 	t.Run("Customer Mutations", func(t *testing.T) {
@@ -142,6 +148,21 @@ func TestResolvers(t *testing.T) {
 		upRes, err := resolver.Mutation().UpdateCustomer(ctx, "c1", updateInput)
 		if err != nil || upRes.Name != newName {
 			t.Fatalf("UpdateCustomer failed: %v", err)
+		}
+
+		// GetCustomer with addresses
+		c.Addresses = []customer.Address{{ID: "a1", Line1: "123 Main St", City: "NY", State: "NY", Zip: "10001", Country: "USA"}}
+		custMod.Repo().Save(ctx, c)
+
+		custRes, err := resolver.Query().GetCustomer(ctx, "c1")
+		if err != nil || len(custRes.Addresses) != 1 {
+			t.Fatalf("GetCustomer with addresses failed: %v", err)
+		}
+
+		// Update failure (non-existent customer)
+		_, err = resolver.Mutation().UpdateCustomer(ctx, "ghost", updateInput)
+		if err == nil {
+			t.Error("expected error for non-existent customer update")
 		}
 	})
 
@@ -181,6 +202,12 @@ func TestResolvers(t *testing.T) {
 		if final.Status != "COMPLETED" {
 			t.Errorf("expected COMPLETED status, got %s", final.Status)
 		}
+
+		// 5. GetActiveCart (should create new one)
+		cNew, err := resolver.Query().GetActiveCart(ctx, "c2")
+		if err != nil || cNew.CustomerID != "c2" {
+			t.Fatalf("GetActiveCart auto-creation failed: %v", err)
+		}
 	})
 
 	t.Run("Context Resolvers", func(t *testing.T) {
@@ -192,6 +219,12 @@ func TestResolvers(t *testing.T) {
 		res, err := resolver.Query().GetWorkflowLineage(ctx, "wf1")
 		if err != nil || res.ID != "wf1" {
 			t.Errorf("GetWorkflowLineage failed: %v", err)
+		}
+
+		// Test not found
+		_, err = resolver.Query().GetWorkflowLineage(ctx, "ghost")
+		if err == nil {
+			t.Error("expected error for non-existent lineage")
 		}
 
 		lineages, _ := resolver.Query().ListLineages(ctx)

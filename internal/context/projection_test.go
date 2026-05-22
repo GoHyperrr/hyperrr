@@ -189,4 +189,12 @@ func TestProjector(t *testing.T) {
 			t.Error("expected nil for non-existent step")
 		}
 	})
+
+	t.Run("Start with nil bus", func(t *testing.T) {
+		p := &Projector{}
+		err := p.Start(context.Background())
+		if err != nil {
+			t.Errorf("expected no error, got %v", err)
+		}
+	})
 }

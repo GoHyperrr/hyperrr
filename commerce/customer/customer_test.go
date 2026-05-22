@@ -86,4 +86,35 @@ func TestCustomerWorkflow(t *testing.T) {
 			t.Error("expected nil customer for non-existent user_id")
 		}
 	})
+
+	t.Run("Handler Error Cases", func(t *testing.T) {
+		dbFile := "cust_err_test.db"
+		defer os.Remove(dbFile)
+		cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+		database, _ := db.Connect(cfg)
+		bus := eventbus.NewInMemBus()
+		runner := workflow.NewRunner(bus)
+		mod := NewModule()
+		mod.Init(context.Background(), &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+		db.Register(mod.Models()...)
+		database.AutoMigrateAll()
+
+		// 1. CalculatePersona - Invalid Input
+		_, err := mod.CalculatePersona(context.Background(), "string")
+		if err == nil { t.Error("expected error for invalid input type") }
+		_, err = mod.CalculatePersona(context.Background(), map[string]any{"wrong": 1})
+		if err == nil { t.Error("expected error for missing workflow input") }
+
+		// 2. UpdatePersona - Invalid Input
+		_, err = mod.UpdatePersona(context.Background(), "string")
+		if err == nil { t.Error("expected error for invalid input type") }
+		_, err = mod.UpdatePersona(context.Background(), map[string]any{"wrong": 1})
+		if err == nil { t.Error("expected error for missing persona data") }
+
+		// 3. UpdateCustomerDetails - Invalid Input
+		_, err = mod.UpdateCustomerDetails(context.Background(), "string")
+		if err == nil { t.Error("expected error for invalid input type") }
+		_, err = mod.UpdateCustomerDetails(context.Background(), map[string]any{"wrong": 1})
+		if err == nil { t.Error("expected error for missing workflow input") }
+	})
 }

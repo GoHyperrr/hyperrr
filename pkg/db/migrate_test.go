@@ -24,4 +24,17 @@ func TestAutoMigrateAllEdgeCases(t *testing.T) {
 			t.Errorf("expected no error with empty registry, got %v", err)
 		}
 	})
+
+	t.Run("AutoMigrateAll Failure", func(t *testing.T) {
+		cfg := &config.Config{DBDriver: "sqlite", DBDSN: "migrate_fail.db"}
+		database, _ := Connect(cfg)
+		d, _ := database.DB.DB()
+		d.Close() // Close underlying DB to force failure
+		
+		err := database.AutoMigrateAll()
+		if err == nil {
+			t.Error("expected error for closed DB")
+		}
+		os.Remove("migrate_fail.db")
+	})
 }

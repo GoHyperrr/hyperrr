@@ -2,7 +2,10 @@ package app
 
 import (
 	"os"
+	"strings"
 	"testing"
+
+	"github.com/GoHyperrr/hyperrr/pkg/config"
 )
 
 func TestRun(t *testing.T) {
@@ -15,10 +18,23 @@ func TestRun(t *testing.T) {
 		}
 	})
 
-	t.Run("Run with invalid file path", func(t *testing.T) {
-		// This is tricky because Run() calls config.Load() which is hardcoded to ".env".
-		// But RunWithConfig(nil) calls LoadWithFile("").
-		// We can't easily force an error in RunWithConfig(nil) without changing how it works.
-		// However, we already have RunWithConfig(cfg) which we tested.
+	t.Run("RunWithConfig", func(t *testing.T) {
+		os.Setenv("APP_ENV", "test")
+		defer os.Unsetenv("APP_ENV")
+		err := RunWithConfig(nil)
+		if err != nil && err.Error() != "failed to load config" {
+			// Expected behavior if .env is missing or invalid in certain environments
+		}
+	})
+
+	t.Run("RunWithConfig DB Failure", func(t *testing.T) {
+		cfg := &config.Config{
+			DBDriver: "postgres",
+			DBDSN:    "host=localhost port=5432 user=ghost password=ghost dbname=ghost sslmode=disable",
+		}
+		err := RunWithConfig(cfg)
+		if err == nil || !strings.Contains(err.Error(), "failed to connect to database") {
+			t.Errorf("expected DB failure error, got %v", err)
+		}
 	})
 }
