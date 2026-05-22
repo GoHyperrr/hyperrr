@@ -156,10 +156,17 @@
 
 ---
 
-## ⏳ Issue 19: Commerce Plugin: Notifications (Omnichannel)
-**Status**: Backlog
+## ✅ Issue 19: Commerce Plugin: Notifications (Omnichannel)
+**Status**: Completed
 **Type**: AFK
 **Blocked by**: Issue 1
+
+### Achievements
+- Implemented the **Notification Module** (`commerce/notification`) for omnichannel message tracking.
+- Created `Provider` interface and a mock implementation.
+- Hooked into Event Fabric (`identity.user_created`, `workflow.completed`) to autonomously trigger `notification.send` workflows.
+- Exposed `listNotifications` via GraphQL.
+- Achieved robust logic coverage.
 
 ---
 

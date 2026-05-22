@@ -1,0 +1,52 @@
+package notification
+
+import (
+	"context"
+	"fmt"
+	"time"
+)
+
+// SendNotification executes the notification delivery via the provider.
+func (m *Module) SendNotification(ctx context.Context, input any) (any, error) {
+	data, ok := input.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid input type")
+	}
+
+	workflowInput, ok := data["input"].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("missing workflow input")
+	}
+
+	recipient, _ := workflowInput["recipient"].(string)
+	channelStr, _ := workflowInput["channel"].(string)
+	subject, _ := workflowInput["subject"].(string)
+	body, _ := workflowInput["body"].(string)
+
+	n := &Notification{
+		ID:        fmt.Sprintf("notif_%d", time.Now().UnixNano()),
+		Recipient: recipient,
+		Channel:   NotificationChannel(channelStr),
+		Subject:   subject,
+		Body:      body,
+		Status:    StatusPending,
+	}
+
+	if err := m.repo.Save(ctx, n); err != nil {
+		return nil, fmt.Errorf("failed to save pending notification: %w", err)
+	}
+
+	err := m.provider.Send(ctx, n)
+	if err != nil {
+		n.Status = StatusFailed
+		m.repo.Save(ctx, n)
+		return nil, fmt.Errorf("failed to send notification: %w", err)
+	}
+
+	n.Status = StatusSent
+	if err := m.repo.Save(ctx, n); err != nil {
+		return nil, fmt.Errorf("failed to save sent notification status: %w", err)
+	}
+
+	return n, nil
+}
