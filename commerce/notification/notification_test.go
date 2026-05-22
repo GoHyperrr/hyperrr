@@ -2,6 +2,7 @@ package notification
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -32,12 +33,13 @@ func TestNotificationModule(t *testing.T) {
 	database.AutoMigrateAll()
 
 	t.Run("Send Notification Success", func(t *testing.T) {
+		recipient := fmt.Sprintf("test_%d@example.com", time.Now().UnixNano())
 		wf := &workflow.Workflow{
 			Steps: []workflow.Step{{ID: "send", Uses: "notification.send"}},
 		}
 
 		input := map[string]any{
-			"recipient": "test@example.com",
+			"recipient": recipient,
 			"channel":   "EMAIL",
 			"subject":   "Test",
 			"body":      "Hello",
@@ -54,13 +56,14 @@ func TestNotificationModule(t *testing.T) {
 		}
 
 		// Verify Repo
-		list, _ := mod.Repo().List(context.Background(), "test@example.com")
+		list, _ := mod.Repo().List(context.Background(), recipient)
 		if len(list) != 1 {
 			t.Error("expected 1 notification in repo")
 		}
 	})
 
 	t.Run("Send Notification Failure", func(t *testing.T) {
+		recipient := fmt.Sprintf("fail_%d@example.com", time.Now().UnixNano())
 		mockProv.ShouldFail = true
 		
 		wf := &workflow.Workflow{
@@ -68,7 +71,7 @@ func TestNotificationModule(t *testing.T) {
 		}
 
 		input := map[string]any{
-			"recipient": "fail@example.com",
+			"recipient": recipient,
 			"channel":   "EMAIL",
 			"subject":   "Test",
 			"body":      "Hello",
@@ -80,7 +83,7 @@ func TestNotificationModule(t *testing.T) {
 		}
 
 		// DB should still have it as FAILED
-		list, _ := mod.Repo().List(context.Background(), "fail@example.com")
+		list, _ := mod.Repo().List(context.Background(), recipient)
 		if len(list) != 1 || list[0].Status != StatusFailed {
 			t.Error("expected 1 FAILED notification in repo")
 		}
@@ -89,11 +92,12 @@ func TestNotificationModule(t *testing.T) {
 	})
 	
 	t.Run("Event Subscriptions", func(t *testing.T) {
+		recipient := fmt.Sprintf("event_%d@example.com", time.Now().UnixNano())
 		// Test identity.user_created
 		bus.Publish(context.Background(), eventbus.Event{
 			Type: "identity.user_created",
 			Payload: map[string]any{
-				"email": "event@example.com",
+				"email": recipient,
 				"name":  "Event User",
 			},
 		})
@@ -101,7 +105,7 @@ func TestNotificationModule(t *testing.T) {
 		// Wait for async workflow
 		time.Sleep(100 * time.Millisecond)
 		
-		list, _ := mod.Repo().List(context.Background(), "event@example.com")
+		list, _ := mod.Repo().List(context.Background(), recipient)
 		if len(list) != 1 {
 			t.Error("expected welcome email to be sent")
 		}

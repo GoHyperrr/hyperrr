@@ -47,9 +47,15 @@ func (r *mutationResolver) CreateOrderFromCart(ctx context.Context, cartID strin
 		Name: "fulfillment.v1",
 		Steps: []workflow.Step{
 			{
-				ID:   "order.create",
-				Uses: "order.create",
-				Saga: &workflow.Saga{Uses: "order.compensate_payment"},
+				ID:   "fulfillment.reserve_inventory",
+				Uses: "fulfillment.reserve_inventory",
+				Saga: &workflow.Saga{Uses: "fulfillment.release_inventory"},
+			},
+			{
+				ID:        "order.create",
+				Uses:      "order.create",
+				Saga:      &workflow.Saga{Uses: "order.compensate_payment"},
+				DependsOn: []string{"fulfillment.reserve_inventory"},
 			},
 			{
 				ID:        "finance.process_payment",
@@ -58,12 +64,23 @@ func (r *mutationResolver) CreateOrderFromCart(ctx context.Context, cartID strin
 				Saga:      &workflow.Saga{Uses: "finance.compensate_payment"},
 			},
 			{
-				ID:        "order.finalize",
-				Uses:      "order.finalize",
+				ID:        "fulfillment.create_shipment",
+				Uses:      "fulfillment.create_shipment",
 				DependsOn: []string{"finance.process_payment"},
 			},
-		},
-	}
+			{
+				ID:         "order.finalize",
+				Uses:       "order.finalize",
+				DependsOn:  []string{"fulfillment.create_shipment"},
+			},
+			{
+				ID:         "marketing.add_loyalty_points",
+				Uses:       "marketing.add_loyalty_points",
+				DependsOn:  []string{"order.finalize"},
+			},
+			},
+			}
+
 
 	execID := fmt.Sprintf("fulfill_%d", time.Now().UnixNano())
 	results, err := r.Runner.Execute(ctx, execID, wf, workflowInput)

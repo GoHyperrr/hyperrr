@@ -1,0 +1,103 @@
+package support
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/GoHyperrr/hyperrr/pkg/logger"
+)
+
+func (m *Module) CreateTicket(ctx context.Context, input any) (any, error) {
+	data, ok := input.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid input type")
+	}
+
+	workflowInput, ok := data["input"].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("missing workflow input")
+	}
+
+	customerID, _ := workflowInput["customer_id"].(string)
+	subject, _ := workflowInput["subject"].(string)
+	initialMessage, _ := workflowInput["message"].(string)
+
+	ticketID := fmt.Sprintf("tkt_%d", time.Now().UnixNano())
+	t := &Ticket{
+		ID:         ticketID,
+		CustomerID: customerID,
+		Subject:    subject,
+		Status:     TicketOpen,
+		Messages: []Message{
+			{
+				ID:        fmt.Sprintf("msg_%d", time.Now().UnixNano()),
+				TicketID:  ticketID,
+				Sender:    SenderHuman,
+				Content:   initialMessage,
+				CreatedAt: time.Now(),
+			},
+		},
+	}
+
+	if err := m.repo.SaveTicket(ctx, t); err != nil {
+		return nil, err
+	}
+
+	logger.Info("Support ticket created", "ticket_id", ticketID, "customer_id", customerID)
+	// Must return map for other steps to find "ticket" key in "support.create_ticket" result
+	return map[string]any{"ticket": t}, nil
+}
+
+func (m *Module) DispatchAIResponse(ctx context.Context, input any) (any, error) {
+	data, ok := input.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid input type")
+	}
+
+	resRaw, ok := data["ticket"]
+	if !ok {
+		return nil, fmt.Errorf("missing result from ticket step")
+	}
+	resMap, ok := resRaw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid result format from ticket step")
+	}
+	t, ok := resMap["ticket"].(*Ticket)
+	if !ok {
+		return nil, fmt.Errorf("missing ticket from ticket step result")
+	}
+
+	// AI Logic: Query Context Engine
+	aiContent := "Hello! I am your AI assistant. How can I help you today?"
+	
+	if m.projector != nil {
+		lineages := m.projector.ListLineages()
+		// Find most recent failed workflow for this customer if any
+		for _, l := range lineages {
+			if l.State == "FAILED" {
+				errMsg := "unknown error"
+				if l.Error != "" {
+					errMsg = l.Error
+				}
+				aiContent = fmt.Sprintf("I see your last operation '%s' failed with error: %s. I have flagged this for a human agent.", l.Name, errMsg)
+				break
+			}
+		}
+	}
+
+	msg := &Message{
+		ID:        fmt.Sprintf("msg_ai_%d", time.Now().UnixNano()),
+		TicketID:  t.ID,
+		Sender:    SenderAI,
+		Content:   aiContent,
+		CreatedAt: time.Now(),
+	}
+
+	if err := m.repo.SaveMessage(ctx, msg); err != nil {
+		return nil, err
+	}
+
+	logger.Info("AI response dispatched", "ticket_id", t.ID)
+	return map[string]any{"message": msg}, nil
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/commerce/product"
@@ -11,6 +12,10 @@ import (
 	"github.com/GoHyperrr/hyperrr/commerce/cart"
 	"github.com/GoHyperrr/hyperrr/commerce/order"
 	"github.com/GoHyperrr/hyperrr/commerce/finance"
+	"github.com/GoHyperrr/hyperrr/commerce/fulfillment"
+	"github.com/GoHyperrr/hyperrr/commerce/notification"
+	"github.com/GoHyperrr/hyperrr/commerce/support"
+	"github.com/GoHyperrr/hyperrr/commerce/marketing"
 	domain "github.com/GoHyperrr/hyperrr/internal/context"
 	"github.com/GoHyperrr/hyperrr/internal/identity"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
@@ -79,17 +84,50 @@ func TestResolvers(t *testing.T) {
 		runner.RegisterTask(name, h)
 	}
 
+	fulfillMod := fulfillment.NewModule()
+	fulfillMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	db.Register(fulfillMod.Models()...)
+	for name, h := range fulfillMod.Handlers() {
+		runner.RegisterTask(name, h)
+	}
+
+	notifMod := notification.NewModule(nil)
+	notifMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	db.Register(notifMod.Models()...)
+	for name, h := range notifMod.Handlers() {
+		runner.RegisterTask(name, h)
+	}
+
+	supportMod := support.NewModule()
+	supportMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	supportMod.SetProjector(projector)
+	db.Register(supportMod.Models()...)
+	for name, h := range supportMod.Handlers() {
+		runner.RegisterTask(name, h)
+	}
+
+	marketingMod := marketing.NewModule()
+	marketingMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	db.Register(marketingMod.Models()...)
+	for name, h := range marketingMod.Handlers() {
+		runner.RegisterTask(name, h)
+	}
+
 	database.AutoMigrateAll()
 
 	resolver := &Resolver{
-		Projector:      projector,
-		ProductModule:  prodMod,
-		CustomerModule: custMod,
-		CartModule:     cartMod,
-		OrderModule:    orderMod,
-		FinanceModule:  financeMod,
-		IdentityModule: identMod,
-		Runner:         runner,
+		Projector:          projector,
+		ProductModule:      prodMod,
+		CustomerModule:     custMod,
+		CartModule:         cartMod,
+		OrderModule:        orderMod,
+		FinanceModule:      financeMod,
+		NotificationModule: notifMod,
+		FulfillmentModule:  fulfillMod,
+		SupportModule:      supportMod,
+		MarketingModule:    marketingMod,
+		IdentityModule:     identMod,
+		Runner:             runner,
 	}
 
 
@@ -282,6 +320,163 @@ func TestResolvers(t *testing.T) {
 		_, err = resolver.Query().GetOrder(ctx, "ghost")
 		if err == nil {
 			t.Error("expected error for non-existent order")
+		}
+
+		// 7. Get Shipment by Order
+		ship, err := resolver.Query().GetShipmentByOrder(ctx, o.ID)
+		if err != nil || ship.OrderID != o.ID {
+			t.Errorf("GetShipmentByOrder failed: %v", err)
+		}
+
+		// 8. Update Shipment Status
+		carrier := "UPS"
+		tracking := "TRACK123"
+		upShip, err := resolver.Mutation().UpdateShipmentStatus(ctx, ship.ID, &tracking, &carrier)
+		if err != nil || upShip.Status != "SHIPPED" {
+			t.Errorf("UpdateShipmentStatus failed: %v", err)
+		}
+
+		// 9. Get Inventory
+		inv, err := resolver.Query().GetInventory(ctx, "p3")
+		if err != nil || inv.ProductID != "p3" {
+			t.Errorf("GetInventory failed: %v", err)
+		}
+
+		// 10. List Order Payments
+		pays, _ := resolver.Query().ListOrderPayments(ctx, o.ID)
+		if len(pays) == 0 {
+			t.Error("ListOrderPayments empty")
+		}
+
+		// 11. Get Payment
+		pGot, err := resolver.Query().GetPayment(ctx, pays[0].ID)
+		if err != nil || pGot.ID != pays[0].ID {
+			t.Errorf("GetPayment failed: %v", err)
+		}
+
+		// Wait for async welcome notification from identity.user_created (mocked by earlier cart/order tests or explicit call)
+		// Since we didn't explicitly register a user in this test, let's just ensure we have at least one notification
+		// Or better, let's manually trigger one for consistency.
+		bus.Publish(ctx, eventbus.Event{
+			Type: "identity.user_created",
+			Payload: map[string]any{
+				"actor_id": "u1",
+				"email":    "notif@example.com",
+				"name":     "Notif User",
+			},
+		})
+		time.Sleep(100 * time.Millisecond)
+
+		// 12. List Notifications
+		notifs, _ := resolver.Query().ListNotifications(ctx, nil)
+		if len(notifs) == 0 {
+			t.Error("ListNotifications empty")
+		}
+
+		// 13. List Notifications with filter
+		recip := notifs[0].Recipient
+		notifsFiltered, _ := resolver.Query().ListNotifications(ctx, &recip)
+		if len(notifsFiltered) == 0 {
+			t.Error("ListNotifications filtered empty")
+		}
+
+		// 14. UpdateShipment failure
+		_, err = resolver.Mutation().UpdateShipmentStatus(ctx, "ghost", nil, nil)
+		if err == nil {
+			t.Error("expected error for non-existent shipment update")
+		}
+
+		// 15. Get Cart failure
+		_, err = resolver.Query().GetCart(ctx, "ghost")
+		if err == nil {
+			t.Error("expected error for non-existent cart")
+		}
+
+		// 16. List Notifications error (filter non-existent)
+		ghost := "ghost@example.com"
+		notifsGhost, _ := resolver.Query().ListNotifications(ctx, &ghost)
+		if len(notifsGhost) != 0 {
+			t.Error("expected 0 notifications for ghost")
+		}
+
+		// 17. List Support Tickets error (non-existent customer)
+		ticketsGhost, _ := resolver.Query().ListCustomerTickets(ctx, "ghost")
+		if len(ticketsGhost) != 0 {
+			t.Error("expected 0 tickets for ghost customer")
+		}
+
+		// 18. Update Product failure (non-existent)
+		pNewName := "Ghost Product"
+		uInput := model.UpdateProductInput{Name: &pNewName}
+		_, err = resolver.Mutation().UpdateProduct(ctx, "ghost", uInput)
+		if err == nil {
+			t.Error("expected error for non-existent product update")
+		}
+	})
+
+	t.Run("Support Resolvers", func(t *testing.T) {
+		// 1. Create Ticket
+		tkt, err := resolver.Mutation().CreateTicket(ctx, "c1", "Help with order", "My order is late.")
+		if err != nil {
+			t.Fatalf("CreateTicket failed: %v", err)
+		}
+		if tkt.Subject != "Help with order" {
+			t.Errorf("expected subject 'Help with order', got %s", tkt.Subject)
+		}
+
+		// 2. Get Ticket
+		got, err := resolver.Query().GetTicket(ctx, tkt.ID)
+		if err != nil || got.ID != tkt.ID {
+			t.Fatalf("GetTicket failed: %v", err)
+		}
+
+		// 3. List Customer Tickets
+		list, _ := resolver.Query().ListCustomerTickets(ctx, "c1")
+		if len(list) == 0 {
+			t.Error("ListCustomerTickets empty")
+		}
+
+		// 4. Add Message
+		msg, err := resolver.Mutation().AddTicketMessage(ctx, tkt.ID, "HUMAN", "Any update?")
+		if err != nil {
+			t.Fatalf("AddTicketMessage failed: %v", err)
+		}
+		if msg.Content != "Any update?" {
+			t.Error("message content mismatch")
+		}
+	})
+
+	t.Run("Marketing Resolvers", func(t *testing.T) {
+		// 1. Create a coupon
+		c := &marketing.Coupon{ID: "c1", Code: "SAVE20", DiscountPercentage: 20.0, Active: true}
+		marketingMod.Repo().SaveCoupon(ctx, c)
+
+		// 2. Get Coupon
+		got, err := resolver.Query().GetCoupon(ctx, "SAVE20")
+		if err != nil || got.Code != "SAVE20" {
+			t.Fatalf("GetCoupon failed: %v", err)
+		}
+
+		// 3. Get Loyalty Balance
+		bal, err := resolver.Query().GetLoyaltyBalance(ctx, "c1")
+		if err != nil {
+			t.Fatalf("GetLoyaltyBalance failed: %v", err)
+		}
+		if bal != 0 {
+			t.Errorf("expected balance 0, got %d", bal)
+		}
+
+		// 4. Apply Coupon to Cart
+		cartRes, _ := resolver.Query().GetActiveCart(ctx, "c4")
+		// Add an item first so apply_coupon can trigger cart.add_item effectively (or just test the workflow)
+		resolver.Mutation().AddItemToCart(ctx, cartRes.ID, model.AddItemInput{ProductID: "p4", Quantity: 1, Price: 100.0})
+		
+		updatedCart, err := resolver.Mutation().ApplyCouponToCart(ctx, cartRes.ID, "SAVE20")
+		if err != nil {
+			t.Fatalf("ApplyCouponToCart failed: %v", err)
+		}
+		if updatedCart.ID != cartRes.ID {
+			t.Error("cart ID mismatch")
 		}
 	})
 

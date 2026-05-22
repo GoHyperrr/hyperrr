@@ -1,0 +1,23 @@
+extend type Query {
+  getInventory(productId: ID!): Inventory
+  getShipment(id: ID!): Shipment
+  getShipmentByOrder(orderId: ID!): Shipment
+}
+
+extend type Mutation {
+  updateShipmentStatus(shipmentId: ID!, trackingNumber: String, carrier: String): Shipment!
+}
+
+type Inventory {
+  id: ID!
+  productId: String!
+  availableQuantity: Int!
+}
+
+type Shipment {
+  id: ID!
+  orderId: String!
+  status: String!
+  trackingNumber: String
+  carrier: String
+}

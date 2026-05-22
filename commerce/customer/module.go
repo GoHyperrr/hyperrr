@@ -32,11 +32,19 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 			return nil
 		}
 
+		actorID, _ := payload["actor_id"].(string)
+		userID, _ := payload["user_id"].(string)
+		if userID == "" {
+			userID = actorID
+		}
+		name, _ := payload["name"].(string)
+		email, _ := payload["email"].(string)
+
 		c := &Customer{
-			ID:     "cust_" + payload["user_id"].(string),
-			UserID: payload["actor_id"].(string),
-			Name:   payload["name"].(string),
-			Email:  payload["email"].(string),
+			ID:     "cust_" + userID,
+			UserID: actorID,
+			Name:   name,
+			Email:  email,
 		}
 
 		if err := m.repo.Save(ctx, c); err != nil {

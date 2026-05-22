@@ -11,6 +11,9 @@ import (
 	"github.com/GoHyperrr/hyperrr/commerce/order"
 	"github.com/GoHyperrr/hyperrr/commerce/finance"
 	"github.com/GoHyperrr/hyperrr/commerce/notification"
+	"github.com/GoHyperrr/hyperrr/commerce/fulfillment"
+	"github.com/GoHyperrr/hyperrr/commerce/support"
+	"github.com/GoHyperrr/hyperrr/commerce/marketing"
 	"github.com/GoHyperrr/hyperrr/internal"
 	"github.com/GoHyperrr/hyperrr/api/graph"
 	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
@@ -83,6 +86,13 @@ func RunWithConfig(cfg *config.Config) error {
 	registry.Register(financeMod)
 	notifMod := notification.NewModule(nil)
 	registry.Register(notifMod)
+	fulfillMod := fulfillment.NewModule()
+	registry.Register(fulfillMod)
+	supportMod := support.NewModule()
+	registry.Register(supportMod)
+	supportMod.SetProjector(ctxMod.Projector())
+	marketingMod := marketing.NewModule()
+	registry.Register(marketingMod)
 
 	// 6. Discover and Initialize Modules (Plugins)
 	deps := &registry.Dependencies{
@@ -125,7 +135,11 @@ func RunWithConfig(cfg *config.Config) error {
 			OrderModule:    orderMod,
 			FinanceModule:  financeMod,
 			NotificationModule: notifMod,
-			IdentityModule: identMod,
+			FulfillmentModule:  fulfillMod,
+			SupportModule:      supportMod,
+			MarketingModule:    marketingMod,
+			IdentityModule:     identMod,
+
 			Runner:         runner,
 		},
 	}))

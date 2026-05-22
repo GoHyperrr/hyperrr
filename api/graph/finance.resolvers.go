@@ -7,17 +7,29 @@ package graph
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 )
 
 // GetPayment is the resolver for the getPayment field.
 func (r *queryResolver) GetPayment(ctx context.Context, id string) (*model.Payment, error) {
-	panic(fmt.Errorf("not implemented: GetPayment - getPayment"))
+	p, err := r.FinanceModule.Repo().GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return mapPaymentToModel(p), nil
 }
 
 // ListOrderPayments is the resolver for the listOrderPayments field.
 func (r *queryResolver) ListOrderPayments(ctx context.Context, orderID string) ([]*model.Payment, error) {
-	panic(fmt.Errorf("not implemented: ListOrderPayments - listOrderPayments"))
+	payments, err := r.FinanceModule.Repo().ListByOrderID(ctx, orderID)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]*model.Payment, 0, len(payments))
+	for _, p := range payments {
+		res = append(res, mapPaymentToModel(p))
+	}
+	return res, nil
 }

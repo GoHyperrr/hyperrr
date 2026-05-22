@@ -47,6 +47,13 @@ type CartItem struct {
 	Price     float64 `json:"price"`
 }
 
+type Coupon struct {
+	ID                 string  `json:"id"`
+	Code               string  `json:"code"`
+	DiscountPercentage float64 `json:"discountPercentage"`
+	Active             bool    `json:"active"`
+}
+
 type CreateProductInput struct {
 	ID          string  `json:"id"`
 	Name        string  `json:"name"`
@@ -69,6 +76,20 @@ type Event struct {
 	Type      string    `json:"type"`
 	Timestamp time.Time `json:"timestamp"`
 	Payload   *string   `json:"payload,omitempty"`
+}
+
+type Inventory struct {
+	ID                string `json:"id"`
+	ProductID         string `json:"productId"`
+	AvailableQuantity int    `json:"availableQuantity"`
+}
+
+type Message struct {
+	ID        string    `json:"id"`
+	TicketID  string    `json:"ticketId"`
+	Sender    string    `json:"sender"`
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 type Mutation struct {
@@ -117,6 +138,14 @@ type Product struct {
 type Query struct {
 }
 
+type Shipment struct {
+	ID             string  `json:"id"`
+	OrderID        string  `json:"orderId"`
+	Status         string  `json:"status"`
+	TrackingNumber *string `json:"trackingNumber,omitempty"`
+	Carrier        *string `json:"carrier,omitempty"`
+}
+
 type StepExecution struct {
 	StepID    string     `json:"stepId"`
 	State     string     `json:"state"`
@@ -124,6 +153,15 @@ type StepExecution struct {
 	EndedAt   *time.Time `json:"endedAt,omitempty"`
 	Attempts  int        `json:"attempts"`
 	Error     *string    `json:"error,omitempty"`
+}
+
+type Ticket struct {
+	ID         string     `json:"id"`
+	CustomerID string     `json:"customerId"`
+	Subject    string     `json:"subject"`
+	Status     string     `json:"status"`
+	Messages   []*Message `json:"messages"`
+	CreatedAt  time.Time  `json:"createdAt"`
 }
 
 type UpdateCustomerInput struct {

@@ -1,0 +1,15 @@
+extend type Query {
+  getCoupon(code: String!): Coupon
+  getLoyaltyBalance(customerId: ID!): Int!
+}
+
+extend type Mutation {
+  applyCouponToCart(cartId: ID!, couponCode: String!): Cart!
+}
+
+type Coupon {
+  id: ID!
+  code: String!
+  discountPercentage: Float!
+  active: Boolean!
+}

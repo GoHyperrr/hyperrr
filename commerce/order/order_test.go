@@ -40,6 +40,20 @@ func TestOrderWorkflow(t *testing.T) {
 	runner.RegisterTask("finance.compensate_payment", func(ctx context.Context, input any) (any, error) {
 		return nil, nil
 	})
+	
+	// Mock fulfillment handlers
+	runner.RegisterTask("fulfillment.reserve_inventory", func(ctx context.Context, input any) (any, error) {
+		return nil, nil
+	})
+	runner.RegisterTask("fulfillment.release_inventory", func(ctx context.Context, input any) (any, error) {
+		return nil, nil
+	})
+	runner.RegisterTask("fulfillment.create_shipment", func(ctx context.Context, input any) (any, error) {
+		return nil, nil
+	})
+	runner.RegisterTask("marketing.add_loyalty_points", func(ctx context.Context, input any) (any, error) {
+		return nil, nil
+	})
 
 	database.AutoMigrateAll()
 
@@ -47,9 +61,15 @@ func TestOrderWorkflow(t *testing.T) {
 		Name: "fulfillment.v1",
 		Steps: []workflow.Step{
 			{
+				ID:   "fulfillment.reserve_inventory",
+				Uses: "fulfillment.reserve_inventory",
+				Saga: &workflow.Saga{Uses: "fulfillment.release_inventory"},
+			},
+			{
 				ID:   "order.create",
 				Uses: "order.create",
 				Saga: &workflow.Saga{Uses: "order.compensate_payment"},
+				DependsOn: []string{"fulfillment.reserve_inventory"},
 			},
 			{
 				ID:        "finance.process_payment",
@@ -57,7 +77,13 @@ func TestOrderWorkflow(t *testing.T) {
 				DependsOn: []string{"order.create"},
 				Saga:      &workflow.Saga{Uses: "finance.compensate_payment"},
 			},
-			{ID: "order.finalize", Uses: "order.finalize", DependsOn: []string{"finance.process_payment"}},
+			{
+				ID:         "fulfillment.create_shipment",
+				Uses:       "fulfillment.create_shipment",
+				DependsOn:  []string{"finance.process_payment"},
+			},
+			{ID: "order.finalize", Uses: "order.finalize", DependsOn: []string{"fulfillment.create_shipment"}},
+			{ID: "marketing.add_loyalty_points", Uses: "marketing.add_loyalty_points", DependsOn: []string{"order.finalize"}},
 		},
 	}
 

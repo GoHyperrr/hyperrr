@@ -135,26 +135,48 @@
 
 ---
 
-## ⏳ Issue 16: Commerce Plugin: Fulfillment (Logistics & Tracking)
-**Status**: Backlog
+## ✅ Issue 16: Commerce Plugin: Fulfillment (Logistics & Tracking)
+**Status**: Completed
 **Type**: AFK
 **Blocked by**: Issue 14
 
+### Achievements
+- Implemented the **Fulfillment Module** (`commerce/fulfillment`) for inventory and shipment management.
+- Built workflow handlers for `reserve_inventory`, `release_inventory`, and `create_shipment`.
+- Integrated fulfillment steps into the core `fulfillment.v1` saga.
+- Added **Inventory-Payment Consistency**: The saga now reserves stock before payment and releases it if payment fails.
+- Exposed fulfillment domain via GraphQL API (`getInventory`, `getShipment`, `updateShipmentStatus`).
+- Achieved high logic coverage with multi-step integration tests.
+
 ---
 
-## ⏳ Issue 17: Commerce Plugin: Support & AI Helpdesk
-**Status**: Backlog
+## ✅ Issue 17: Commerce Plugin: Support & AI Helpdesk
+**Status**: Completed
 **Type**: AFK
 **Blocked by**: Issue 14
 
+### Achievements
+- Implemented the **Support Module** (`commerce/support`) for ticketing.
+- Built an **AI Agent Support Handler**: Automatically dispatches helpful responses by observing the **Context Engine** (e.g., seeing a recently failed workflow and explaining it).
+- Exposed ticketing and messaging via GraphQL API (`getTicket`, `listCustomerTickets`, `createTicket`, `addTicketMessage`).
+- Achieved high logic coverage for all support flows.
+
 ---
 
-## ⏳ Issue 18: Commerce Plugin: Marketing & Loyalty
-**Status**: Backlog
+## ✅ Issue 18: Commerce Plugin: Marketing & Loyalty
+**Status**: Completed
 **Type**: AFK
-**Blocked by**: Issue 14
+**Blocked by**: Issue 13
+
+### Achievements
+- Implemented the **Marketing Module** (`commerce/marketing`) for coupons and rewards.
+- Created workflow handlers for `validate_coupon` and `add_loyalty_points`.
+- Integrated **Loyalty Point Accrual** into the core fulfillment saga.
+- Exposed marketing domain via GraphQL API (`getCoupon`, `getLoyaltyBalance`, `applyCouponToCart`).
+- Verified reward logic through comprehensive tests.
 
 ---
+
 
 ## ✅ Issue 19: Commerce Plugin: Notifications (Omnichannel)
 **Status**: Completed
