@@ -48,13 +48,7 @@ func (r *mutationResolver) CreateProduct(ctx context.Context, input model.Create
 		return nil, fmt.Errorf("failed to retrieve created product from workflow results")
 	}
 
-	return &model.Product{
-		ID:          domainRes.ID,
-		Name:        domainRes.Name,
-		Description: &domainRes.Description,
-		Price:       domainRes.Price,
-		Currency:    domainRes.Currency,
-	}, nil
+	return mapProductToModel(domainRes), nil
 }
 
 // UpdateProduct is the resolver for the updateProduct field.
@@ -90,13 +84,7 @@ func (r *mutationResolver) UpdateProduct(ctx context.Context, id string, input m
 		return nil, fmt.Errorf("failed to retrieve updated product from workflow results")
 	}
 
-	return &model.Product{
-		ID:          domainRes.ID,
-		Name:        domainRes.Name,
-		Description: &domainRes.Description,
-		Price:       domainRes.Price,
-		Currency:    domainRes.Currency,
-	}, nil
+	return mapProductToModel(domainRes), nil
 }
 
 // DeleteProduct is the resolver for the deleteProduct field.
@@ -121,13 +109,7 @@ func (r *queryResolver) GetProduct(ctx context.Context, id string) (*model.Produ
 		return nil, err
 	}
 
-	return &model.Product{
-		ID:          p.ID,
-		Name:        p.Name,
-		Description: &p.Description,
-		Price:       p.Price,
-		Currency:    p.Currency,
-	}, nil
+	return mapProductToModel(p), nil
 }
 
 // ListProducts is the resolver for the listProducts field.
@@ -139,13 +121,7 @@ func (r *queryResolver) ListProducts(ctx context.Context) ([]*model.Product, err
 
 	res := make([]*model.Product, 0, len(products))
 	for _, p := range products {
-		res = append(res, &model.Product{
-			ID:          p.ID,
-			Name:        p.Name,
-			Description: &p.Description,
-			Price:       p.Price,
-			Currency:    p.Currency,
-		})
+		res = append(res, mapProductToModel(p))
 	}
 	return res, nil
 }

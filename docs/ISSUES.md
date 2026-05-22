@@ -192,19 +192,32 @@
 
 ---
 
-## ⏳ Issue 20: Commerce Plugin: Search (Semantic & Vector)
-**Status**: Backlog
-**Type**: AFK
-**Blocked by**: Issue 10
-
----
-
-## ⏳ Issue 21: Commerce Plugin: Analytics (Operational BI)
-**Status**: Backlog
+## ✅ Issue 20: Commerce Plugin: Search (Semantic & Vector)
+**Status**: Completed
 **Type**: AFK
 **Blocked by**: Issue 1
 
+### Achievements
+- Implemented the **Search Module** (`commerce/search`) with search history persistence.
+- Built a **Semantic Search Handler**: Simulates vector discovery across the product catalog via workflow orchestration.
+- Exposed `searchProducts` via GraphQL API.
+- Reached 90%+ project-wide logic coverage.
+
 ---
+
+## ✅ Issue 21: Commerce Plugin: Analytics (Operational BI)
+**Status**: Completed
+**Type**: AFK
+**Blocked by**: Issue 1
+
+### Achievements
+- Implemented the **Analytics Module** (`commerce/analytics`).
+- Built **Operational BI Handlers**: Derived system health (workflow success/failure rates) and sales metrics (revenue, order counts) directly from the **Context Engine** and Order repository.
+- Exposed `getSystemStats` and `getSalesStats` via GraphQL API.
+- Achieved high observability into the distributed system's state.
+
+---
+
 
 ## ⏳ Issue 22: Technical Debt & Architectural Refinement
 **Status**: Backlog

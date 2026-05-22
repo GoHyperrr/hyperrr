@@ -69,18 +69,17 @@ func (r *mutationResolver) CreateOrderFromCart(ctx context.Context, cartID strin
 				DependsOn: []string{"finance.process_payment"},
 			},
 			{
-				ID:         "order.finalize",
-				Uses:       "order.finalize",
-				DependsOn:  []string{"fulfillment.create_shipment"},
+				ID:        "order.finalize",
+				Uses:      "order.finalize",
+				DependsOn: []string{"fulfillment.create_shipment"},
 			},
 			{
-				ID:         "marketing.add_loyalty_points",
-				Uses:       "marketing.add_loyalty_points",
-				DependsOn:  []string{"order.finalize"},
+				ID:        "marketing.add_loyalty_points",
+				Uses:      "marketing.add_loyalty_points",
+				DependsOn: []string{"order.finalize"},
 			},
-			},
-			}
-
+		},
+	}
 
 	execID := fmt.Sprintf("fulfill_%d", time.Now().UnixNano())
 	results, err := r.Runner.Execute(ctx, execID, wf, workflowInput)

@@ -138,6 +138,12 @@ type Product struct {
 type Query struct {
 }
 
+type SalesStats struct {
+	TotalRevenue  float64 `json:"totalRevenue"`
+	OrderCount    int     `json:"orderCount"`
+	AvgOrderValue float64 `json:"avgOrderValue"`
+}
+
 type Shipment struct {
 	ID             string  `json:"id"`
 	OrderID        string  `json:"orderId"`
@@ -153,6 +159,13 @@ type StepExecution struct {
 	EndedAt   *time.Time `json:"endedAt,omitempty"`
 	Attempts  int        `json:"attempts"`
 	Error     *string    `json:"error,omitempty"`
+}
+
+type SystemStats struct {
+	TotalWorkflows     int     `json:"totalWorkflows"`
+	SuccessRate        float64 `json:"successRate"`
+	FailureRate        float64 `json:"failureRate"`
+	AvgExecutionTimeMs float64 `json:"avgExecutionTimeMs"`
 }
 
 type Ticket struct {

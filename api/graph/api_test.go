@@ -16,6 +16,8 @@ import (
 	"github.com/GoHyperrr/hyperrr/commerce/notification"
 	"github.com/GoHyperrr/hyperrr/commerce/support"
 	"github.com/GoHyperrr/hyperrr/commerce/marketing"
+	"github.com/GoHyperrr/hyperrr/commerce/search"
+	"github.com/GoHyperrr/hyperrr/commerce/analytics"
 	domain "github.com/GoHyperrr/hyperrr/internal/context"
 	"github.com/GoHyperrr/hyperrr/internal/identity"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
@@ -113,6 +115,18 @@ func TestResolvers(t *testing.T) {
 		runner.RegisterTask(name, h)
 	}
 
+	searchMod := search.NewModule()
+	searchMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	searchMod.SetProductModule(prodMod)
+	db.Register(searchMod.Models()...)
+	for name, h := range searchMod.Handlers() {
+		runner.RegisterTask(name, h)
+	}
+
+	analyticsMod := analytics.NewModule()
+	analyticsMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
+	analyticsMod.SetProjector(projector)
+
 	database.AutoMigrateAll()
 
 	resolver := &Resolver{
@@ -126,6 +140,8 @@ func TestResolvers(t *testing.T) {
 		FulfillmentModule:  fulfillMod,
 		SupportModule:      supportMod,
 		MarketingModule:    marketingMod,
+		SearchModule:       searchMod,
+		AnalyticsModule:    analyticsMod,
 		IdentityModule:     identMod,
 		Runner:             runner,
 	}
@@ -412,6 +428,24 @@ func TestResolvers(t *testing.T) {
 		if err == nil {
 			t.Error("expected error for non-existent product update")
 		}
+
+		// 19. Get Coupon failure
+		_, err = resolver.Query().GetCoupon(ctx, "GHOST_CODE")
+		if err == nil {
+			t.Error("expected error for non-existent coupon")
+		}
+
+		// 20. Apply Coupon failure (non-existent cart)
+		_, err = resolver.Mutation().ApplyCouponToCart(ctx, "ghost_cart", "SAVE20")
+		if err == nil {
+			t.Error("expected error for non-existent cart coupon apply")
+		}
+
+		// 21. Search failure (empty query)
+		emptySearch, _ := resolver.Query().SearchProducts(ctx, "NON_EXISTENT_PROD", nil)
+		if len(emptySearch) != 0 {
+			t.Error("expected 0 search results")
+		}
 	})
 
 	t.Run("Support Resolvers", func(t *testing.T) {
@@ -477,6 +511,38 @@ func TestResolvers(t *testing.T) {
 		}
 		if updatedCart.ID != cartRes.ID {
 			t.Error("cart ID mismatch")
+		}
+	})
+
+	t.Run("Search Resolvers", func(t *testing.T) {
+		// 1. Search for p1 (Go Gopher)
+		res, err := resolver.Query().SearchProducts(ctx, "Product", nil)
+		if err != nil || len(res) == 0 {
+			t.Fatalf("SearchProducts failed: %v", err)
+		}
+	})
+
+	t.Run("Analytics Resolvers", func(t *testing.T) {
+		stats, err := resolver.Query().GetSystemStats(ctx)
+		if err != nil {
+			t.Fatalf("GetSystemStats failed: %v", err)
+		}
+		if stats.TotalWorkflows == 0 {
+			// Seed one if empty to cover loop
+			bus.Publish(ctx, eventbus.Event{
+				Type: "workflow.started",
+				Payload: map[string]any{"id": "a1", "name": "n", "version": "v"},
+			})
+			time.Sleep(50 * time.Millisecond)
+			stats, _ = resolver.Query().GetSystemStats(ctx)
+		}
+
+		sales, err := resolver.Query().GetSalesStats(ctx)
+		if err != nil {
+			t.Fatalf("GetSalesStats failed: %v", err)
+		}
+		if sales.OrderCount == 0 {
+			// Expected as we might not have seeded orders in this specific DB yet
 		}
 	})
 

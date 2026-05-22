@@ -179,8 +179,10 @@ type ComplexityRoot struct {
 		GetOrder            func(childComplexity int, id string) int
 		GetPayment          func(childComplexity int, id string) int
 		GetProduct          func(childComplexity int, id string) int
+		GetSalesStats       func(childComplexity int) int
 		GetShipment         func(childComplexity int, id string) int
 		GetShipmentByOrder  func(childComplexity int, orderID string) int
+		GetSystemStats      func(childComplexity int) int
 		GetTicket           func(childComplexity int, id string) int
 		GetWorkflowLineage  func(childComplexity int, id string) int
 		Health              func(childComplexity int) int
@@ -192,6 +194,13 @@ type ComplexityRoot struct {
 		ListOrders          func(childComplexity int) int
 		ListProducts        func(childComplexity int) int
 		Me                  func(childComplexity int) int
+		SearchProducts      func(childComplexity int, query string, limit *int) int
+	}
+
+	SalesStats struct {
+		AvgOrderValue func(childComplexity int) int
+		OrderCount    func(childComplexity int) int
+		TotalRevenue  func(childComplexity int) int
 	}
 
 	Shipment struct {
@@ -209,6 +218,13 @@ type ComplexityRoot struct {
 		StartedAt func(childComplexity int) int
 		State     func(childComplexity int) int
 		StepID    func(childComplexity int) int
+	}
+
+	SystemStats struct {
+		AvgExecutionTimeMs func(childComplexity int) int
+		FailureRate        func(childComplexity int) int
+		SuccessRate        func(childComplexity int) int
+		TotalWorkflows     func(childComplexity int) int
 	}
 
 	Ticket struct {
@@ -256,6 +272,8 @@ type QueryResolver interface {
 	GetWorkflowLineage(ctx context.Context, id string) (*model.WorkflowLineage, error)
 	ListLineages(ctx context.Context) ([]*model.WorkflowLineage, error)
 	Me(ctx context.Context) (*model.Actor, error)
+	GetSystemStats(ctx context.Context) (*model.SystemStats, error)
+	GetSalesStats(ctx context.Context) (*model.SalesStats, error)
 	GetCart(ctx context.Context, id string) (*model.Cart, error)
 	GetActiveCart(ctx context.Context, customerID string) (*model.Cart, error)
 	GetCustomer(ctx context.Context, id string) (*model.Customer, error)
@@ -272,6 +290,7 @@ type QueryResolver interface {
 	ListCustomerOrders(ctx context.Context, customerID string) ([]*model.Order, error)
 	GetProduct(ctx context.Context, id string) (*model.Product, error)
 	ListProducts(ctx context.Context) ([]*model.Product, error)
+	SearchProducts(ctx context.Context, query string, limit *int) ([]*model.Product, error)
 	GetTicket(ctx context.Context, id string) (*model.Ticket, error)
 	ListCustomerTickets(ctx context.Context, customerID string) ([]*model.Ticket, error)
 }
@@ -972,6 +991,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.GetProduct(childComplexity, args["id"].(string)), true
+	case "Query.getSalesStats":
+		if e.ComplexityRoot.Query.GetSalesStats == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Query.GetSalesStats(childComplexity), true
 	case "Query.getShipment":
 		if e.ComplexityRoot.Query.GetShipment == nil {
 			break
@@ -994,6 +1019,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.GetShipmentByOrder(childComplexity, args["orderId"].(string)), true
+	case "Query.getSystemStats":
+		if e.ComplexityRoot.Query.GetSystemStats == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Query.GetSystemStats(childComplexity), true
 	case "Query.getTicket":
 		if e.ComplexityRoot.Query.GetTicket == nil {
 			break
@@ -1091,6 +1122,36 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Me(childComplexity), true
+	case "Query.searchProducts":
+		if e.ComplexityRoot.Query.SearchProducts == nil {
+			break
+		}
+
+		args, err := ec.field_Query_searchProducts_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.SearchProducts(childComplexity, args["query"].(string), args["limit"].(*int)), true
+
+	case "SalesStats.avgOrderValue":
+		if e.ComplexityRoot.SalesStats.AvgOrderValue == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SalesStats.AvgOrderValue(childComplexity), true
+	case "SalesStats.orderCount":
+		if e.ComplexityRoot.SalesStats.OrderCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SalesStats.OrderCount(childComplexity), true
+	case "SalesStats.totalRevenue":
+		if e.ComplexityRoot.SalesStats.TotalRevenue == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SalesStats.TotalRevenue(childComplexity), true
 
 	case "Shipment.carrier":
 		if e.ComplexityRoot.Shipment.Carrier == nil {
@@ -1159,6 +1220,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.StepExecution.StepID(childComplexity), true
+
+	case "SystemStats.avgExecutionTimeMs":
+		if e.ComplexityRoot.SystemStats.AvgExecutionTimeMs == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SystemStats.AvgExecutionTimeMs(childComplexity), true
+	case "SystemStats.failureRate":
+		if e.ComplexityRoot.SystemStats.FailureRate == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SystemStats.FailureRate(childComplexity), true
+	case "SystemStats.successRate":
+		if e.ComplexityRoot.SystemStats.SuccessRate == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SystemStats.SuccessRate(childComplexity), true
+	case "SystemStats.totalWorkflows":
+		if e.ComplexityRoot.SystemStats.TotalWorkflows == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SystemStats.TotalWorkflows(childComplexity), true
 
 	case "Ticket.createdAt":
 		if e.ComplexityRoot.Ticket.CreatedAt == nil {
@@ -1411,6 +1497,24 @@ type AuthResponse {
   actor: Actor!
 }
 `, BuiltIn: false},
+	{Name: "../../commerce/analytics/analytics.graphqls", Input: `extend type Query {
+  getSystemStats: SystemStats!
+  getSalesStats: SalesStats!
+}
+
+type SystemStats {
+  totalWorkflows: Int!
+  successRate: Float!
+  failureRate: Float!
+  avgExecutionTimeMs: Float!
+}
+
+type SalesStats {
+  totalRevenue: Float!
+  orderCount: Int!
+  avgOrderValue: Float!
+}
+`, BuiltIn: false},
 	{Name: "../../commerce/cart/cart.graphqls", Input: `extend type Query {
   getCart(id: ID!): Cart
   getActiveCart(customerId: ID!): Cart
@@ -1597,6 +1701,10 @@ input UpdateProductInput {
   description: String
   price: Float
   currency: String
+}
+`, BuiltIn: false},
+	{Name: "../../commerce/search/search.graphqls", Input: `extend type Query {
+  searchProducts(query: String!, limit: Int): [Product!]!
 }
 `, BuiltIn: false},
 	{Name: "../../commerce/support/support.graphqls", Input: `extend type Query {
@@ -1857,6 +1965,18 @@ func (ec *executionContext) childFields_Product(ctx context.Context, field graph
 	return nil, fmt.Errorf("no field named %q was found under type Product", field.Name)
 }
 
+func (ec *executionContext) childFields_SalesStats(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "totalRevenue":
+		return ec.fieldContext_SalesStats_totalRevenue(ctx, field)
+	case "orderCount":
+		return ec.fieldContext_SalesStats_orderCount(ctx, field)
+	case "avgOrderValue":
+		return ec.fieldContext_SalesStats_avgOrderValue(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type SalesStats", field.Name)
+}
+
 func (ec *executionContext) childFields_Shipment(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
@@ -1889,6 +2009,20 @@ func (ec *executionContext) childFields_StepExecution(ctx context.Context, field
 		return ec.fieldContext_StepExecution_error(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type StepExecution", field.Name)
+}
+
+func (ec *executionContext) childFields_SystemStats(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "totalWorkflows":
+		return ec.fieldContext_SystemStats_totalWorkflows(ctx, field)
+	case "successRate":
+		return ec.fieldContext_SystemStats_successRate(ctx, field)
+	case "failureRate":
+		return ec.fieldContext_SystemStats_failureRate(ctx, field)
+	case "avgExecutionTimeMs":
+		return ec.fieldContext_SystemStats_avgExecutionTimeMs(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type SystemStats", field.Name)
 }
 
 func (ec *executionContext) childFields_Ticket(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -2608,6 +2742,28 @@ func (ec *executionContext) field_Query_listOrderPayments_args(ctx context.Conte
 		return nil, err
 	}
 	args["orderId"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_searchProducts_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "query",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["query"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "limit",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["limit"] = arg1
 	return args, nil
 }
 
@@ -5022,6 +5178,70 @@ func (ec *executionContext) fieldContext_Query_me(_ context.Context, field graph
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_getSystemStats(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_getSystemStats(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Query().GetSystemStats(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.SystemStats) graphql.Marshaler {
+			return ec.marshalNSystemStats2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐSystemStats(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_getSystemStats(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_SystemStats(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_getSalesStats(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_getSalesStats(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Query().GetSalesStats(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.SalesStats) graphql.Marshaler {
+			return ec.marshalNSalesStats2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐSalesStats(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_getSalesStats(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_SalesStats(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_getCart(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5702,6 +5922,50 @@ func (ec *executionContext) fieldContext_Query_listProducts(_ context.Context, f
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_searchProducts(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_searchProducts(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().SearchProducts(ctx, fc.Args["query"].(string), fc.Args["limit"].(*int))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.Product) graphql.Marshaler {
+			return ec.marshalNProduct2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐProductᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_searchProducts(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Product(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_searchProducts_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_getTicket(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5864,6 +6128,75 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _SalesStats_totalRevenue(ctx context.Context, field graphql.CollectedField, obj *model.SalesStats) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SalesStats_totalRevenue(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TotalRevenue, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SalesStats_totalRevenue(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SalesStats", field, false, false, errors.New("field of type Float does not have child fields"))
+}
+
+func (ec *executionContext) _SalesStats_orderCount(ctx context.Context, field graphql.CollectedField, obj *model.SalesStats) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SalesStats_orderCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.OrderCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SalesStats_orderCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SalesStats", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _SalesStats_avgOrderValue(ctx context.Context, field graphql.CollectedField, obj *model.SalesStats) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SalesStats_avgOrderValue(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AvgOrderValue, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SalesStats_avgOrderValue(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SalesStats", field, false, false, errors.New("field of type Float does not have child fields"))
 }
 
 func (ec *executionContext) _Shipment_id(ctx context.Context, field graphql.CollectedField, obj *model.Shipment) (ret graphql.Marshaler) {
@@ -6117,6 +6450,98 @@ func (ec *executionContext) _StepExecution_error(ctx context.Context, field grap
 }
 func (ec *executionContext) fieldContext_StepExecution_error(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("StepExecution", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _SystemStats_totalWorkflows(ctx context.Context, field graphql.CollectedField, obj *model.SystemStats) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SystemStats_totalWorkflows(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TotalWorkflows, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SystemStats_totalWorkflows(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SystemStats", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _SystemStats_successRate(ctx context.Context, field graphql.CollectedField, obj *model.SystemStats) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SystemStats_successRate(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SuccessRate, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SystemStats_successRate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SystemStats", field, false, false, errors.New("field of type Float does not have child fields"))
+}
+
+func (ec *executionContext) _SystemStats_failureRate(ctx context.Context, field graphql.CollectedField, obj *model.SystemStats) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SystemStats_failureRate(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.FailureRate, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SystemStats_failureRate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SystemStats", field, false, false, errors.New("field of type Float does not have child fields"))
+}
+
+func (ec *executionContext) _SystemStats_avgExecutionTimeMs(ctx context.Context, field graphql.CollectedField, obj *model.SystemStats) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SystemStats_avgExecutionTimeMs(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AvgExecutionTimeMs, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SystemStats_avgExecutionTimeMs(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SystemStats", field, false, false, errors.New("field of type Float does not have child fields"))
 }
 
 func (ec *executionContext) _Ticket_id(ctx context.Context, field graphql.CollectedField, obj *model.Ticket) (ret graphql.Marshaler) {
@@ -8861,6 +9286,50 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "getSystemStats":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_getSystemStats(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "getSalesStats":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_getSalesStats(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "getCart":
 			field := field
 
@@ -9183,6 +9652,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "searchProducts":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_searchProducts(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "getTicket":
 			field := field
 
@@ -9232,6 +9723,55 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___schema(ctx, field)
 			})
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var salesStatsImplementors = []string{"SalesStats"}
+
+func (ec *executionContext) _SalesStats(ctx context.Context, sel ast.SelectionSet, obj *model.SalesStats) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, salesStatsImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SalesStats")
+		case "totalRevenue":
+			out.Values[i] = ec._SalesStats_totalRevenue(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "orderCount":
+			out.Values[i] = ec._SalesStats_orderCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "avgOrderValue":
+			out.Values[i] = ec._SalesStats_avgOrderValue(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9343,6 +9883,60 @@ func (ec *executionContext) _StepExecution(ctx context.Context, sel ast.Selectio
 			}
 		case "error":
 			out.Values[i] = ec._StepExecution_error(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var systemStatsImplementors = []string{"SystemStats"}
+
+func (ec *executionContext) _SystemStats(ctx context.Context, sel ast.SelectionSet, obj *model.SystemStats) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, systemStatsImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SystemStats")
+		case "totalWorkflows":
+			out.Values[i] = ec._SystemStats_totalWorkflows(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "successRate":
+			out.Values[i] = ec._SystemStats_successRate(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "failureRate":
+			out.Values[i] = ec._SystemStats_failureRate(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "avgExecutionTimeMs":
+			out.Values[i] = ec._SystemStats_avgExecutionTimeMs(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10277,6 +10871,20 @@ func (ec *executionContext) marshalNProduct2ᚖgithubᚗcomᚋGoHyperrrᚋhyperr
 	return ec._Product(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNSalesStats2githubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐSalesStats(ctx context.Context, sel ast.SelectionSet, v model.SalesStats) graphql.Marshaler {
+	return ec._SalesStats(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNSalesStats2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐSalesStats(ctx context.Context, sel ast.SelectionSet, v *model.SalesStats) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._SalesStats(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNShipment2githubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐShipment(ctx context.Context, sel ast.SelectionSet, v model.Shipment) graphql.Marshaler {
 	return ec._Shipment(ctx, sel, &v)
 }
@@ -10331,6 +10939,20 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNSystemStats2githubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐSystemStats(ctx context.Context, sel ast.SelectionSet, v model.SystemStats) graphql.Marshaler {
+	return ec._SystemStats(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNSystemStats2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐSystemStats(ctx context.Context, sel ast.SelectionSet, v *model.SystemStats) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._SystemStats(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNTicket2githubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐTicket(ctx context.Context, sel ast.SelectionSet, v model.Ticket) graphql.Marshaler {
@@ -10629,6 +11251,24 @@ func (ec *executionContext) marshalOFloat2ᚖfloat64(ctx context.Context, sel as
 	_ = sel
 	res := graphql.MarshalFloatContext(*v)
 	return graphql.WrapContextMarshaler(ctx, res)
+}
+
+func (ec *executionContext) unmarshalOInt2ᚖint(ctx context.Context, v any) (*int, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalInt(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.SelectionSet, v *int) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalInt(*v)
+	return res
 }
 
 func (ec *executionContext) marshalOInventory2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐInventory(ctx context.Context, sel ast.SelectionSet, v *model.Inventory) graphql.Marshaler {

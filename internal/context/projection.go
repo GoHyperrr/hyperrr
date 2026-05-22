@@ -123,8 +123,10 @@ func (p *Projector) handleEvent(ctx context.Context, event eventbus.Event) error
 	switch event.Type {
 	case "workflow.started":
 		payload := event.Payload.(map[string]any)
-		lineage.Name = payload["name"].(string)
-		lineage.Version = payload["version"].(string)
+		name, _ := payload["name"].(string)
+		version, _ := payload["version"].(string)
+		lineage.Name = name
+		lineage.Version = version
 		lineage.State = "RUNNING"
 		lineage.StartedAt = event.Timestamp
 

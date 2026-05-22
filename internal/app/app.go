@@ -14,6 +14,8 @@ import (
 	"github.com/GoHyperrr/hyperrr/commerce/fulfillment"
 	"github.com/GoHyperrr/hyperrr/commerce/support"
 	"github.com/GoHyperrr/hyperrr/commerce/marketing"
+	"github.com/GoHyperrr/hyperrr/commerce/search"
+	"github.com/GoHyperrr/hyperrr/commerce/analytics"
 	"github.com/GoHyperrr/hyperrr/internal"
 	"github.com/GoHyperrr/hyperrr/api/graph"
 	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
@@ -93,6 +95,12 @@ func RunWithConfig(cfg *config.Config) error {
 	supportMod.SetProjector(ctxMod.Projector())
 	marketingMod := marketing.NewModule()
 	registry.Register(marketingMod)
+	searchMod := search.NewModule()
+	registry.Register(searchMod)
+	searchMod.SetProductModule(prodMod)
+	analyticsMod := analytics.NewModule()
+	registry.Register(analyticsMod)
+	analyticsMod.SetProjector(ctxMod.Projector())
 
 	// 6. Discover and Initialize Modules (Plugins)
 	deps := &registry.Dependencies{
@@ -138,6 +146,8 @@ func RunWithConfig(cfg *config.Config) error {
 			FulfillmentModule:  fulfillMod,
 			SupportModule:      supportMod,
 			MarketingModule:    marketingMod,
+			SearchModule:       searchMod,
+			AnalyticsModule:    analyticsMod,
 			IdentityModule:     identMod,
 
 			Runner:         runner,

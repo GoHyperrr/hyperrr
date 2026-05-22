@@ -1,0 +1,17 @@
+extend type Query {
+  getSystemStats: SystemStats!
+  getSalesStats: SalesStats!
+}
+
+type SystemStats {
+  totalWorkflows: Int!
+  successRate: Float!
+  failureRate: Float!
+  avgExecutionTimeMs: Float!
+}
+
+type SalesStats {
+  totalRevenue: Float!
+  orderCount: Int!
+  avgOrderValue: Float!
+}

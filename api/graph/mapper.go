@@ -3,6 +3,7 @@ package graph
 import (
 	"encoding/json"
 	"github.com/GoHyperrr/hyperrr/internal/context"
+	"github.com/GoHyperrr/hyperrr/commerce/product"
 	"github.com/GoHyperrr/hyperrr/commerce/cart"
 	"github.com/GoHyperrr/hyperrr/commerce/order"
 	"github.com/GoHyperrr/hyperrr/commerce/finance"
@@ -167,5 +168,15 @@ func mapCouponToModel(c *marketing.Coupon) *model.Coupon {
 		Code:               c.Code,
 		DiscountPercentage: c.DiscountPercentage,
 		Active:             c.Active,
+	}
+}
+
+func mapProductToModel(p *product.Product) *model.Product {
+	return &model.Product{
+		ID:          p.ID,
+		Name:        p.Name,
+		Description: &p.Description,
+		Price:       p.Price,
+		Currency:    p.Currency,
 	}
 }
