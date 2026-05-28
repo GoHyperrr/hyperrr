@@ -4,12 +4,14 @@ import (
 	"context"
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )
 
 // Module implements the registry.Module interface for Order.
 type Module struct {
 	repo *Repository
+	bus  eventbus.EventBus
 }
 
 func NewModule() *Module {
@@ -22,6 +24,7 @@ func (m *Module) ID() string {
 
 func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 	m.repo = NewRepository(deps.DB)
+	m.bus = deps.EventBus
 
 	// Register Fulfillment Saga
 	deps.Registry.Register(&workflow.Workflow{

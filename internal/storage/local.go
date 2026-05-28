@@ -49,7 +49,11 @@ func (p *LocalProvider) Open(ctx context.Context, path string) (io.ReadCloser, e
 }
 
 func (p *LocalProvider) Delete(ctx context.Context, path string) error {
-	return os.Remove(filepath.Join(p.rootDir, path))
+	err := os.Remove(filepath.Join(p.rootDir, path))
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 func (p *LocalProvider) GetURL(ctx context.Context, path string) (string, error) {

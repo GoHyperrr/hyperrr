@@ -69,6 +69,7 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 			return nil
 		}
 
+
 		// In a real system, we'd fetch the order details here to get the email.
 		// For this MVP, we'll just log that we would send it if we had the context easily available.
 		logger.Info("Fulfillment completed, would send order confirmation email")

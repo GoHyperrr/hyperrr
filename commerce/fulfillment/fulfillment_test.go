@@ -8,13 +8,22 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GoHyperrr/hyperrr/commerce/order"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )
+
+type mockOrder struct {
+	ID         string
+	TotalPrice float64
+	CustomerID string
+}
+
+func (m *mockOrder) GetOrderID() string    { return m.ID }
+func (m *mockOrder) GetTotal() float64     { return m.TotalPrice }
+func (m *mockOrder) GetCustomerID() string { return m.CustomerID }
 
 func TestFulfillmentWorkflow(t *testing.T) {
 	dbFile := fmt.Sprintf("fulfillment_test_%d.db", time.Now().UnixNano())
@@ -49,8 +58,8 @@ func TestFulfillmentWorkflow(t *testing.T) {
 			t.Fatalf("workflow failed: %v", err)
 		}
 
-		reserved := res["reserve"].(map[string]any)
-		if reserved["reserved"] != true {
+		resRaw := res["reserve"].(map[string]any)
+		if resRaw["reserved"] != true {
 			t.Error("expected reserved true")
 		}
 
@@ -105,21 +114,22 @@ func TestFulfillmentWorkflow(t *testing.T) {
 
 	t.Run("Create Shipment", func(t *testing.T) {
 		orderID := fmt.Sprintf("ord_ship_%d", time.Now().UnixNano())
-		o := &order.Order{ID: orderID}
+		o := &mockOrder{ID: orderID}
 
 		input := map[string]any{}
 		
 		results := map[string]any{
-			"order.create": o,
+			"order.create": map[string]any{"order": o},
 			"input": input,
 		}
 
-		res, err := mod.CreateShipment(context.Background(), results)
+		resRaw, err := mod.CreateShipment(context.Background(), results)
 		if err != nil {
 			t.Fatalf("CreateShipment failed: %v", err)
 		}
 
-		s := res.(*Shipment)
+		resMap := resRaw.(map[string]any)
+		s := resMap["shipment"].(*Shipment)
 		if s.Status != ShipmentPending || s.OrderID != orderID {
 			t.Error("shipment creation failed")
 		}
@@ -146,7 +156,8 @@ func TestFulfillmentWorkflow(t *testing.T) {
 			t.Fatalf("ShipOrder failed: %v", err)
 		}
 
-		updated := res["update"].(*Shipment)
+		resMap := res["update"].(map[string]any)
+		updated := resMap["shipment"].(*Shipment)
 		if updated.Status != ShipmentShipped || updated.TrackingNumber != "123XYZ" {
 			t.Error("shipment update failed")
 		}
@@ -166,6 +177,10 @@ func TestFulfillmentWorkflow(t *testing.T) {
 		if err == nil { t.Error("expected error for invalid input type") }
 		res, err := mod.ReleaseInventory(context.Background(), map[string]any{})
 		if err != nil || res != nil { t.Error("ReleaseInventory failed on empty input") }
+
+		// Release - Missing reserve key
+		res, err = mod.ReleaseInventory(context.Background(), map[string]any{"other": 1})
+		if err != nil || res != nil { t.Error("expected nil and no error for missing reserve key in ReleaseInventory") }
 
 		// Create Shipment
 		_, err = mod.CreateShipment(context.Background(), "string")
@@ -206,7 +221,10 @@ func TestSupportRepository(t *testing.T) {
 		s1, _ := repo.GetShipment(context.Background(), "s1")
 		if s1.OrderID != "o1" { t.Error("GetShipment failed") }
 
-		s2, _ := repo.GetShipmentByOrderID(context.Background(), "o1")
-		if s2.ID != "s1" { t.Error("GetShipmentByOrderID failed") }
+		s2, err := repo.GetShipmentByOrderID(context.Background(), "o1")
+		if err != nil || s2.ID != "s1" { t.Error("GetShipmentByOrderID failed") }
+
+		_, err = repo.GetShipmentByOrderID(context.Background(), "ghost")
+		if err == nil { t.Error("expected error for non-existent order shipment") }
 	})
 }

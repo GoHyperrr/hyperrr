@@ -60,7 +60,12 @@ func (r *mutationResolver) CreateOrderFromCart(ctx context.Context, cartID strin
 		return nil, fmt.Errorf("failed to retrieve order from workflow results")
 	}
 
-	o, ok := oRaw.(*order.Order)
+	resMap, ok := oRaw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid result format from order step")
+	}
+
+	o, ok := resMap["order"].(*order.Order)
 	if !ok {
 		return nil, fmt.Errorf("invalid order type in results")
 	}

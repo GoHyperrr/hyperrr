@@ -7,13 +7,22 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GoHyperrr/hyperrr/commerce/order"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )
+
+type mockOrder struct {
+	ID         string
+	TotalPrice float64
+	CustomerID string
+}
+
+func (m *mockOrder) GetOrderID() string    { return m.ID }
+func (m *mockOrder) GetTotal() float64     { return m.TotalPrice }
+func (m *mockOrder) GetCustomerID() string { return m.CustomerID }
 
 func TestMarketingModule(t *testing.T) {
 	dbFile := fmt.Sprintf("marketing_mod_test_%d.db", time.Now().UnixNano())
@@ -54,18 +63,19 @@ func TestMarketingModule(t *testing.T) {
 
 	t.Run("Add Loyalty Points", func(t *testing.T) {
 		customerID := fmt.Sprintf("cust_%d", time.Now().UnixNano())
-		o := &order.Order{ID: "ord1", CustomerID: customerID, TotalPrice: 150.0}
+		o := &mockOrder{ID: "ord1", CustomerID: customerID, TotalPrice: 150.0}
 		
 		results := map[string]any{
-			"order.finalize": o,
+			"order.finalize": map[string]any{"order": o},
 		}
 
-		res, err := mod.AddLoyaltyPoints(context.Background(), results)
+		resRaw, err := mod.AddLoyaltyPoints(context.Background(), results)
 		if err != nil {
 			t.Fatalf("AddLoyaltyPoints failed: %v", err)
 		}
 
-		lp := res.(*LoyaltyPoints)
+		resMap := resRaw.(map[string]any)
+		lp := resMap["loyalty_points"].(*LoyaltyPoints)
 		if lp.Balance != 15 { // 150 / 10 = 15
 			t.Errorf("expected balance 15, got %d", lp.Balance)
 		}
@@ -73,21 +83,40 @@ func TestMarketingModule(t *testing.T) {
 
 	t.Run("Add Loyalty Points Fallback", func(t *testing.T) {
 		customerID := fmt.Sprintf("cust_fb_%d", time.Now().UnixNano())
-		o := &order.Order{ID: "ord_fb", CustomerID: customerID, TotalPrice: 100.0}
+		o := &mockOrder{ID: "ord_fb", CustomerID: customerID, TotalPrice: 100.0}
 		
 		results := map[string]any{
-			"order.create": o,
+			"order.create": map[string]any{"order": o},
 		}
 
-		res, err := mod.AddLoyaltyPoints(context.Background(), results)
+		resRaw, err := mod.AddLoyaltyPoints(context.Background(), results)
 		if err != nil {
 			t.Fatalf("AddLoyaltyPoints fallback failed: %v", err)
 		}
 
-		lp := res.(*LoyaltyPoints)
+		resMap := resRaw.(map[string]any)
+		lp := resMap["loyalty_points"].(*LoyaltyPoints)
 		if lp.Balance != 10 { 
 			t.Errorf("expected balance 10, got %d", lp.Balance)
 		}
+	})
+
+	t.Run("Handler Error Paths", func(t *testing.T) {
+		ctx := context.Background()
+		// 1. ValidateCoupon - Invalid Input
+		_, err := mod.ValidateCoupon(ctx, "string")
+		if err == nil { t.Error("expected error for invalid input type") }
+
+		_, err = mod.ValidateCoupon(ctx, map[string]any{"wrong": 1})
+		if err == nil { t.Error("expected error for missing workflow input") }
+
+		// 2. AddLoyaltyPoints - Invalid Input
+		_, err = mod.AddLoyaltyPoints(ctx, "string")
+		if err == nil { t.Error("expected error for invalid input type") }
+
+		// 3. AddLoyaltyPoints - Missing Order
+		_, err = mod.AddLoyaltyPoints(ctx, map[string]any{"input": map[string]any{}})
+		if err == nil { t.Error("expected error for missing order result") }
 	})
 
 	t.Run("Handler Error Cases", func(t *testing.T) {

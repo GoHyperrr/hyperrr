@@ -40,9 +40,19 @@ func (r *mutationResolver) UpdateCustomer(ctx context.Context, id string, input 
 		return nil, err
 	}
 
-	domainRes, ok := results["customer.update_details"].(*customer.Customer)
+	resRaw, ok := results["customer.update_details"]
 	if !ok {
 		return nil, fmt.Errorf("failed to retrieve updated customer from workflow results")
+	}
+
+	resMap, ok := resRaw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid result format from update step")
+	}
+
+	domainRes, ok := resMap["customer"].(*customer.Customer)
+	if !ok {
+		return nil, fmt.Errorf("invalid customer type in results")
 	}
 
 	res := &model.Customer{

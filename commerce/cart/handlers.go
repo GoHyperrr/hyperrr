@@ -72,7 +72,7 @@ func (m *Module) AddItem(ctx context.Context, input any) (any, error) {
 		return nil, fmt.Errorf("failed to save cart: %w", err)
 	}
 
-	return c, nil
+	return map[string]any{"cart": c}, nil
 }
 
 // RemoveItem handles removing an item from a cart.
@@ -94,7 +94,12 @@ func (m *Module) RemoveItem(ctx context.Context, input any) (any, error) {
 		return nil, fmt.Errorf("failed to delete item: %w", err)
 	}
 
-	return m.repo.GetByID(ctx, cartID)
+	c, err := m.repo.GetByID(ctx, cartID)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]any{"cart": c}, nil
 }
 
 // Checkout handles finalizing the cart.

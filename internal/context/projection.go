@@ -6,24 +6,34 @@ import (
 	"sync"
 	"time"
 
+	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
+	"github.com/GoHyperrr/hyperrr/pkg/registry"
 	"github.com/GoHyperrr/hyperrr/pkg/utils"
 )
 
 // Lineage represents the execution history of a workflow.
 type Lineage struct {
-	ID        string         `json:"id"`
-	Name      string         `json:"name"`
-	Version   string         `json:"version"`
-	State     string         `json:"state"`
-	StartedAt time.Time      `json:"started_at"`
-	EndedAt   *time.Time     `json:"ended_at,omitempty"`
-	Steps     []*StepLineage `json:"steps"`
+	ID        string           `json:"id"`
+	Name      string           `json:"name"`
+	Version   string           `json:"version"`
+	State     string           `json:"state"`
+	StartedAt time.Time        `json:"started_at"`
+	EndedAt   *time.Time       `json:"ended_at,omitempty"`
+	Steps     []*StepLineage   `json:"steps"`
 	Events    []eventbus.Event `json:"events"`
-	Error     string         `json:"error,omitempty"`
+	Error     string           `json:"error,omitempty"`
 }
 
+func (l *Lineage) GetID() string         { return l.ID }
+func (l *Lineage) GetName() string       { return l.Name }
+func (l *Lineage) GetState() string      { return l.State }
+func (l *Lineage) GetError() string      { return l.Error }
+func (l *Lineage) GetStartedAt() time.Time { return l.StartedAt }
+func (l *Lineage) GetEndedAt() *time.Time  { return l.EndedAt }
+
 // StepLineage represents a single step in the lineage.
+
 type StepLineage struct {
 	ID        string     `json:"id"`
 	StepID    string     `json:"step_id"`
@@ -58,15 +68,17 @@ func (p *Projector) Start(ctx context.Context) error {
 		return nil
 	}
 	eventTypes := []string{
-		"workflow.started",
-		"workflow.step.started",
-		"workflow.step.completed",
-		"workflow.step.failed",
-		"workflow.step.retrying",
-		"workflow.step.fallback",
-		"workflow.waiting_human",
-		"workflow.completed",
-		"workflow.failed",
+		workflow.EventWorkflowStarted,
+		workflow.EventStepStarted,
+		workflow.EventStepCompleted,
+		workflow.EventStepFailed,
+		workflow.EventStepRetrying,
+		workflow.EventStepFallback,
+		workflow.EventWaitingHuman,
+		workflow.EventWorkflowCompleted,
+		workflow.EventWorkflowFailed,
+		"order.created",
+		"order.paid",
 	}
 
 	for _, t := range eventTypes {
@@ -83,7 +95,6 @@ func (p *Projector) handleEvent(ctx context.Context, event eventbus.Event) error
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	// Actually event.Payload is interface{}, usually map[string]any
 	rawPayload, ok := event.Payload.(map[string]any)
 	if !ok {
 		return nil
@@ -124,57 +135,57 @@ func (p *Projector) handleEvent(ctx context.Context, event eventbus.Event) error
 	}
 
 	switch event.Type {
-	case "workflow.started":
+	case workflow.EventWorkflowStarted:
 		lineage.Name = utils.GetString(rawPayload, "name")
 		lineage.Version = utils.GetString(rawPayload, "version")
-		lineage.State = "RUNNING"
+		lineage.State = workflow.StateRunning
 		if lineage.StartedAt.IsZero() {
 			lineage.StartedAt = event.Timestamp
 		}
 
-	case "workflow.step.started":
+	case workflow.EventStepStarted:
 		stepID := utils.GetString(rawPayload, "step_id")
 		if p.findStep(lineage, stepID) == nil {
 			lineage.Steps = append(lineage.Steps, &StepLineage{
 				StepID:    stepID,
-				State:     "RUNNING",
+				State:     workflow.StateRunning,
 				StartedAt: event.Timestamp,
 				Attempts:  1,
 			})
 		}
 
-	case "workflow.step.completed":
+	case workflow.EventStepCompleted:
 		stepID := utils.GetString(rawPayload, "step_id")
 		if step := p.findStep(lineage, stepID); step != nil {
-			step.State = "COMPLETED"
+			step.State = workflow.StateCompleted
 			step.EndedAt = &event.Timestamp
 		}
 
-	case "workflow.step.failed":
+	case workflow.EventStepFailed:
 		stepID := utils.GetString(rawPayload, "step_id")
 		errMsg := utils.GetString(rawPayload, "error")
 		if step := p.findStep(lineage, stepID); step != nil {
-			step.State = "FAILED"
+			step.State = workflow.StateFailed
 			step.Error = errMsg
 			step.EndedAt = &event.Timestamp
 		}
 
-	case "workflow.step.retrying":
+	case workflow.EventStepRetrying:
 		stepID := utils.GetString(rawPayload, "step_id")
 		if step := p.findStep(lineage, stepID); step != nil {
-			step.State = "RETRYING"
+			step.State = workflow.StateRetrying
 			step.Attempts++
 		}
 
-	case "workflow.waiting_human":
-		lineage.State = "WAITING_HUMAN"
+	case workflow.EventWaitingHuman:
+		lineage.State = workflow.StateWaitingHuman
 
-	case "workflow.completed":
-		lineage.State = "COMPLETED"
+	case workflow.EventWorkflowCompleted:
+		lineage.State = workflow.StateCompleted
 		lineage.EndedAt = &event.Timestamp
 
-	case "workflow.failed":
-		lineage.State = "FAILED"
+	case workflow.EventWorkflowFailed:
+		lineage.State = workflow.StateFailed
 		lineage.Error = utils.GetString(rawPayload, "error")
 		lineage.EndedAt = &event.Timestamp
 	}
@@ -207,14 +218,28 @@ func (p *Projector) GetLineage(id string) (*Lineage, error) {
 	return lineage, nil
 }
 
-// ListLineages returns all lineages.
-func (p *Projector) ListLineages() []*Lineage {
+// ListLineages returns all lineages as registry.LineageData.
+func (p *Projector) ListLineages() []registry.LineageData {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
-	res := make([]*Lineage, 0, len(p.lineages))
+	res := make([]registry.LineageData, 0, len(p.lineages))
 	for _, l := range p.lineages {
 		res = append(res, l)
+	}
+	return res
+}
+
+// QueryLineages returns lineages that match the given filter.
+func (p *Projector) QueryLineages(filter func(registry.LineageData) bool) []registry.LineageData {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	var res []registry.LineageData
+	for _, l := range p.lineages {
+		if filter(l) {
+			res = append(res, l)
+		}
 	}
 	return res
 }

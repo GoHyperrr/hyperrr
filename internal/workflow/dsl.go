@@ -44,13 +44,3 @@ type Saga struct {
 
 // ExecutionState represents the current state of a workflow execution.
 type ExecutionState string
-
-const (
-	StatePending      ExecutionState = "PENDING"
-	StateRunning      ExecutionState = "RUNNING"
-	StateRetrying     ExecutionState = "RETRYING"
-	StateWaitingHuman ExecutionState = "WAITING_HUMAN"
-	StateCompensating ExecutionState = "COMPENSATING"
-	StateCompleted    ExecutionState = "COMPLETED"
-	StateFailed       ExecutionState = "FAILED"
-)

@@ -42,6 +42,41 @@ func TestJWT(t *testing.T) {
 		}
 	})
 
+	t.Run("Expired Token", func(t *testing.T) {
+		SetSigningKey("secret")
+		claims := Claims{
+			ActorID: "exp",
+			RegisteredClaims: jwt.RegisteredClaims{
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(-time.Hour)),
+			},
+		}
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+		tokenString, _ := token.SignedString(signingKey)
+
+		_, err := ValidateToken(context.Background(), tokenString)
+		if err == nil {
+			t.Error("expected error for expired token, got nil")
+		}
+	})
+
+	t.Run("Wrong Signing Method", func(t *testing.T) {
+		SetSigningKey("secret")
+		// Manually create a token string with a different alg in header (RS256 instead of HS256).
+		tokenString := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY3Rvcl9pZCI6Indyb25nIn0.sig"
+
+		_, err := ValidateToken(context.Background(), tokenString)
+		if err == nil || !strings.Contains(err.Error(), "unexpected signing method") {
+			t.Errorf("expected unexpected signing method error, got %v", err)
+		}
+	})
+
+	t.Run("SetSigningKey", func(t *testing.T) {
+		SetSigningKey("new-secret")
+		if string(signingKey) != "new-secret" {
+			t.Error("SetSigningKey failed")
+		}
+	})
+
 	t.Run("Revoked Token", func(t *testing.T) {
 		// Mock DB for store
 		cfg := &config.Config{DBDriver: "sqlite", DBDSN: "auth_test_bl.db"}

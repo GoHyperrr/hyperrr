@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
+	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
 )
 
 // GetWorkflowLineage is the resolver for the getWorkflowLineage field.
@@ -26,7 +27,10 @@ func (r *queryResolver) ListLineages(ctx context.Context) ([]*model.WorkflowLine
 	lineages := r.Projector.ListLineages()
 	res := make([]*model.WorkflowLineage, 0, len(lineages))
 	for _, l := range lineages {
-		res = append(res, mapToModel(l))
+		conc, ok := l.(*ctxEngine.Lineage)
+		if ok {
+			res = append(res, mapToModel(conc))
+		}
 	}
 	return res, nil
 }

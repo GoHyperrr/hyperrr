@@ -62,7 +62,8 @@ func TestProductWorkflow(t *testing.T) {
 			t.Fatalf("workflow failed: %v", err)
 		}
 
-		p, ok := res["persist"].(*Product)
+		resMap := res["persist"].(map[string]any)
+		p, ok := resMap["product"].(*Product)
 		if !ok || p.Name != "Test Product" {
 			t.Errorf("expected Test Product, got %v", res["persist"])
 		}
@@ -118,9 +119,73 @@ func TestProductWorkflow(t *testing.T) {
 		if err == nil { t.Error("expected error for invalid input type") }
 		_, err = mod.UpdateProductDetails(context.Background(), map[string]any{"wrong": 1})
 		if err == nil { t.Error("expected error for missing workflow input") }
+		
+		_, err = mod.UpdateProductDetails(context.Background(), map[string]any{"input": "invalid"})
+		if err == nil { t.Error("expected error for invalid input format") }
 
 		// 4. UpdateProductDetails - Product Not Found
 		_, err = mod.UpdateProductDetails(context.Background(), map[string]any{"input": map[string]any{"id": "ghost"}})
 		if err == nil { t.Error("expected error for non-existent product") }
+
+		// 5. PersistProduct - Save Failure
+		badCfg := &config.Config{DBDriver: "sqlite", DBDSN: "fail_save.db"}
+		badDB, _ := db.Connect(badCfg)
+		// Close the underlying SQL DB to force failure
+		sqlDB, _ := badDB.DB.DB()
+		sqlDB.Close()
+		
+		mod.repo = NewRepository(badDB)
+		failInput := map[string]any{
+			"validate": map[string]any{
+				"id": "p_fail", "name": "Fail", "description": "", "price": 10.0,
+			},
+		}
+		_, err = mod.PersistProduct(context.Background(), failInput)
+		if err == nil { t.Error("expected error for failed save in PersistProduct") }
+
+		// 6. UpdateProductDetails - Success (All fields)
+		mod.repo = NewRepository(database) // Ensure we use the good DB
+		p := &Product{ID: "p_update", Name: "Old Name", Description: "Old Desc", Price: 50.0}
+		database.Save(p)
+		updateAllInput := map[string]any{
+			"input": map[string]any{
+				"id":          "p_update",
+				"name":        "New Name",
+				"description": "New Desc",
+				"price":       75.0,
+			},
+		}
+		_, err = mod.UpdateProductDetails(context.Background(), updateAllInput)
+		if err != nil {
+			t.Errorf("UpdateProductDetails failed: %v", err)
+		}
+		updated, _ := mod.repo.GetByID(context.Background(), "p_update")
+		if updated.Name != "New Name" || updated.Description != "New Desc" || updated.Price != 75.0 {
+			t.Errorf("UpdateProductDetails did not update all fields: %+v", updated)
+		}
+
+		// 7. UpdateProductDetails - Save Failure
+		mod.repo = NewRepository(badDB)
+		_, err = mod.UpdateProductDetails(context.Background(), updateAllInput)
+		if err == nil { t.Error("expected error for failed save in UpdateProductDetails") }
+		mod.repo = NewRepository(database) // Restore to good DB
+
+		// 8. UpdateProductDetails - Int price
+		updateIntInput := map[string]any{
+			"input": map[string]any{
+				"id":    "p_update",
+				"price": 99,
+			},
+		}
+		_, err = mod.UpdateProductDetails(context.Background(), updateIntInput)
+		if err != nil { t.Errorf("UpdateProductDetails failed with int price: %v", err) }
+		updated, _ = mod.repo.GetByID(context.Background(), "p_update")
+		if updated.Price != 99.0 { t.Errorf("expected 99.0, got %v", updated.Price) }
+
+		// 9. PersistProduct - Invalid validated data format
+		_, err = mod.PersistProduct(context.Background(), map[string]any{"validate": "not-a-map"})
+		if err == nil { t.Error("expected error for invalid validated data format") }
+
+		os.Remove("fail_save.db")
 	})
 }

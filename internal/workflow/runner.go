@@ -41,7 +41,7 @@ func (r *Runner) RegisterTask(name string, handler TaskHandler) {
 // Execute runs a workflow end-to-end and returns the results map.
 func (r *Runner) Execute(ctx context.Context, id string, wf *Workflow, input any) (map[string]any, error) {
 	logger.Info("starting workflow", "name", wf.Name, "id", id)
-	r.emit(ctx, "workflow.started", map[string]any{
+	r.emit(ctx, EventWorkflowStarted, map[string]any{
 		"id":      id,
 		"name":    wf.Name,
 		"version": wf.Version,
@@ -73,7 +73,7 @@ func (r *Runner) Execute(ctx context.Context, id string, wf *Workflow, input any
 				res, err := r.executeStepWithPolicies(ctx, id, step, results)
 				if err != nil {
 					logger.Error("workflow execution failed", "id", id, "step", step.ID, "error", err)
-					r.emit(ctx, "workflow.failed", map[string]any{"id": id, "error": err.Error()})
+					r.emit(ctx, EventWorkflowFailed, map[string]any{"id": id, "error": err.Error()})
 					
 					r.compensate(ctx, id, history, results)
 					return results, fmt.Errorf("workflow %s failed at step %s: %w", id, step.ID, err)
@@ -92,13 +92,13 @@ func (r *Runner) Execute(ctx context.Context, id string, wf *Workflow, input any
 	}
 
 	logger.Info("workflow completed", "id", id)
-	r.emit(ctx, "workflow.completed", map[string]any{"id": id, "name": wf.Name})
+	r.emit(ctx, EventWorkflowCompleted, map[string]any{"id": id, "name": wf.Name})
 
 	return results, nil
 }
 
 func (r *Runner) executeStepWithPolicies(ctx context.Context, id string, step Step, results map[string]any) (any, error) {
-	r.emit(ctx, "workflow.step.started", map[string]any{"id": id, "step_id": step.ID})
+	r.emit(ctx, EventStepStarted, map[string]any{"id": id, "step_id": step.ID})
 
 	var lastErr error
 	maxAttempts := 1
@@ -108,7 +108,7 @@ func (r *Runner) executeStepWithPolicies(ctx context.Context, id string, step St
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		if attempt > 1 {
-			r.emit(ctx, "workflow.step.retrying", map[string]any{
+			r.emit(ctx, EventStepRetrying, map[string]any{
 				"id":      id,
 				"step_id": step.ID,
 				"attempt": attempt,
@@ -126,7 +126,7 @@ func (r *Runner) executeStepWithPolicies(ctx context.Context, id string, step St
 
 		res, err := handler(ctx, results)
 		if err == nil {
-			r.emit(ctx, "workflow.step.completed", map[string]any{"id": id, "step_id": step.ID})
+			r.emit(ctx, EventStepCompleted, map[string]any{"id": id, "step_id": step.ID})
 			return res, nil
 		}
 
@@ -135,7 +135,7 @@ func (r *Runner) executeStepWithPolicies(ctx context.Context, id string, step St
 
 	// Try Fallback
 	if step.Fallback != nil && step.Fallback.Step != "" {
-		r.emit(ctx, "workflow.step.fallback", map[string]any{
+		r.emit(ctx, EventStepFallback, map[string]any{
 			"id":          id,
 			"step_id":     step.ID,
 			"fallback_to": step.Fallback.Step,
@@ -151,9 +151,9 @@ func (r *Runner) executeStepWithPolicies(ctx context.Context, id string, step St
 	}
 
 	// Try Escalation
-	if step.Escalation != nil && step.Escalation.Strategy == "wait_human" {
+	if step.Escalation != nil && step.Escalation.Strategy == EscalationWaitHuman {
 		logger.Warn("step failed, waiting for human intervention", "id", id, "step", step.ID)
-		r.emit(ctx, "workflow.waiting_human", map[string]any{
+		r.emit(ctx, EventWaitingHuman, map[string]any{
 			"id":      id,
 			"step_id": step.ID,
 			"reason":  lastErr.Error(),
@@ -181,7 +181,7 @@ func (r *Runner) executeStepWithPolicies(ctx context.Context, id string, step St
 		}
 	}
 
-	r.emit(ctx, "workflow.step.failed", map[string]any{"id": id, "step_id": step.ID, "error": lastErr.Error()})
+	r.emit(ctx, EventStepFailed, map[string]any{"id": id, "step_id": step.ID, "error": lastErr.Error()})
 	return nil, lastErr
 }
 
@@ -254,5 +254,7 @@ func (r *Runner) emit(ctx context.Context, eventType string, payload any) {
 		Payload:   payload,
 		Timestamp: time.Now(),
 	}
-	r.bus.Publish(ctx, event)
+	if err := r.bus.Publish(ctx, event); err != nil {
+		logger.Error("failed to publish workflow event", "type", eventType, "error", err)
+	}
 }

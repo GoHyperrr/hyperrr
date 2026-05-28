@@ -19,6 +19,9 @@ func (m *Module) SendNotification(ctx context.Context, input any) (any, error) {
 	}
 
 	recipient, _ := workflowInput["recipient"].(string)
+	if recipient == "" {
+		return nil, fmt.Errorf("missing recipient")
+	}
 	channelStr, _ := workflowInput["channel"].(string)
 	subject, _ := workflowInput["subject"].(string)
 	body, _ := workflowInput["body"].(string)

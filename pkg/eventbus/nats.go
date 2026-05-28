@@ -23,6 +23,9 @@ func NewNATSBus(url string) (*NATSBus, error) {
 }
 
 func (b *NATSBus) Publish(ctx context.Context, event Event) error {
+	if b.conn == nil {
+		return fmt.Errorf("nats connection is nil")
+	}
 	data, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("failed to marshal event: %w", err)
@@ -31,6 +34,9 @@ func (b *NATSBus) Publish(ctx context.Context, event Event) error {
 }
 
 func (b *NATSBus) Subscribe(ctx context.Context, eventType string, handler EventHandler) error {
+	if b.conn == nil {
+		return fmt.Errorf("nats connection is nil")
+	}
 	_, err := b.conn.Subscribe(eventType, func(m *nats.Msg) {
 		var event Event
 		if err := json.Unmarshal(m.Data, &event); err != nil {
@@ -42,6 +48,8 @@ func (b *NATSBus) Subscribe(ctx context.Context, eventType string, handler Event
 }
 
 func (b *NATSBus) Close() error {
-	b.conn.Close()
+	if b.conn != nil {
+		b.conn.Close()
+	}
 	return nil
 }

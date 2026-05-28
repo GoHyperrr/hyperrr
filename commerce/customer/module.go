@@ -79,14 +79,21 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 			return nil
 		}
 
-		workflowID := "seg_" + payload["customer_id"].(string)
+		customerID := utils.GetString(payload, "customer_id")
+		if customerID == "" {
+			return nil
+		}
+
+		workflowID := "seg_" + customerID
 		wf, err := deps.Registry.Get("customer.segmentation")
 		if err != nil {
 			return err
 		}
 
 		go func() {
-			_, _ = deps.Runner.Execute(ctx, workflowID, wf, payload)
+			if _, err := deps.Runner.Execute(ctx, workflowID, wf, payload); err != nil {
+				logger.Error("background segmentation failed", "customer_id", customerID, "error", err)
+			}
 		}()
 		return nil 
 	})

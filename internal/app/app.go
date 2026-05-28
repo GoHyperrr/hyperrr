@@ -58,6 +58,9 @@ func RunWithConfig(cfg *config.Config) error {
 	logger.Info("Starting hyperrr", "version", internal.Version)
 
 	// 2. Set Auth Key
+	if cfg.JWTSecret == "" {
+		return fmt.Errorf("JWT_SECRET is missing from configuration")
+	}
 	auth.SetSigningKey(cfg.JWTSecret)
 
 	// 3. Initialize Database

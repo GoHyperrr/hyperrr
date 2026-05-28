@@ -12,6 +12,18 @@ func TestLocalProvider(t *testing.T) {
 	tmpDir := "test_storage"
 	defer os.RemoveAll(tmpDir)
 
+	t.Run("NewLocalProvider Invalid Root", func(t *testing.T) {
+		// Create a file where we want a directory
+		invalidRoot := "invalid_root_file"
+		os.WriteFile(invalidRoot, []byte("i am a file"), 0644)
+		defer os.Remove(invalidRoot)
+
+		_, err := NewLocalProvider(invalidRoot)
+		if err == nil {
+			t.Error("expected error for invalid root (file instead of directory)")
+		}
+	})
+
 	p, err := NewLocalProvider(tmpDir)
 	if err != nil {
 		t.Fatalf("failed to create local provider: %v", err)
@@ -63,6 +75,25 @@ func TestLocalProvider(t *testing.T) {
 		_, err = p.Open(ctx, "test.txt")
 		if err == nil {
 			t.Error("expected error opening deleted file")
+		}
+
+		// Delete non-existent
+		err = p.Delete(ctx, "ghost.txt")
+		if err != nil {
+			t.Errorf("expected no error deleting non-existent file, got %v", err)
+		}
+	})
+
+	t.Run("Error Paths", func(t *testing.T) {
+		// 1. Open non-existent
+		_, err := p.Open(ctx, "ghost.txt")
+		if err == nil { t.Error("expected error for non-existent file") }
+
+		// 2. Upload to invalid path (simulate by creating a file where a dir should be)
+		err = os.WriteFile(tmpDir+"/locked", []byte("file"), 0644)
+		if err == nil {
+			_, err = p.Upload(ctx, "locked/new.txt", strings.NewReader("hi"))
+			if err == nil { t.Error("expected error uploading to path blocked by file") }
 		}
 	})
 	

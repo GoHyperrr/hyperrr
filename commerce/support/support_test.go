@@ -4,8 +4,10 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
@@ -57,6 +59,7 @@ func TestSupportModule(t *testing.T) {
 		tkt := &Ticket{ID: "tkt2", CustomerID: "cust2", Status: TicketOpen}
 		mod.Repo().SaveTicket(context.Background(), tkt)
 
+		// Test normal response
 		results := map[string]any{
 			"ticket": map[string]any{"ticket": tkt},
 			"input":  map[string]any{},
@@ -72,6 +75,40 @@ func TestSupportModule(t *testing.T) {
 		if msg.Sender != SenderAI {
 			t.Error("expected AI sender")
 		}
+
+		// Test response with failed workflow in context
+		proj := ctxEngine.NewProjector(bus)
+		proj.Start(context.Background())
+		mod.SetProjector(proj)
+
+		wfID := "wf_fail_1"
+		bus.Publish(context.Background(), eventbus.Event{
+			Type: workflow.EventWorkflowStarted,
+			Payload: map[string]any{
+				"id":   wfID,
+				"name": "TestFailure",
+			},
+		})
+		bus.Publish(context.Background(), eventbus.Event{
+			Type: workflow.EventWorkflowFailed,
+			Payload: map[string]any{
+				"id":    wfID,
+				"error": "simulated error",
+			},
+		})
+
+		// Give it a moment to process the async event
+		time.Sleep(100 * time.Millisecond)
+
+		res, err = mod.DispatchAIResponse(context.Background(), results)
+		if err != nil {
+			t.Fatalf("DispatchAIResponse failed with projector: %v", err)
+		}
+		msg = res.(map[string]any)["message"].(*Message)
+		expected := "I see your last operation 'TestFailure' failed with error: simulated error. I have flagged this for a human agent."
+		if msg.Content != expected {
+			t.Errorf("expected failed lineage message, got: %s", msg.Content)
+		}
 	})
 
 	t.Run("Handler Error Cases", func(t *testing.T) {
@@ -81,13 +118,53 @@ func TestSupportModule(t *testing.T) {
 		_, err = mod.CreateTicket(context.Background(), map[string]any{"wrong": 1})
 		if err == nil { t.Error("expected error for missing workflow input") }
 
-		// Dispatch - Invalid Input
+		// DispatchAIResponse - Invalid Input
 		_, err = mod.DispatchAIResponse(context.Background(), "string")
 		if err == nil { t.Error("expected error for invalid input type") }
 		_, err = mod.DispatchAIResponse(context.Background(), map[string]any{})
-		if err == nil { t.Error("expected error for missing ticket") }
+		if err == nil { t.Error("expected error for missing result from ticket step") }
+		_, err = mod.DispatchAIResponse(context.Background(), map[string]any{"ticket": "not-a-map"})
+		if err == nil { t.Error("expected error for invalid result format") }
+		_, err = mod.DispatchAIResponse(context.Background(), map[string]any{"ticket": map[string]any{"wrong": 1}})
+		if err == nil { t.Error("expected error for missing ticket in map") }
+
+		// DispatchAIResponse - Projector is nil
+		mod.SetProjector(nil)
+		tkt := &Ticket{ID: "tkt_no_proj", CustomerID: "cust1", Status: TicketOpen}
+		res, err := mod.DispatchAIResponse(context.Background(), map[string]any{"ticket": map[string]any{"ticket": tkt}})
+		if err != nil { t.Fatalf("failed without projector: %v", err) }
+		if res.(map[string]any)["message"].(*Message).Content != "Hello! I am your AI assistant. How can I help you today?" {
+			t.Error("expected default AI message")
+		}
+
+		// DispatchAIResponse - Database failure
+		badMod := NewModule()
+		badMod.repo = NewRepository(nil) // Will cause panic on SaveMessage if not careful, but handler calls m.repo.SaveMessage
+		// Actually, to avoid panic and get an error, I should use a repo with a closed DB
+		dbFile := "support_bad.db"
+		defer os.Remove(dbFile)
+		badCfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+		badDB, _ := db.Connect(badCfg)
+		sqlDB, _ := badDB.DB.DB()
+		badMod.repo = NewRepository(badDB)
+		sqlDB.Close()
+		_, err = badMod.DispatchAIResponse(context.Background(), map[string]any{"ticket": map[string]any{"ticket": tkt}})
+		if err == nil { t.Error("expected error on DB failure") }
 	})
 }
+
+type mockLineage struct {
+	name  string
+	state string
+	err   string
+}
+
+func (m *mockLineage) GetID() string         { return "id" }
+func (m *mockLineage) GetName() string       { return m.name }
+func (m *mockLineage) GetState() string      { return m.state }
+func (m *mockLineage) GetError() string      { return m.err }
+func (m *mockLineage) GetStartedAt() time.Time { return time.Now() }
+func (m *mockLineage) GetEndedAt() *time.Time  { return nil }
 
 func TestSupportRepository(t *testing.T) {
 	dbFile := "support_repo_test.db"

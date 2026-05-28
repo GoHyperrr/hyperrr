@@ -73,14 +73,14 @@ func (m *Module) DispatchAIResponse(ctx context.Context, input any) (any, error)
 	
 	if m.projector != nil {
 		lineages := m.projector.ListLineages()
-		// Find most recent failed workflow for this customer if any
+		// Find most recent failed workflow
 		for _, l := range lineages {
-			if l.State == "FAILED" {
+			if l.GetState() == "FAILED" {
 				errMsg := "unknown error"
-				if l.Error != "" {
-					errMsg = l.Error
+				if l.GetError() != "" {
+					errMsg = l.GetError()
 				}
-				aiContent = fmt.Sprintf("I see your last operation '%s' failed with error: %s. I have flagged this for a human agent.", l.Name, errMsg)
+				aiContent = fmt.Sprintf("I see your last operation '%s' failed with error: %s. I have flagged this for a human agent.", l.GetName(), errMsg)
 				break
 			}
 		}

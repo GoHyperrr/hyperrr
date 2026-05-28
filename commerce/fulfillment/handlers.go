@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/GoHyperrr/hyperrr/commerce/order"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
+	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"github.com/GoHyperrr/hyperrr/pkg/utils"
 )
 
 func (m *Module) ReserveInventory(ctx context.Context, input any) (any, error) {
@@ -82,8 +83,14 @@ func (m *Module) ReleaseInventory(ctx context.Context, input any) (any, error) {
 	if !ok {
 		return nil, nil // Nothing to release
 	}
-	resMap := resRaw.(map[string]any)
-	itemsRaw := resMap["items"].([]any)
+	resMap, ok := resRaw.(map[string]any)
+	if !ok {
+		return nil, nil
+	}
+	itemsRaw, ok := resMap["items"].([]any)
+	if !ok {
+		return nil, nil
+	}
 
 	for _, itemRaw := range itemsRaw {
 		itemMap, ok := itemRaw.(map[string]any)
@@ -122,13 +129,20 @@ func (m *Module) CreateShipment(ctx context.Context, input any) (any, error) {
 
 	oRaw, ok := data["order.create"]
 	if !ok {
-		return nil, fmt.Errorf("missing order from create step")
+		return nil, fmt.Errorf("missing result from order.create step")
 	}
-	o := oRaw.(*order.Order)
+	resMap, ok := oRaw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid result format from order.create")
+	}
+	o, ok := resMap["order"].(registry.OrderResult)
+	if !ok {
+		return nil, fmt.Errorf("missing order from order.create result")
+	}
 
 	s := &Shipment{
 		ID:      fmt.Sprintf("shp_%d", time.Now().UnixNano()),
-		OrderID: o.ID,
+		OrderID: o.GetOrderID(),
 		Status:  ShipmentPending,
 	}
 
@@ -136,8 +150,8 @@ func (m *Module) CreateShipment(ctx context.Context, input any) (any, error) {
 		return nil, fmt.Errorf("failed to save shipment: %w", err)
 	}
 
-	logger.Info("Shipment created", "shipment_id", s.ID, "order_id", o.ID)
-	return s, nil
+	logger.Info("Shipment created", "shipment_id", s.ID, "order_id", o.GetOrderID())
+	return map[string]any{"shipment": s}, nil
 }
 
 // ShipOrder simulates shipping the order (updates status to SHIPPED and adds tracking number).
@@ -152,9 +166,9 @@ func (m *Module) ShipOrder(ctx context.Context, input any) (any, error) {
 		return nil, fmt.Errorf("missing workflow input")
 	}
 
-	shipmentID, _ := workflowInput["shipment_id"].(string)
-	trackingNumber, _ := workflowInput["tracking_number"].(string)
-	carrier, _ := workflowInput["carrier"].(string)
+	shipmentID := utils.GetString(workflowInput, "shipment_id")
+	trackingNumber := utils.GetString(workflowInput, "tracking_number")
+	carrier := utils.GetString(workflowInput, "carrier")
 
 	s, err := m.repo.GetShipment(ctx, shipmentID)
 	if err != nil {
@@ -174,5 +188,5 @@ func (m *Module) ShipOrder(ctx context.Context, input any) (any, error) {
 	}
 
 	logger.Info("Shipment shipped", "shipment_id", s.ID, "tracking_number", s.TrackingNumber)
-	return s, nil
+	return map[string]any{"shipment": s}, nil
 }

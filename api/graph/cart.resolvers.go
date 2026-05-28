@@ -34,9 +34,19 @@ func (r *mutationResolver) AddItemToCart(ctx context.Context, cartID string, inp
 		return nil, err
 	}
 
-	domainRes, ok := results["add"].(*cart.Cart)
+	resRaw, ok := results["add"]
 	if !ok {
 		return nil, fmt.Errorf("failed to retrieve updated cart from workflow results")
+	}
+
+	resMap, ok := resRaw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid result format from add step")
+	}
+
+	domainRes, ok := resMap["cart"].(*cart.Cart)
+	if !ok {
+		return nil, fmt.Errorf("invalid cart type in results")
 	}
 
 	return mapCartToModel(domainRes), nil
@@ -60,9 +70,19 @@ func (r *mutationResolver) RemoveItemFromCart(ctx context.Context, cartID string
 		return nil, err
 	}
 
-	domainRes, ok := results["remove"].(*cart.Cart)
+	resRaw, ok := results["remove"]
 	if !ok {
 		return nil, fmt.Errorf("failed to retrieve updated cart from workflow results")
+	}
+
+	resMap, ok := resRaw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid result format from remove step")
+	}
+
+	domainRes, ok := resMap["cart"].(*cart.Cart)
+	if !ok {
+		return nil, fmt.Errorf("invalid cart type in results")
 	}
 
 	return mapCartToModel(domainRes), nil

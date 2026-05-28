@@ -2,8 +2,10 @@ package identity
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
@@ -98,8 +100,40 @@ func TestIdentityModule(t *testing.T) {
 		if err == nil {
 			t.Error("expected error for missing actor_id")
 		}
+		_, err = mod.ValidateActor(context.Background(), map[string]any{"input": "invalid"})
+		if err == nil {
+			t.Error("expected error for invalid input format")
+		}
 	})
 	
+	t.Run("Register and Login", func(t *testing.T) {
+		ctx := context.Background()
+		email := fmt.Sprintf("new_%d@example.com", time.Now().UnixNano())
+		// 1. Success
+		actor, err := mod.Register(ctx, email, "pass123", "New User")
+		if err != nil || actor.Name != "New User" {
+			t.Fatalf("Register failed: %v", err)
+		}
+
+		// 2. Login
+		got, err := mod.Login(ctx, email, "pass123")
+		if err != nil || got.ID != actor.ID {
+			t.Fatalf("Login failed: %v", err)
+		}
+
+		// 3. Error - Duplicate
+		_, err = mod.Register(ctx, email, "pass", "N")
+		if err == nil { t.Error("expected error for duplicate email") }
+
+		// 4. Error - Missing fields
+		_, err = mod.Register(ctx, "", "", "")
+		if err == nil { t.Error("expected error for empty registration") }
+		
+		// 5. Login Fail - Wrong pass
+		_, err = mod.Login(ctx, email, "wrong")
+		if err == nil { t.Error("expected error for wrong password") }
+	})
+
 	t.Run("Handlers Map", func(t *testing.T) {
 		h := mod.Handlers()
 		if _, ok := h["identity.validate_actor"]; !ok {

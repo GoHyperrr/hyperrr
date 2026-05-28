@@ -60,8 +60,8 @@ func (r *mutationResolver) Register(ctx context.Context, email string, password 
 
 // Me is the resolver for the me field.
 func (r *queryResolver) Me(ctx context.Context) (*model.Actor, error) {
-	actor := middleware.ForContext(ctx)
-	if actor == nil {
+	actor, ok := middleware.ForContext(ctx)
+	if !ok {
 		return nil, fmt.Errorf("unauthorized")
 	}
 

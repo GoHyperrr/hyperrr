@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -55,6 +56,42 @@ func TestConnect(t *testing.T) {
 			t.Error("expected error for unsupported driver")
 		}
 	})
+
+	t.Run("Invalid SQLite DSN", func(t *testing.T) {
+		cfg := &config.Config{
+			DBDriver: "sqlite",
+			DBDSN:    "/nonexistent/path/to/db.db",
+		}
+		_, err := Connect(cfg)
+		if err == nil {
+			t.Error("expected error for invalid sqlite dsn")
+		}
+	})
+}
+
+func TestIdempotencyFailures(t *testing.T) {
+	dbFile := "idempotency_fail.db"
+	defer os.Remove(dbFile)
+	cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+	database, _ := Connect(cfg)
+	database.AutoMigrate(&IdempotencyKey{})
+
+	// Close the underlying sql.DB to trigger failures
+	sqlDB, _ := database.DB.DB()
+	sqlDB.Close()
+
+	ctx := context.Background()
+
+	// IsProcessed should return false on error based on current implementation
+	if database.IsProcessed(ctx, "test", "key") {
+		t.Error("expected IsProcessed to return false on error")
+	}
+
+	// MarkProcessed should return error
+	err := database.MarkProcessed(ctx, "test", "key")
+	if err == nil {
+		t.Error("expected MarkProcessed to return error on closed DB")
+	}
 }
 
 func TestAutoMigrateAll(t *testing.T) {

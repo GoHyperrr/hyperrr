@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	signingKey      = []byte("hyperrr-secret-key") // Default, should be overwritten via SetSigningKey
+	signingKey      []byte
 	errInvalidToken = errors.New("invalid token")
 )
 

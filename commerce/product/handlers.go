@@ -58,7 +58,7 @@ func (m *Module) PersistProduct(ctx context.Context, input any) (any, error) {
 		return nil, fmt.Errorf("failed to save product: %w", err)
 	}
 
-	return p, nil
+	return map[string]any{"product": p}, nil
 }
 
 // UpdateProductDetails updates an existing product's information.
@@ -85,13 +85,18 @@ func (m *Module) UpdateProductDetails(ctx context.Context, input any) (any, erro
 	if desc, ok := workflowInput["description"].(string); ok && desc != "" {
 		p.Description = desc
 	}
-	if price, ok := workflowInput["price"].(float64); ok && price > 0 {
-		p.Price = price
+	
+	if priceRaw, ok := workflowInput["price"]; ok {
+		if pf, ok := priceRaw.(float64); ok && pf > 0 {
+			p.Price = pf
+		} else if pi, ok := priceRaw.(int); ok && pi > 0 {
+			p.Price = float64(pi)
+		}
 	}
 
 	if err := m.repo.Save(ctx, p); err != nil {
 		return nil, fmt.Errorf("failed to update product: %w", err)
 	}
 
-	return p, nil
+	return map[string]any{"product": p}, nil
 }

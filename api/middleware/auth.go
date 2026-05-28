@@ -47,8 +47,8 @@ func WithActor(ctx context.Context, actor *identity.Actor) context.Context {
 	return context.WithValue(ctx, actorCtxKey, actor)
 }
 
-// ForContext retrieves the Actor from the context.
-func ForContext(ctx context.Context) *identity.Actor {
-	raw, _ := ctx.Value(actorCtxKey).(*identity.Actor)
-	return raw
+// ForContext retrieves the Actor from the context and a boolean indicating success.
+func ForContext(ctx context.Context) (*identity.Actor, bool) {
+	raw, ok := ctx.Value(actorCtxKey).(*identity.Actor)
+	return raw, ok
 }

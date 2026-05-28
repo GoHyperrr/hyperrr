@@ -40,7 +40,8 @@ func TestCartWorkflow(t *testing.T) {
 		res, err := runner.Execute(context.Background(), "add_1", wf, input)
 		if err != nil { t.Fatalf("workflow failed: %v", err) }
 
-		updated := res["add"].(*Cart)
+		resMap := res["add"].(map[string]any)
+		updated := resMap["cart"].(*Cart)
 		if len(updated.Items) != 1 { t.Errorf("expected 1 item, got %d", len(updated.Items)) }
 	})
 
@@ -71,7 +72,8 @@ func TestCartWorkflow(t *testing.T) {
 		res, err := runner.Execute(context.Background(), "remove_1", wf, input)
 		if err != nil { t.Fatalf("workflow failed: %v", err) }
 
-		updated := res["remove"].(*Cart)
+		resMap := res["remove"].(map[string]any)
+		updated := resMap["cart"].(*Cart)
 		if len(updated.Items) != 0 { t.Errorf("expected 0 items, got %d", len(updated.Items)) }
 	})
 
@@ -129,6 +131,9 @@ func TestCartWorkflow(t *testing.T) {
 		mod.Repo().Save(context.Background(), c)
 		_, err = mod.AddItem(context.Background(), map[string]any{"input": map[string]any{"cart_id": "c-inactive"}})
 		if err == nil { t.Error("expected error for inactive cart") }
+		
+		_, err = mod.AddItem(context.Background(), map[string]any{"input": "invalid"})
+		if err == nil { t.Error("expected error for invalid input format") }
 
 		// 3. RemoveItem - Invalid Input
 		_, err = mod.RemoveItem(context.Background(), "string")
@@ -136,11 +141,17 @@ func TestCartWorkflow(t *testing.T) {
 
 		_, err = mod.RemoveItem(context.Background(), map[string]any{"wrong": 1})
 		if err == nil { t.Error("expected error for missing workflow input") }
+		
+		_, err = mod.RemoveItem(context.Background(), map[string]any{"input": map[string]any{"cart_id": "ghost"}})
+		if err == nil { t.Error("expected error for non-existent cart remove") }
 
 		// 4. Checkout - Empty Cart
 		c2 := &Cart{ID: "c-empty", Status: CartActive}
 		mod.Repo().Save(context.Background(), c2)
 		_, err = mod.Checkout(context.Background(), map[string]any{"input": map[string]any{"cart_id": "c-empty"}})
 		if err == nil { t.Error("expected error for empty cart") }
+		
+		_, err = mod.Checkout(context.Background(), map[string]any{"input": map[string]any{"cart_id": "ghost"}})
+		if err == nil { t.Error("expected error for non-existent cart checkout") }
 	})
 }

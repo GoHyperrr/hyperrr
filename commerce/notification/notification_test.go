@@ -122,10 +122,16 @@ func TestNotificationModule(t *testing.T) {
 	})
 
 	t.Run("Handler Error Cases", func(t *testing.T) {
-		// Invalid input
+		// 1. Invalid input
 		_, err := mod.SendNotification(context.Background(), "string")
 		if err == nil { t.Error("expected error for invalid input type") }
+		
+		// 2. Missing workflow input
 		_, err = mod.SendNotification(context.Background(), map[string]any{"wrong": 1})
 		if err == nil { t.Error("expected error for missing workflow input") }
+		
+		// 3. Missing recipient
+		_, err = mod.SendNotification(context.Background(), map[string]any{"input": map[string]any{}})
+		if err == nil { t.Error("expected error for missing recipient") }
 	})
 }

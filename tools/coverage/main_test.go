@@ -105,7 +105,7 @@ func TestCalculateCoverage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, _, _, err := calculateCoverage(strings.NewReader(tt.input))
+			got, _, _, _, _, err := calculateCoverage(strings.NewReader(tt.input))
 			if err != nil {
 				t.Fatalf("calculateCoverage() error = %v", err)
 			}

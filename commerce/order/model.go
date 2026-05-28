@@ -27,6 +27,10 @@ type Order struct {
 	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
+func (o *Order) GetOrderID() string    { return o.ID }
+func (o *Order) GetTotal() float64     { return o.TotalPrice }
+func (o *Order) GetCustomerID() string { return o.CustomerID }
+
 // OrderItem represents a line item in an order.
 type OrderItem struct {
 	ID        string         `gorm:"primaryKey" json:"id"`

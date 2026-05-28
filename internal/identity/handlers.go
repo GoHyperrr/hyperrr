@@ -40,6 +40,9 @@ func (m *Module) ValidateActor(ctx context.Context, input any) (any, error) {
 
 // Register creates a new user and actor.
 func (m *Module) Register(ctx context.Context, email, password, name string) (*Actor, error) {
+	if email == "" || password == "" || name == "" {
+		return nil, fmt.Errorf("email, password, and name are required")
+	}
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash password: %w", err)

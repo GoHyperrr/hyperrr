@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	"time"
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
@@ -10,10 +11,34 @@ import (
 
 // Dependencies provides common utilities to modules.
 type Dependencies struct {
-	DB       *db.DB
-	EventBus eventbus.EventBus
-	Runner   *workflow.Runner
-	Registry *workflow.Registry
+	DB        *db.DB
+	EventBus  eventbus.EventBus
+	Runner    *workflow.Runner
+	Registry  *workflow.Registry
+	Projector Projector
+}
+
+// LineageData defines the minimal interface for accessing workflow execution data.
+type LineageData interface {
+	GetID() string
+	GetName() string
+	GetState() string
+	GetError() string
+	GetStartedAt() time.Time
+	GetEndedAt() *time.Time
+}
+
+// Projector defines the interface for querying execution lineages.
+type Projector interface {
+	ListLineages() []LineageData
+	QueryLineages(filter func(LineageData) bool) []LineageData
+}
+
+// OrderResult defines the minimal interface for accessing order data across modules.
+type OrderResult interface {
+	GetOrderID() string
+	GetTotal() float64
+	GetCustomerID() string
 }
 
 

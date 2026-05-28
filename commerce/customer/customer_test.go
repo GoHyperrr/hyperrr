@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -155,5 +156,158 @@ func TestCustomerWorkflow(t *testing.T) {
 		// 4. UpdateCustomerDetails - Customer Not Found
 		_, err = mod.UpdateCustomerDetails(context.Background(), map[string]any{"input": map[string]any{"id": "ghost"}})
 		if err == nil { t.Error("expected error for non-existent customer") }
+		
+		// 5. identity.user_created - Missing actor_id (should skip gracefully)
+		bus.Publish(context.Background(), eventbus.Event{
+			Type: "identity.user_created",
+			Payload: map[string]any{"user_id": "u_no_actor", "email": "test@test.com"},
+		})
+		time.Sleep(50 * time.Millisecond)
+		_, err = mod.Repo().GetByUserID(context.Background(), "u_no_actor")
+		if err == nil {
+			t.Error("expected no customer to be created for missing actor_id")
+		}
+
+		// 6. CalculatePersona - Nil brain
+		badMod := &Module{repo: mod.repo}
+		_, err = badMod.CalculatePersona(context.Background(), map[string]any{"input": map[string]any{"customer_id": "c1"}})
+		if err == nil || !strings.Contains(err.Error(), "ML brain not initialized") {
+			t.Errorf("expected ML brain not initialized error, got %v", err)
+		}
+
+		// 7. order.completed - Missing customer_id
+		bus.Publish(context.Background(), eventbus.Event{
+			Type: "order.completed",
+			Payload: map[string]any{"wrong": "data"},
+		})
+		// Should just skip gracefully
+
+		// 8. GetByUserID - Success
+		c := &Customer{ID: "c_user", UserID: "u_real", Name: "Real User"}
+		mod.Repo().Save(context.Background(), c)
+		got, err := mod.Repo().GetByUserID(context.Background(), "u_real")
+		if err != nil || got.ID != "c_user" {
+			t.Errorf("GetByUserID failed: %v", err)
+		}
+
+		// 9. UpdateCustomerDetails - Success
+		updateInput := map[string]any{
+			"input": map[string]any{
+				"id":    "c_user",
+				"name":  "Updated Name",
+				"email": "updated@example.com",
+			},
+		}
+		_, err = mod.UpdateCustomerDetails(context.Background(), updateInput)
+		if err != nil {
+			t.Errorf("UpdateCustomerDetails failed: %v", err)
+		}
+		updated, _ := mod.Repo().GetByID(context.Background(), "c_user")
+		if updated.Name != "Updated Name" || updated.Email != "updated@example.com" {
+			t.Error("UpdateCustomerDetails did not save changes")
+		}
+
+		// 10. UpdateCustomerDetails - Save Failure
+		badCfg := &config.Config{DBDriver: "sqlite", DBDSN: "fail_save_cust.db"}
+		badDB, _ := db.Connect(badCfg)
+		sqlDB, _ := badDB.DB.DB()
+		sqlDB.Close()
+
+		originalRepo := mod.repo
+		mod.repo = NewRepository(badDB)
+		_, err = mod.UpdateCustomerDetails(context.Background(), updateInput)
+		if err == nil { t.Error("expected error for failed save in UpdateCustomerDetails") }
+		
+		// 11. UpdatePersona - Customer Not Found
+		mod.repo = originalRepo // Restore to find "c_user" if needed, but here we want non-existent
+		personaInputGhost := map[string]any{
+			"calculate": map[string]any{
+				"customer_id": "ghost_cust",
+				"persona":     "WHALE",
+			},
+		}
+		_, err = mod.UpdatePersona(context.Background(), personaInputGhost)
+		if err == nil { t.Error("expected error for non-existent customer in UpdatePersona") }
+
+		// 12. UpdatePersona - Save Failure
+		mod.repo = NewRepository(badDB)
+		personaInputValid := map[string]any{
+			"calculate": map[string]any{
+				"customer_id": "c_user",
+				"persona":     "WHALE",
+			},
+		}
+		_, err = mod.UpdatePersona(context.Background(), personaInputValid)
+		if err == nil { t.Error("expected error for failed save in UpdatePersona") }
+		
+		mod.repo = originalRepo
+
+		// 13. UpdatePersona - Fallback Step Name
+		personaInputFallback := map[string]any{
+			"customer.calculate_persona": map[string]any{
+				"customer_id": "c_user",
+				"persona":     "GOLD",
+			},
+		}
+		_, err = mod.UpdatePersona(context.Background(), personaInputFallback)
+		if err != nil { t.Errorf("UpdatePersona fallback failed: %v", err) }
+		updated, _ = mod.repo.GetByID(context.Background(), "c_user")
+		if updated.Persona != "GOLD" { t.Errorf("expected GOLD, got %s", updated.Persona) }
+
+		// 14. UpdateCustomerDetails - Empty fields (no change)
+		emptyInput := map[string]any{
+			"input": map[string]any{
+				"id":    "c_user",
+				"name":  "",
+				"email": "",
+			},
+		}
+		_, err = mod.UpdateCustomerDetails(context.Background(), emptyInput)
+		if err != nil { t.Errorf("UpdateCustomerDetails failed: %v", err) }
+		updated, _ = mod.repo.GetByID(context.Background(), "c_user")
+		if updated.Name != "Updated Name" || updated.Email != "updated@example.com" {
+			t.Error("UpdateCustomerDetails changed fields that were empty in input")
+		}
+
+		// 15. identity.user_created - Success
+		bus.Publish(context.Background(), eventbus.Event{
+			Type: "identity.user_created",
+			Payload: map[string]any{
+				"actor_id": "u_new",
+				"user_id":  "u_new_id",
+				"name":     "New User",
+				"email":    "new@test.com",
+			},
+		})
+		time.Sleep(50 * time.Millisecond)
+		got, err = mod.Repo().GetByUserID(context.Background(), "u_new")
+		if err != nil || got.Name != "New User" {
+			t.Errorf("identity.user_created success handler failed: %v", err)
+		}
+
+		// 16. order.completed - Success (Triggers background workflow)
+		bus.Publish(context.Background(), eventbus.Event{
+			Type: "order.completed",
+			Payload: map[string]any{"customer_id": "c_user"},
+		})
+		time.Sleep(50 * time.Millisecond)
+		// No direct way to check background execution easily without mocking runner,
+		// but this covers the handler logic.
+
+		os.Remove("fail_save_cust.db")
+	})
+
+	t.Run("Handler Error Paths Surgical", func(t *testing.T) {
+		ctx := context.Background()
+		// 1. CalculatePersona - Invalid Input
+		_, err := mod.CalculatePersona(ctx, "string")
+		if err == nil { t.Error("expected error for invalid input type") }
+		
+		_, err = mod.CalculatePersona(ctx, map[string]any{"wrong": 1})
+		if err == nil { t.Error("expected error for missing workflow input") }
+
+		// 2. UpdatePersona - Missing Data
+		_, err = mod.UpdatePersona(ctx, map[string]any{})
+		if err == nil { t.Error("expected error for missing persona data") }
 	})
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 )
 
@@ -55,6 +56,8 @@ func (m *Module) CreateOrder(ctx context.Context, input any) (any, error) {
 		var price float64
 		if p, ok := itemMap["price"].(float64); ok {
 			price = p
+		} else if pi, ok := itemMap["price"].(int); ok {
+			price = float64(pi)
 		}
 
 		productID, _ := itemMap["product_id"].(string)
@@ -77,8 +80,28 @@ func (m *Module) CreateOrder(ctx context.Context, input any) (any, error) {
 		return nil, fmt.Errorf("failed to save order: %w", err)
 	}
 
+	// Emit domain event for observability
+	if m.bus != nil {
+		wfID, _ := data["_workflow_id"].(string)
+		m.bus.Publish(ctx, eventbus.Event{
+			ID:   fmt.Sprintf("evt_ord_cre_%d", time.Now().UnixNano()),
+			Type: "order.created",
+			Metadata: map[string]string{
+				"correlation_id": wfID,
+				"customer_id":    customerID,
+			},
+			Payload: map[string]any{
+				"id":          wfID, // For Projector to correlate with lineage
+				"order_id":    orderID,
+				"total_price": totalPrice,
+				"customer_id": customerID,
+			},
+			Timestamp: time.Now(),
+		})
+	}
+
 	logger.Info("Order created (Pending)", "order_id", orderID, "cart_id", cartID)
-	return o, nil
+	return map[string]any{"order": o}, nil
 }
 
 // FinalizeOrder updates status to PAID.
@@ -90,11 +113,15 @@ func (m *Module) FinalizeOrder(ctx context.Context, input any) (any, error) {
 
 	oRaw, ok := data["order.create"]
 	if !ok || oRaw == nil {
-		return nil, fmt.Errorf("missing order from create step")
+		return nil, fmt.Errorf("missing result from order.create step")
 	}
-	o, ok := oRaw.(*Order)
+	resMap, ok := oRaw.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("invalid order type in create step")
+		return nil, fmt.Errorf("invalid result format from order.create")
+	}
+	o, ok := resMap["order"].(*Order)
+	if !ok {
+		return nil, fmt.Errorf("invalid order type in order.create result")
 	}
 
 	o.Status = OrderPaid
@@ -102,8 +129,28 @@ func (m *Module) FinalizeOrder(ctx context.Context, input any) (any, error) {
 		return nil, err
 	}
 
+	// Emit domain event
+	if m.bus != nil {
+		wfID, _ := data["_workflow_id"].(string)
+		m.bus.Publish(ctx, eventbus.Event{
+			ID:   fmt.Sprintf("evt_ord_paid_%d", time.Now().UnixNano()),
+			Type: "order.paid",
+			Metadata: map[string]string{
+				"correlation_id": wfID,
+				"order_id":       o.ID,
+			},
+			Payload: map[string]any{
+				"id":          wfID,
+				"order_id":    o.ID,
+				"total_price": o.TotalPrice,
+				"customer_id": o.CustomerID,
+			},
+			Timestamp: time.Now(),
+		})
+	}
+
 	logger.Info("Order finalized (Paid)", "order_id", o.ID)
-	return o, nil
+	return map[string]any{"order": o}, nil
 }
 
 // CompensatePayment handles payment failure by cancelling the order.
@@ -118,9 +165,13 @@ func (m *Module) CompensatePayment(ctx context.Context, input any) (any, error) 
 	if !ok || oRaw == nil {
 		return nil, nil // Nothing to compensate if order wasn't even created
 	}
-	o, ok := oRaw.(*Order)
+	resMap, ok := oRaw.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("invalid order type in create step")
+		return nil, nil
+	}
+	o, ok := resMap["order"].(*Order)
+	if !ok {
+		return nil, nil
 	}
 
 	o.Status = OrderCancelled

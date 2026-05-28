@@ -47,3 +47,25 @@ func (s *AuthStore) IsBlacklisted(ctx context.Context, jti string) bool {
 	err := s.db.WithContext(ctx).First(&b, "jti = ?", jti).Error
 	return err == nil
 }
+
+func (s *AuthStore) SaveRefreshToken(ctx context.Context, t *RefreshToken) error {
+	return s.db.WithContext(ctx).Save(t).Error
+}
+
+func (s *AuthStore) GetRefreshToken(ctx context.Context, token string) (*RefreshToken, error) {
+	var t RefreshToken
+	err := s.db.WithContext(ctx).Where("token = ?", token).First(&t).Error
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+func (s *AuthStore) RevokeRefreshToken(ctx context.Context, token string) error {
+	now := time.Now()
+	return s.db.WithContext(ctx).Model(&RefreshToken{}).Where("token = ?", token).Update("revoked_at", &now).Error
+}
+
+func (s *AuthStore) DeleteExpiredTokens(ctx context.Context, now time.Time) error {
+	return s.db.WithContext(ctx).Where("expires_at < ? OR revoked_at IS NOT NULL", now).Delete(&RefreshToken{}).Error
+}

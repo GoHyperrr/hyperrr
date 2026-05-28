@@ -11,6 +11,7 @@ import (
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/commerce/order"
+	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
 )
 
 // GetSystemStats is the resolver for the getSystemStats field.
@@ -31,13 +32,13 @@ func (r *queryResolver) GetSystemStats(ctx context.Context) (*model.SystemStats,
 	var totalDuration time.Duration
 
 	for _, l := range lineages {
-		if l.State == "COMPLETED" {
+		if l.GetState() == "COMPLETED" {
 			success++
-		} else if l.State == "FAILED" {
+		} else if l.GetState() == "FAILED" {
 			failed++
 		}
-		if !l.EndedAt.IsZero() {
-			totalDuration += l.EndedAt.Sub(l.StartedAt)
+		if l.GetEndedAt() != nil && !l.GetEndedAt().IsZero() {
+			totalDuration += l.GetEndedAt().Sub(l.GetStartedAt())
 		}
 	}
 
@@ -59,21 +60,25 @@ func (r *queryResolver) GetSalesStats(ctx context.Context) (*model.SalesStats, e
 	
 	var totalRevenue float64
 	orderCount := 0
+	orderIDs := make(map[string]bool)
 
 	for _, l := range lineages {
 		// Look for successful fulfillment workflows
-		if l.Name == "fulfillment.v1" && l.State == "COMPLETED" {
-			// Find the finalize step
-			for _, step := range l.Steps {
-				if step.StepID == "order.finalize" {
-					// Extract order from step events or results? 
-					// Actually, the Projector has the event history.
-					// For simplicity in this mock, we'll try to find an 'order.finalized' event 
-					// or just assume we can find it in the event list.
-					for _, ev := range l.Events {
-						if ev.Type == "workflow.step_completed" {
-							// In a real system we'd parse the payload
-							// Here we'll just check if it's the finalize step
+		if l.GetName() == "fulfillment.v1" && l.GetState() == "COMPLETED" {
+			// Extract revenue from lineage events
+			conc, ok := l.(*ctxEngine.Lineage)
+			if ok {
+				for _, ev := range conc.Events {
+					if ev.Type == "order.paid" {
+						if p, ok := ev.Payload.(map[string]any); ok {
+							if total, ok := p["total_price"].(float64); ok {
+								totalRevenue += total
+								orderCount++
+								if id, ok := p["order_id"].(string); ok {
+									orderIDs[id] = true
+								}
+								break
+							}
 						}
 					}
 				}
@@ -81,18 +86,15 @@ func (r *queryResolver) GetSalesStats(ctx context.Context) (*model.SalesStats, e
 		}
 	}
 
-	// Since parsing payloads from the projector is complex in this mock,
-	// let's just query the Order repository directly if available, 
-	// or mock some data based on COMPLETED fulfillment lineages.
-	
-	// Real implementation using the Order module:
+	// Secondary check: Database reconciliation
 	if r.OrderModule != nil {
 		orders, err := r.OrderModule.Repo().List(ctx)
 		if err == nil {
 			for _, o := range orders {
-				if o.Status == order.OrderPaid || o.Status == order.OrderFulfilled {
+				if (o.Status == order.OrderPaid || o.Status == order.OrderFulfilled) && !orderIDs[o.ID] {
 					totalRevenue += o.TotalPrice
 					orderCount++
+					orderIDs[o.ID] = true
 				}
 			}
 		}

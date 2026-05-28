@@ -3,16 +3,17 @@ package customer
 import (
 	"context"
 
-	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
+	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
+	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )
 
 // MLBrainV2 analyzes a customer's history via the Context Engine to assign a persona.
 type MLBrainV2 struct {
-	projector *ctxEngine.Projector
+	projector registry.Projector
 }
 
-func NewMLBrainV2(p *ctxEngine.Projector) *MLBrainV2 {
+func NewMLBrainV2(p registry.Projector) *MLBrainV2 {
 	return &MLBrainV2{projector: p}
 }
 
@@ -21,23 +22,18 @@ func (m *MLBrainV2) Analyze(ctx context.Context, customerID string) (string, err
 		return "NEWBIE", nil
 	}
 
-	lineages := m.projector.ListLineages()
+	// Query for successful orders
+	orders := m.projector.QueryLineages(func(l registry.LineageData) bool {
+		return l.GetName() == "fulfillment.v1" && l.GetState() == workflow.StateCompleted
+	})
 	
-	orderCount := 0
-	failureCount := 0
-
-	for _, l := range lineages {
-		// Filter by customer if we had that metadata in lineage (future improvement)
-		// For now, we analyze all lineages as a proxy for 'system activity' 
-		// but in a real system we'd filter by actor/customer.
-		
-		if l.Name == "fulfillment.v1" && l.State == "COMPLETED" {
-			orderCount++
-		}
-		if l.State == "FAILED" {
-			failureCount++
-		}
-	}
+	// Query for failures
+	failures := m.projector.QueryLineages(func(l registry.LineageData) bool {
+		return l.GetState() == workflow.StateFailed
+	})
+	
+	orderCount := len(orders)
+	failureCount := len(failures)
 
 	logger.Info("AI Brain analyzing customer", "customer_id", customerID, "orders", orderCount, "failures", failureCount)
 

@@ -39,9 +39,19 @@ func (r *mutationResolver) CreateProduct(ctx context.Context, input model.Create
 		return nil, err
 	}
 
-	domainRes, ok := results["persist"].(*product.Product)
+	resRaw, ok := results["persist"]
 	if !ok {
 		return nil, fmt.Errorf("failed to retrieve created product from workflow results")
+	}
+
+	resMap, ok := resRaw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid result format from persist step")
+	}
+
+	domainRes, ok := resMap["product"].(*product.Product)
+	if !ok {
+		return nil, fmt.Errorf("invalid product type in results")
 	}
 
 	return mapProductToModel(domainRes), nil
@@ -73,9 +83,19 @@ func (r *mutationResolver) UpdateProduct(ctx context.Context, id string, input m
 		return nil, err
 	}
 
-	domainRes, ok := results["update"].(*product.Product)
+	resRaw, ok := results["update"]
 	if !ok {
 		return nil, fmt.Errorf("failed to retrieve updated product from workflow results")
+	}
+
+	resMap, ok := resRaw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid result format from update step")
+	}
+
+	domainRes, ok := resMap["product"].(*product.Product)
+	if !ok {
+		return nil, fmt.Errorf("invalid product type in results")
 	}
 
 	return mapProductToModel(domainRes), nil

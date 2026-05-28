@@ -37,9 +37,19 @@ func (r *mutationResolver) UpdateShipmentStatus(ctx context.Context, shipmentID 
 		return nil, err
 	}
 
-	domainRes, ok := results["ship"].(*fulfillment.Shipment)
+	resRaw, ok := results["ship"]
 	if !ok {
 		return nil, fmt.Errorf("failed to retrieve updated shipment from workflow results")
+	}
+
+	resMap, ok := resRaw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid result format from ship step")
+	}
+
+	domainRes, ok := resMap["shipment"].(*fulfillment.Shipment)
+	if !ok {
+		return nil, fmt.Errorf("invalid shipment type in results")
 	}
 
 	return mapShipmentToModel(domainRes), nil

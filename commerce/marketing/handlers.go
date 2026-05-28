@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/GoHyperrr/hyperrr/commerce/order"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
+	"github.com/GoHyperrr/hyperrr/pkg/registry"
 	"github.com/GoHyperrr/hyperrr/pkg/utils"
 )
 
@@ -53,25 +53,25 @@ func (m *Module) AddLoyaltyPoints(ctx context.Context, input any) (any, error) {
 		return nil, fmt.Errorf("missing order from previous step")
 	}
 	
-	// Handle both possible structures (direct order or map wrapping it)
-	var o *order.Order
-	if orderDirect, ok := oRaw.(*order.Order); ok {
-		o = orderDirect
-	} else if resMap, ok := oRaw.(map[string]any); ok {
-		o = resMap["order"].(*order.Order)
-	} else {
-		return nil, fmt.Errorf("invalid order type in results")
+	resMap, ok := oRaw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid result format from order step")
+	}
+
+	o, ok := resMap["order"].(registry.OrderResult)
+	if !ok {
+		return nil, fmt.Errorf("missing order from order result")
 	}
 
 	// Calculate points: 1 point per 10 currency units
-	pointsToAdd := int(o.TotalPrice / 10)
+	pointsToAdd := int(o.GetTotal() / 10)
 
-	lp, err := m.repo.GetLoyaltyPointsByCustomerID(ctx, o.CustomerID)
+	lp, err := m.repo.GetLoyaltyPointsByCustomerID(ctx, o.GetCustomerID())
 	if err != nil {
 		// Auto-create loyalty account if it doesn't exist
 		lp = &LoyaltyPoints{
 			ID:         fmt.Sprintf("lp_%d", time.Now().UnixNano()),
-			CustomerID: o.CustomerID,
+			CustomerID: o.GetCustomerID(),
 			Balance:    0,
 		}
 	}
@@ -81,7 +81,7 @@ func (m *Module) AddLoyaltyPoints(ctx context.Context, input any) (any, error) {
 	if wfID != "" {
 		if m.repo.db.IsProcessed(ctx, "marketing.add_loyalty_points", wfID) {
 			logger.Info("Loyalty points already added for this workflow, skipping", "wf_id", wfID)
-			return lp, nil
+			return map[string]any{"loyalty_points": lp}, nil
 		}
 	}
 
@@ -94,6 +94,6 @@ func (m *Module) AddLoyaltyPoints(ctx context.Context, input any) (any, error) {
 		m.repo.db.MarkProcessed(ctx, "marketing.add_loyalty_points", wfID)
 	}
 
-	logger.Info("Loyalty points added", "customer_id", o.CustomerID, "points", pointsToAdd, "new_balance", lp.Balance)
-	return lp, nil
+	logger.Info("Loyalty points added", "customer_id", o.GetCustomerID(), "points", pointsToAdd, "new_balance", lp.Balance)
+	return map[string]any{"loyalty_points": lp}, nil
 }
