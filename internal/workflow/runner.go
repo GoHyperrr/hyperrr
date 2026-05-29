@@ -116,22 +116,27 @@ func (r *Runner) Execute(ctx context.Context, id string, wf *Workflow, input any
 			}
 
 			go func(s Step, inp map[string]any) {
+				stepCtx := WithRunner(ctx, r, id)
+				
 				if r.store != nil {
-					_ = r.store.SaveState(ctx, id, s.ID, StateRunning)
+					_ = r.store.SaveState(stepCtx, id, s.ID, StateRunning)
 				}
 				
-				res, err := r.executeStepWithPolicies(ctx, id, s, inp)
+				res, err := r.executeStepWithPolicies(stepCtx, id, s, inp)
 
 				if err != nil {
 					if r.store != nil {
-						_ = r.store.SaveState(ctx, id, s.ID, StateFailed)
+						_ = r.store.SaveState(stepCtx, id, s.ID, StateFailed)
 					}
 					stepFinished <- fmt.Errorf("workflow %s failed at step %s: %w", id, s.ID, err)
 					return
 				}
 
 				if r.store != nil {
-					_ = r.store.SaveState(ctx, id, s.ID, StateCompleted)
+					if resBytes, err := json.Marshal(res); err == nil {
+						_ = r.store.SaveStepOutput(stepCtx, id, s.ID, resBytes)
+					}
+					_ = r.store.SaveState(stepCtx, id, s.ID, StateCompleted)
 				}
 
 				stateMu.Lock()
@@ -173,6 +178,154 @@ func (r *Runner) Execute(ctx context.Context, id string, wf *Workflow, input any
 	}
 
 	logger.Info("workflow completed", "id", id)
+	r.emit(ctx, EventWorkflowCompleted, map[string]any{"id": id, "name": wf.Name})
+
+	return results, nil
+}
+
+// ResumeExecution resumes a previously crashed or interrupted workflow.
+func (r *Runner) ResumeExecution(ctx context.Context, id string, wf *Workflow) (map[string]any, error) {
+	if r.store == nil {
+		return nil, fmt.Errorf("cannot resume workflow without a configured StateStore")
+	}
+
+	logger.Info("resuming workflow", "name", wf.Name, "id", id)
+
+	// 1. Retrieve initial input
+	inputBytes, err := r.store.GetInput(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve workflow input: %w", err)
+	}
+
+	var input any
+	if err := json.Unmarshal(inputBytes, &input); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal workflow input: %w", err)
+	}
+
+	// 2. Retrieve execution state
+	states, err := r.store.GetState(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve workflow state: %w", err)
+	}
+
+	results := make(map[string]any)
+	results["input"] = input
+	results["_workflow_id"] = id
+
+	completed := make(map[string]bool)
+	launched := make(map[string]bool)
+	var history []Step
+	var stateMu sync.Mutex
+
+	// Pre-fill results and completed states
+	for _, step := range wf.Steps {
+		if state, ok := states[step.ID]; ok && state == StateCompleted {
+			outBytes, err := r.store.GetStepOutput(ctx, id, step.ID)
+			if err == nil && len(outBytes) > 0 {
+				var out any
+				if err := json.Unmarshal(outBytes, &out); err == nil {
+					results[step.ID] = out
+				}
+			}
+			completed[step.ID] = true
+			launched[step.ID] = true
+			history = append(history, step)
+		}
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	stepFinished := make(chan error, len(wf.Steps))
+	activeCount := 0
+
+	for len(completed) < len(wf.Steps) {
+		// 1. Identify and launch all ready steps
+		stateMu.Lock()
+		var ready []Step
+		for _, step := range wf.Steps {
+			if launched[step.ID] {
+				continue
+			}
+
+			canRun := true
+			for _, dep := range step.DependsOn {
+				if !completed[dep] {
+					canRun = false
+					break
+				}
+			}
+
+			if canRun {
+				ready = append(ready, step)
+				launched[step.ID] = true
+			}
+		}
+
+		if len(ready) == 0 && activeCount == 0 {
+			stateMu.Unlock()
+			return results, fmt.Errorf("deadlock detected in workflow DAG")
+		}
+
+		for _, step := range ready {
+			activeCount++
+
+			inputCopy := make(map[string]any)
+			for k, v := range results {
+				inputCopy[k] = v
+			}
+
+			go func(s Step, inp map[string]any) {
+				_ = r.store.SaveState(ctx, id, s.ID, StateRunning)
+				
+				res, err := r.executeStepWithPolicies(ctx, id, s, inp)
+
+				if err != nil {
+					_ = r.store.SaveState(ctx, id, s.ID, StateFailed)
+					stepFinished <- fmt.Errorf("workflow %s failed at step %s: %w", id, s.ID, err)
+					return
+				}
+
+				if resBytes, err := json.Marshal(res); err == nil {
+					_ = r.store.SaveStepOutput(ctx, id, s.ID, resBytes)
+				}
+				_ = r.store.SaveState(ctx, id, s.ID, StateCompleted)
+
+				stateMu.Lock()
+				results[s.ID] = res
+				completed[s.ID] = true
+				history = append(history, s)
+				stateMu.Unlock()
+
+				stepFinished <- nil
+			}(step, inputCopy)
+		}
+		stateMu.Unlock()
+
+		select {
+		case err := <-stepFinished:
+			activeCount--
+			if err != nil {
+				cancel()
+				for activeCount > 0 {
+					<-stepFinished
+					activeCount--
+				}
+				logger.Error("workflow execution failed", "id", id, "error", err)
+				r.emit(ctx, EventWorkflowFailed, map[string]any{"id": id, "error": err.Error()})
+				r.compensate(context.WithoutCancel(ctx), id, history, results)
+				return results, err
+			}
+		case <-ctx.Done():
+			for activeCount > 0 {
+				<-stepFinished
+				activeCount--
+			}
+			return results, ctx.Err()
+		}
+	}
+
+	logger.Info("workflow resumed and completed", "id", id)
 	r.emit(ctx, EventWorkflowCompleted, map[string]any{"id": id, "name": wf.Name})
 
 	return results, nil

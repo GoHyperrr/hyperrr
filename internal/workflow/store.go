@@ -22,4 +22,10 @@ type StateStore interface {
 	
 	// SetTTL sets an expiration on the workflow execution state to prevent storage unbounded growth.
 	SetTTL(ctx context.Context, execID string, ttl time.Duration) error
+	
+	// SaveStepOutput stores the successful result payload of a step for resumption.
+	SaveStepOutput(ctx context.Context, execID string, stepID string, output []byte) error
+	
+	// GetStepOutput retrieves the successful result payload of a step.
+	GetStepOutput(ctx context.Context, execID string, stepID string) ([]byte, error)
 }

@@ -55,9 +55,30 @@ func (s *RedisStore) GetInput(ctx context.Context, execID string) ([]byte, error
 func (s *RedisStore) SetTTL(ctx context.Context, execID string, ttl time.Duration) error {
 	stateKey := fmt.Sprintf("wf:%s:state", execID)
 	inputKey := fmt.Sprintf("wf:%s:input", execID)
+	outputsKey := fmt.Sprintf("wf:%s:outputs", execID)
 	
 	if err := s.client.Expire(ctx, stateKey, ttl).Err(); err != nil {
 		return err
 	}
+	if err := s.client.Expire(ctx, outputsKey, ttl).Err(); err != nil {
+		return err
+	}
 	return s.client.Expire(ctx, inputKey, ttl).Err()
+}
+
+func (s *RedisStore) SaveStepOutput(ctx context.Context, execID string, stepID string, output []byte) error {
+	key := fmt.Sprintf("wf:%s:outputs", execID)
+	return s.client.HSet(ctx, key, stepID, output).Err()
+}
+
+func (s *RedisStore) GetStepOutput(ctx context.Context, execID string, stepID string) ([]byte, error) {
+	key := fmt.Sprintf("wf:%s:outputs", execID)
+	res, err := s.client.HGet(ctx, key, stepID).Bytes()
+	if err != nil {
+		if err == redis.Nil {
+			return nil, fmt.Errorf("step output not found for step: %s in execution: %s", stepID, execID)
+		}
+		return nil, err
+	}
+	return res, nil
 }

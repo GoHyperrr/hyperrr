@@ -17,8 +17,9 @@ type NATSStore struct {
 }
 
 type natsWorkflowState struct {
-	Input []byte            `json:"input,omitempty"`
-	Steps map[string]string `json:"steps,omitempty"`
+	Input   []byte            `json:"input,omitempty"`
+	Steps   map[string]string `json:"steps,omitempty"`
+	Outputs map[string][]byte `json:"outputs,omitempty"`
 }
 
 // NewNATSStore creates a new NATSStore.
@@ -154,4 +155,65 @@ func (s *NATSStore) SetTTL(ctx context.Context, execID string, ttl time.Duration
 	// NATS JetStream KV typically relies on the bucket-level TTL.
 	// We can ignore per-key TTL for now as the bucket handles it.
 	return nil
+}
+
+func (s *NATSStore) SaveStepOutput(ctx context.Context, execID string, stepID string, output []byte) error {
+	key := fmt.Sprintf("wf.%s", execID)
+	for {
+		entry, err := s.kv.Get(ctx, key)
+		if err != nil {
+			if errors.Is(err, jetstream.ErrKeyNotFound) {
+				wfState := natsWorkflowState{Outputs: map[string][]byte{stepID: output}}
+				data, _ := json.Marshal(wfState)
+				_, err = s.kv.Create(ctx, key, data)
+				if err == nil || errors.Is(err, jetstream.ErrKeyExists) {
+					if err == nil {
+						return nil
+					}
+					continue
+				}
+				return err
+			}
+			return err
+		}
+
+		var wfState natsWorkflowState
+		if err := json.Unmarshal(entry.Value(), &wfState); err != nil {
+			return err
+		}
+		if wfState.Outputs == nil {
+			wfState.Outputs = make(map[string][]byte)
+		}
+		wfState.Outputs[stepID] = output
+		data, _ := json.Marshal(wfState)
+
+		_, err = s.kv.Update(ctx, key, data, entry.Revision())
+		if err == nil {
+			return nil
+		}
+	}
+}
+
+func (s *NATSStore) GetStepOutput(ctx context.Context, execID string, stepID string) ([]byte, error) {
+	key := fmt.Sprintf("wf.%s", execID)
+	entry, err := s.kv.Get(ctx, key)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrKeyNotFound) {
+			return nil, fmt.Errorf("step output not found for execution: %s", execID)
+		}
+		return nil, err
+	}
+
+	var wfState natsWorkflowState
+	if err := json.Unmarshal(entry.Value(), &wfState); err != nil {
+		return nil, err
+	}
+	if wfState.Outputs == nil {
+		return nil, fmt.Errorf("step output not found for execution: %s", execID)
+	}
+	output, ok := wfState.Outputs[stepID]
+	if !ok {
+		return nil, fmt.Errorf("step output not found for step: %s in execution: %s", stepID, execID)
+	}
+	return output, nil
 }
