@@ -47,12 +47,13 @@ func (r *workflowLineageResolver) Events(ctx context.Context, obj *model.Workflo
 
 // RelatedLineages is the resolver for the relatedLineages field.
 func (r *workflowLineageResolver) RelatedLineages(ctx context.Context, obj *model.WorkflowLineage) ([]*model.WorkflowLineage, error) {
-	related, err := r.Projector.GetRelatedLineages(obj.ID)
+	lineages, err := r.Projector.GetRelatedLineages(ctx, obj.ID)
 	if err != nil {
 		return nil, err
 	}
-	res := make([]*model.WorkflowLineage, 0, len(related))
-	for _, l := range related {
+
+	res := make([]*model.WorkflowLineage, 0, len(lineages))
+	for _, l := range lineages {
 		res = append(res, mapToModel(l))
 	}
 	return res, nil

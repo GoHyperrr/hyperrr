@@ -42,9 +42,13 @@ func NewAuthStore(database *db.DB, signingKey string, expiration time.Duration) 
 	}
 }
 
+const (
+	PrefixBlacklist = "bl_"
+)
+
 func (s *AuthStore) Blacklist(ctx context.Context, jti string, expiresAt time.Time) error {
 	return s.db.WithContext(ctx).Create(&Blacklist{
-		ID:        "bl_" + uuid.New().String(),
+		ID:        PrefixBlacklist + uuid.New().String(),
 		JTI:       jti,
 		ExpiresAt: expiresAt,
 	}).Error

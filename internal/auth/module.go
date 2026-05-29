@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
@@ -24,7 +25,7 @@ func (m *Module) ID() string {
 func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 	exp, err := time.ParseDuration(deps.Config.JWTExpiration)
 	if err != nil {
-		exp = 24 * time.Hour
+		return fmt.Errorf("invalid JWT_EXPIRATION format: %w", err)
 	}
 	m.store = NewAuthStore(deps.DB, deps.Config.JWTSecret, exp)
 	return nil

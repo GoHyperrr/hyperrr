@@ -12,6 +12,8 @@ const (
 
 // Map keys.
 const (
+	KeyID      = "id"
+	KeyType    = "type"
 	KeyActorID = "actor_id"
 	KeyUserID  = "user_id"
 	KeyEmail   = "email"

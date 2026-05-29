@@ -23,7 +23,14 @@ type LineageModel struct {
 	UpdatedAt time.Time
 }
 
-// LineageStore handles persistence for lineages.
+// CorrelationIndex tracks relationships between workflows via shared metadata.
+type CorrelationIndex struct {
+	Key        string `gorm:"primaryKey;index:idx_key_val"`
+	Value      string `gorm:"primaryKey;index:idx_key_val"`
+	WorkflowID string `gorm:"primaryKey;index"`
+}
+
+// LineageStore handles persistence for lineages and correlations.
 type LineageStore struct {
 	db *db.DB
 }
@@ -49,6 +56,21 @@ func (s *LineageStore) Save(ctx context.Context, l *Lineage) error {
 	}
 
 	return s.db.WithContext(ctx).Save(m).Error
+}
+
+func (s *LineageStore) SaveCorrelation(ctx context.Context, key, val, workflowID string) error {
+	idx := &CorrelationIndex{
+		Key:        key,
+		Value:      val,
+		WorkflowID: workflowID,
+	}
+	return s.db.WithContext(ctx).FirstOrCreate(idx).Error
+}
+
+func (s *LineageStore) ListRelatedIDs(ctx context.Context, key, val string) ([]string, error) {
+	var ids []string
+	err := s.db.WithContext(ctx).Model(&CorrelationIndex{}).Where("key = ? AND value = ?", key, val).Pluck("workflow_id", &ids).Error
+	return ids, err
 }
 
 func (s *LineageStore) Get(ctx context.Context, id string) (*Lineage, error) {

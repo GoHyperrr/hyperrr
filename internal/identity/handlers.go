@@ -33,9 +33,9 @@ func (m *Module) ValidateActor(ctx context.Context, input any) (any, error) {
 	}
 
 	return map[string]any{
-		"id":   actor.ID,
-		"type": actor.Type,
-		"name": actor.Name,
+		KeyID:   actor.ID,
+		KeyType: actor.Type,
+		KeyName: actor.Name,
 	}, nil
 }
 
@@ -108,7 +108,7 @@ func (m *Module) GetActorByAPIKey(ctx context.Context, key string) (*Actor, erro
 	var apiKey APIKey
 	err := m.database.Preload("Actor").First(&apiKey, "key = ?", key).Error
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid API key")
 	}
 	return &apiKey.Actor, nil
 }

@@ -46,19 +46,17 @@ type StepLineage struct {
 
 // Projector listens to events and maintains execution lineage.
 type Projector struct {
-	mu          sync.RWMutex
-	lineages    map[string]*Lineage
-	correlation map[string]map[string][]string // key -> value -> []workflowID
-	bus         eventbus.EventBus
-	store       *LineageStore
+	mu       sync.RWMutex
+	lineages map[string]*Lineage
+	bus      eventbus.EventBus
+	store    *LineageStore
 }
 
 // NewProjector creates a new Projector.
 func NewProjector(bus eventbus.EventBus) *Projector {
 	return &Projector{
-		lineages:    make(map[string]*Lineage),
-		correlation: make(map[string]map[string][]string),
-		bus:         bus,
+		lineages: make(map[string]*Lineage),
+		bus:      bus,
 	}
 }
 
@@ -93,15 +91,16 @@ func (p *Projector) Start(ctx context.Context) error {
 
 func (p *Projector) handleEvent(ctx context.Context, event eventbus.Event) error {
 	p.mu.Lock()
-	defer p.mu.Unlock()
 
 	rawPayload, ok := event.Payload.(map[string]any)
 	if !ok {
+		p.mu.Unlock()
 		return nil
 	}
 
 	id := utils.GetString(rawPayload, "id")
 	if id == "" {
+		p.mu.Unlock()
 		return nil
 	}
 
@@ -115,24 +114,6 @@ func (p *Projector) handleEvent(ctx context.Context, event eventbus.Event) error
 	}
 
 	lineage.Events = append(lineage.Events, event)
-
-	// Index correlation metadata
-	for key, val := range event.Metadata {
-		if p.correlation[key] == nil {
-			p.correlation[key] = make(map[string][]string)
-		}
-		
-		existsInCorrelation := false
-		for _, existingID := range p.correlation[key][val] {
-			if existingID == id {
-				existsInCorrelation = true
-				break
-			}
-		}
-		if !existsInCorrelation {
-			p.correlation[key][val] = append(p.correlation[key][val], id)
-		}
-	}
 
 	switch event.Type {
 	case workflow.EventWorkflowStarted:
@@ -190,8 +171,34 @@ func (p *Projector) handleEvent(ctx context.Context, event eventbus.Event) error
 		lineage.EndedAt = &event.Timestamp
 	}
 
+	// Deep copy for storage to avoid holding lock during DB I/O and prevent data races
+	saveLineage := &Lineage{
+		ID:        lineage.ID,
+		Name:      lineage.Name,
+		Version:   lineage.Version,
+		State:     lineage.State,
+		StartedAt: lineage.StartedAt,
+		EndedAt:   lineage.EndedAt,
+		Error:     lineage.Error,
+	}
+
+	saveLineage.Steps = make([]*StepLineage, len(lineage.Steps))
+	for i, s := range lineage.Steps {
+		stepCopy := *s
+		saveLineage.Steps[i] = &stepCopy
+	}
+
+	saveLineage.Events = make([]eventbus.Event, len(lineage.Events))
+	copy(saveLineage.Events, lineage.Events)
+	
+	p.mu.Unlock()
+
 	if p.store != nil {
-		p.store.Save(ctx, lineage)
+		p.store.Save(ctx, saveLineage)
+		// Save correlation index to database
+		for key, val := range event.Metadata {
+			p.store.SaveCorrelation(ctx, key, val, id)
+		}
 	}
 
 	return nil
@@ -245,26 +252,44 @@ func (p *Projector) QueryLineages(filter func(registry.LineageData) bool) []regi
 }
 
 // GetRelatedLineages returns all lineages that share metadata with the given workflow ID.
-func (p *Projector) GetRelatedLineages(id string) ([]*Lineage, error) {
+func (p *Projector) GetRelatedLineages(ctx context.Context, id string) ([]*Lineage, error) {
 	p.mu.RLock()
 	lineage, ok := p.lineages[id]
 	p.mu.RUnlock()
 
 	if !ok {
-		return nil, fmt.Errorf("lineage not found: %s", id)
+		// Try to load from store
+		if p.store != nil {
+			lineage, _ = p.store.Get(ctx, id)
+		}
 	}
 
-	relatedIDs := make(map[string]bool)
-	p.mu.RLock()
-	defer p.mu.RUnlock()
+	if lineage == nil {
+		return nil, fmt.Errorf("lineage not found for workflow: %s", id)
+	}
 
+	relatedIDsMap := make(map[string]bool)
+
+	// 1. Deduplicate metadata to avoid redundant DB queries
+	uniqueMetadata := make(map[string]map[string]bool)
 	for _, event := range lineage.Events {
 		for key, val := range event.Metadata {
-			if bucket, ok := p.correlation[key]; ok {
-				if ids, ok := bucket[val]; ok {
-					for _, relatedID := range ids {
-						if relatedID != id {
-							relatedIDs[relatedID] = true
+			if uniqueMetadata[key] == nil {
+				uniqueMetadata[key] = make(map[string]bool)
+			}
+			uniqueMetadata[key][val] = true
+		}
+	}
+
+	// 2. Query database index for relationships
+	if p.store != nil {
+		for key, values := range uniqueMetadata {
+			for val := range values {
+				dbIDs, err := p.store.ListRelatedIDs(ctx, key, val)
+				if err == nil {
+					for _, dbID := range dbIDs {
+						if dbID != id {
+							relatedIDsMap[dbID] = true
 						}
 					}
 				}
@@ -272,9 +297,18 @@ func (p *Projector) GetRelatedLineages(id string) ([]*Lineage, error) {
 		}
 	}
 
-	res := make([]*Lineage, 0, len(relatedIDs))
-	for relatedID := range relatedIDs {
-		res = append(res, p.lineages[relatedID])
+	res := make([]*Lineage, 0, len(relatedIDsMap))
+	for relatedID := range relatedIDsMap {
+		l, err := p.GetLineage(relatedID)
+		if err == nil {
+			res = append(res, l)
+		} else if p.store != nil {
+			// Fallback to store if not in memory
+			l, err = p.store.Get(ctx, relatedID)
+			if err == nil {
+				res = append(res, l)
+			}
+		}
 	}
 
 	return res, nil

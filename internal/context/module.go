@@ -30,7 +30,7 @@ func (m *Module) Shutdown(ctx context.Context) error {
 }
 
 func (m *Module) Models() []any {
-	return []any{&LineageModel{}}
+	return []any{&LineageModel{}, &CorrelationIndex{}}
 }
 
 func (m *Module) Handlers() map[string]workflow.TaskHandler {
