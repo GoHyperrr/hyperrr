@@ -38,7 +38,7 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 	})
 
 	// Subscribe to user creation to create a business profile
-	deps.EventBus.Subscribe(ctx, "identity.user_created", func(ctx context.Context, event eventbus.Event) error {
+	_, _ = deps.EventBus.Subscribe(ctx, "identity.user_created", func(ctx context.Context, event eventbus.Event) error {
 		payload, ok := event.Payload.(map[string]any)
 		if !ok {
 			return nil
@@ -73,7 +73,7 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 	})
 
 	// Subscribe to order completions to trigger ML segmentation
-	deps.EventBus.Subscribe(ctx, "order.completed", func(ctx context.Context, event eventbus.Event) error {
+	_, _ = deps.EventBus.Subscribe(ctx, "order.completed", func(ctx context.Context, event eventbus.Event) error {
 		payload, ok := event.Payload.(map[string]any)
 		if !ok {
 			return nil

@@ -20,12 +20,18 @@ type Metadata map[string]string
 // EventHandler is a function that handles an event.
 type EventHandler func(ctx context.Context, event Event) error
 
+// Subscription represents a registered event handler.
+type Subscription interface {
+	// Unsubscribe deregisters the handler.
+	Unsubscribe() error
+}
+
 // EventBus defines the interface for publishing and subscribing to events.
 type EventBus interface {
 	// Publish sends an event to the bus.
 	Publish(ctx context.Context, event Event) error
 	// Subscribe registers a handler for a specific event type.
-	Subscribe(ctx context.Context, eventType string, handler EventHandler) error
+	Subscribe(ctx context.Context, eventType string, handler EventHandler) (Subscription, error)
 	// Close shuts down the event bus.
 	Close() error
 }

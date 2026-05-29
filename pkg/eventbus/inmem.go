@@ -5,22 +5,42 @@ import (
 	"sync"
 
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
+	"github.com/google/uuid"
 )
+
+// InMemSubscription implements the Subscription interface for InMemBus.
+type InMemSubscription struct {
+	bus       *InMemBus
+	eventType string
+	id        string
+}
+
+func (s *InMemSubscription) Unsubscribe() error {
+	return s.bus.unsubscribe(s.eventType, s.id)
+}
 
 // InMemBus is a thread-safe in-memory implementation of EventBus.
 type InMemBus struct {
-	mu          sync.RWMutex
-	handlers    map[string][]EventHandler
-	closeOnce   sync.Once
-	closed      chan struct{}
+	mu        sync.RWMutex
+	handlers  map[string]map[string]EventHandler // type -> subID -> handler
+	closeOnce sync.Once
+	closed    chan struct{}
+	async     bool
 }
 
 // NewInMemBus creates a new InMemBus.
 func NewInMemBus() *InMemBus {
 	return &InMemBus{
-		handlers: make(map[string][]EventHandler),
+		handlers: make(map[string]map[string]EventHandler),
 		closed:   make(chan struct{}),
 	}
+}
+
+// SetAsync enables or disables asynchronous handler execution.
+func (b *InMemBus) SetAsync(async bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.async = async
 }
 
 // Publish sends an event to all registered handlers for the event type.
@@ -32,17 +52,26 @@ func (b *InMemBus) Publish(ctx context.Context, event Event) error {
 	}
 
 	b.mu.RLock()
-	handlers, ok := b.handlers[event.Type]
+	typeHandlers, ok := b.handlers[event.Type]
+	async := b.async
 	b.mu.RUnlock()
 
 	if !ok {
 		return nil
 	}
 
-	for _, handler := range handlers {
-		// Execute synchronously for test stability and deterministic ordering.
-		if err := handler(ctx, event); err != nil {
-			logger.Error("event handler failed", "type", event.Type, "id", event.ID, "error", err)
+	for _, handler := range typeHandlers {
+		if async {
+			go func(h EventHandler) {
+				if err := h(ctx, event); err != nil {
+					logger.Error("event handler failed", "type", event.Type, "id", event.ID, "error", err)
+				}
+			}(handler)
+		} else {
+			// Execute synchronously for test stability and deterministic ordering.
+			if err := handler(ctx, event); err != nil {
+				logger.Error("event handler failed", "type", event.Type, "id", event.ID, "error", err)
+			}
 		}
 	}
 
@@ -50,11 +79,34 @@ func (b *InMemBus) Publish(ctx context.Context, event Event) error {
 }
 
 // Subscribe registers a handler for a specific event type.
-func (b *InMemBus) Subscribe(ctx context.Context, eventType string, handler EventHandler) error {
+func (b *InMemBus) Subscribe(ctx context.Context, eventType string, handler EventHandler) (Subscription, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	b.handlers[eventType] = append(b.handlers[eventType], handler)
+	if b.handlers[eventType] == nil {
+		b.handlers[eventType] = make(map[string]EventHandler)
+	}
+
+	id := uuid.New().String()
+	b.handlers[eventType][id] = handler
+
+	return &InMemSubscription{
+		bus:       b,
+		eventType: eventType,
+		id:        id,
+	}, nil
+}
+
+func (b *InMemBus) unsubscribe(eventType string, id string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	if subs, ok := b.handlers[eventType]; ok {
+		delete(subs, id)
+		if len(subs) == 0 {
+			delete(b.handlers, eventType)
+		}
+	}
 	return nil
 }
 

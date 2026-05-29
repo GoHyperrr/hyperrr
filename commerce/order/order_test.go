@@ -103,11 +103,11 @@ func TestOrderWorkflow(t *testing.T) {
 		mod.bus = testBus
 		
 		events := make(chan eventbus.Event, 10)
-		testBus.Subscribe(context.Background(), "order.created", func(ctx context.Context, e eventbus.Event) error {
+		_, _ = testBus.Subscribe(context.Background(), "order.created", func(ctx context.Context, e eventbus.Event) error {
 			events <- e
 			return nil
 		})
-		testBus.Subscribe(context.Background(), "order.paid", func(ctx context.Context, e eventbus.Event) error {
+		_, _ = testBus.Subscribe(context.Background(), "order.paid", func(ctx context.Context, e eventbus.Event) error {
 			events <- e
 			return nil
 		})

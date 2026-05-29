@@ -17,7 +17,7 @@ func TestNATSBus_Coverage(t *testing.T) {
 	})
 
 	t.Run("Subscribe with nil conn", func(t *testing.T) {
-		err := bus.Subscribe(ctx, "test", func(ctx context.Context, e Event) error { return nil })
+		_, err := bus.Subscribe(ctx, "test", func(ctx context.Context, e Event) error { return nil })
 		if err == nil {
 			t.Error("expected error when subscribing with nil conn")
 		}

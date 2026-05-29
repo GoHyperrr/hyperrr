@@ -80,7 +80,7 @@ func (p *Projector) Start(ctx context.Context) error {
 	}
 
 	for _, t := range eventTypes {
-		err := p.bus.Subscribe(ctx, t, p.handleEvent)
+		_, err := p.bus.Subscribe(ctx, t, p.handleEvent)
 		if err != nil {
 			return fmt.Errorf("failed to subscribe to %s: %w", t, err)
 		}

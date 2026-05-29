@@ -45,7 +45,7 @@ func TestRunner(t *testing.T) {
 
 	t.Run("Event Emission", func(t *testing.T) {
 		events := make(chan eventbus.Event, 10)
-		bus.Subscribe(context.Background(), "workflow.completed", func(ctx context.Context, ev eventbus.Event) error {
+		_, _ = bus.Subscribe(context.Background(), "workflow.completed", func(ctx context.Context, ev eventbus.Event) error {
 			events <- ev
 			return nil
 		})

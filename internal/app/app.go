@@ -76,6 +76,9 @@ func RunWithConfig(cfg *config.Config) error {
 		if err != nil {
 			return fmt.Errorf("failed to connect to NATS: %w", err)
 		}
+		if natsBus, ok := bus.(*eventbus.NATSBus); ok {
+			natsBus.SetContext(context.Background())
+		}
 	} else {
 		bus = eventbus.NewInMemBus()
 	}

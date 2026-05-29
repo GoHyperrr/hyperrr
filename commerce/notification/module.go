@@ -33,7 +33,7 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 	m.repo = NewRepository(deps.DB)
 
 	// Subscribe to Identity User Created
-	deps.EventBus.Subscribe(ctx, "identity.user_created", func(ctx context.Context, event eventbus.Event) error {
+	_, _ = deps.EventBus.Subscribe(ctx, "identity.user_created", func(ctx context.Context, event eventbus.Event) error {
 		payload, ok := event.Payload.(map[string]any)
 		if !ok {
 			return nil
@@ -58,7 +58,7 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 	})
 
 	// Subscribe to Order Completed (Workflow Completed)
-	deps.EventBus.Subscribe(ctx, "workflow.completed", func(ctx context.Context, event eventbus.Event) error {
+	_, _ = deps.EventBus.Subscribe(ctx, "workflow.completed", func(ctx context.Context, event eventbus.Event) error {
 		payload, ok := event.Payload.(map[string]any)
 		if !ok {
 			return nil

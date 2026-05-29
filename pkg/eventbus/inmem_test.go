@@ -16,7 +16,7 @@ func TestInMemBus(t *testing.T) {
 		defer bus.Close()
 
 		received := make(chan Event, 1)
-		err := bus.Subscribe(ctx, "test.event", func(ctx context.Context, event Event) error {
+		_, err := bus.Subscribe(ctx, "test.event", func(ctx context.Context, event Event) error {
 			received <- event
 			return nil
 		})
@@ -52,8 +52,8 @@ func TestInMemBus(t *testing.T) {
 			return nil
 		}
 
-		bus.Subscribe(ctx, "multi.event", handler)
-		bus.Subscribe(ctx, "multi.event", handler)
+		_, _ = bus.Subscribe(ctx, "multi.event", handler)
+		_, _ = bus.Subscribe(ctx, "multi.event", handler)
 
 		bus.Publish(ctx, Event{Type: "multi.event"})
 
@@ -74,7 +74,7 @@ func TestInMemBus(t *testing.T) {
 		bus := NewInMemBus()
 		defer bus.Close()
 
-		bus.Subscribe(ctx, "error.event", func(ctx context.Context, event Event) error {
+		_, _ = bus.Subscribe(ctx, "error.event", func(ctx context.Context, event Event) error {
 			return errors.New("forced error")
 		})
 
@@ -102,12 +102,32 @@ func TestInMemBus(t *testing.T) {
 		bus.Close()
 	})
 
+	t.Run("Unsubscribe", func(t *testing.T) {
+		bus := NewInMemBus()
+		count := 0
+		sub, _ := bus.Subscribe(ctx, "unsub.event", func(ctx context.Context, event Event) error {
+			count++
+			return nil
+		})
+
+		bus.Publish(ctx, Event{Type: "unsub.event"})
+		if count != 1 {
+			t.Errorf("expected 1 event, got %d", count)
+		}
+
+		sub.Unsubscribe()
+		bus.Publish(ctx, Event{Type: "unsub.event"})
+		if count != 1 {
+			t.Errorf("expected still 1 event after unsubscribe, got %d", count)
+		}
+	})
+
 	t.Run("Wait for handlers", func(t *testing.T) {
 		bus := NewInMemBus()
 		defer bus.Close()
 
 		processed := false
-		bus.Subscribe(ctx, "wait.event", func(ctx context.Context, event Event) error {
+		_, _ = bus.Subscribe(ctx, "wait.event", func(ctx context.Context, event Event) error {
 			processed = true
 			return nil
 		})
@@ -116,6 +136,29 @@ func TestInMemBus(t *testing.T) {
 
 		if !processed {
 			t.Error("expected event to be processed")
+		}
+	})
+
+	t.Run("Async Mode", func(t *testing.T) {
+		bus := NewInMemBus()
+		bus.SetAsync(true)
+		defer bus.Close()
+
+		start := time.Now()
+		handler := func(ctx context.Context, event Event) error {
+			time.Sleep(50 * time.Millisecond)
+			return nil
+		}
+
+		_, _ = bus.Subscribe(ctx, "async.event", handler)
+		_, _ = bus.Subscribe(ctx, "async.event", handler)
+
+		// If synchronous, this would take ~100ms. If async, ~50ms.
+		bus.Publish(ctx, Event{Type: "async.event"})
+		
+		elapsed := time.Since(start)
+		if elapsed >= 100*time.Millisecond {
+			t.Errorf("expected async execution to be fast, took %v", elapsed)
 		}
 	})
 }
