@@ -37,7 +37,7 @@ func (m *Module) CreateOrder(ctx context.Context, input any) (any, error) {
 	o := &Order{
 		ID:         orderID,
 		CustomerID: customerID,
-		Status:     OrderPending,
+		Status:     StatusPending,
 	}
 
 	var totalPrice float64
@@ -86,7 +86,7 @@ func (m *Module) CreateOrder(ctx context.Context, input any) (any, error) {
 		wfID, _ := data["_workflow_id"].(string)
 		m.bus.Publish(ctx, eventbus.Event{
 			ID:   "evt_ord_cre_" + uuid.New().String(),
-			Type: "order.created",
+			Type: EventOrderCreated,
 			Metadata: map[string]string{
 				"correlation_id": wfID,
 				"customer_id":    customerID,
@@ -125,7 +125,7 @@ func (m *Module) FinalizeOrder(ctx context.Context, input any) (any, error) {
 		return nil, fmt.Errorf("invalid order type in order.create result")
 	}
 
-	o.Status = OrderPaid
+	o.Status = StatusPaid
 	if err := m.repo.Save(ctx, o); err != nil {
 		return nil, err
 	}
@@ -135,7 +135,7 @@ func (m *Module) FinalizeOrder(ctx context.Context, input any) (any, error) {
 		wfID, _ := data["_workflow_id"].(string)
 		m.bus.Publish(ctx, eventbus.Event{
 			ID:   "evt_ord_paid_" + uuid.New().String(),
-			Type: "order.paid",
+			Type: EventOrderPaid,
 			Metadata: map[string]string{
 				"correlation_id": wfID,
 				"order_id":       o.ID,
@@ -175,7 +175,7 @@ func (m *Module) CompensatePayment(ctx context.Context, input any) (any, error) 
 		return nil, nil
 	}
 
-	o.Status = OrderCancelled
+	o.Status = StatusCancelled
 	if err := m.repo.Save(ctx, o); err != nil {
 		return nil, err
 	}

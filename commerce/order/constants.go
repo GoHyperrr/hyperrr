@@ -16,6 +16,7 @@ const (
 
 // Workflow task names.
 const (
-	TaskCreateOrder   = "order.create"
-	TaskFinalizeOrder = "order.finalize"
+	TaskCreateOrder       = "order.create"
+	TaskFinalizeOrder     = "order.finalize"
+	TaskCompensatePayment = "order.compensate_payment"
 )

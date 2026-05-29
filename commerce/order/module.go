@@ -36,15 +36,15 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 				Saga: &workflow.Saga{Uses: "fulfillment.release_inventory"},
 			},
 			{
-				ID:        "order.create",
-				Uses:      "order.create",
-				Saga:      &workflow.Saga{Uses: "order.compensate_payment"},
+				ID:        TaskCreateOrder,
+				Uses:      TaskCreateOrder,
+				Saga:      &workflow.Saga{Uses: TaskCompensatePayment},
 				DependsOn: []string{"fulfillment.reserve_inventory"},
 			},
 			{
 				ID:        "finance.process_payment",
 				Uses:      "finance.process_payment",
-				DependsOn: []string{"order.create"},
+				DependsOn: []string{TaskCreateOrder},
 				Saga:      &workflow.Saga{Uses: "finance.compensate_payment"},
 			},
 			{
@@ -53,14 +53,14 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 				DependsOn: []string{"finance.process_payment"},
 			},
 			{
-				ID:        "order.finalize",
-				Uses:      "order.finalize",
+				ID:        TaskFinalizeOrder,
+				Uses:      TaskFinalizeOrder,
 				DependsOn: []string{"fulfillment.create_shipment"},
 			},
 			{
 				ID:        "marketing.add_loyalty_points",
 				Uses:      "marketing.add_loyalty_points",
-				DependsOn: []string{"order.finalize"},
+				DependsOn: []string{TaskFinalizeOrder},
 			},
 		},
 	})
@@ -78,9 +78,9 @@ func (m *Module) Models() []any {
 
 func (m *Module) Handlers() map[string]workflow.TaskHandler {
 	return map[string]workflow.TaskHandler{
-		"order.create":             m.CreateOrder,
-		"order.finalize":           m.FinalizeOrder,
-		"order.compensate_payment": m.CompensatePayment,
+		TaskCreateOrder:       m.CreateOrder,
+		TaskFinalizeOrder:     m.FinalizeOrder,
+		TaskCompensatePayment: m.CompensatePayment,
 	}
 }
 

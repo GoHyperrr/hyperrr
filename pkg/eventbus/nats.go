@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/nats-io/nats.go"
 )
 
@@ -40,9 +41,12 @@ func (b *NATSBus) Subscribe(ctx context.Context, eventType string, handler Event
 	_, err := b.conn.Subscribe(eventType, func(m *nats.Msg) {
 		var event Event
 		if err := json.Unmarshal(m.Data, &event); err != nil {
-			return // Log error
+			logger.Error("failed to unmarshal NATS event", "type", eventType, "error", err)
+			return
 		}
-		handler(context.Background(), event)
+		if err := handler(context.Background(), event); err != nil {
+			logger.Error("nats event handler failed", "type", event.Type, "id", event.ID, "error", err)
+		}
 	})
 	return err
 }

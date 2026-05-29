@@ -40,8 +40,7 @@ func (b *InMemBus) Publish(ctx context.Context, event Event) error {
 	}
 
 	for _, handler := range handlers {
-		// Execute synchronously to ensure ordering for now.
-		// In a real distributed bus, ordering is usually guaranteed per partition/subject.
+		// Execute synchronously for test stability and deterministic ordering.
 		if err := handler(ctx, event); err != nil {
 			logger.Error("event handler failed", "type", event.Type, "id", event.ID, "error", err)
 		}
