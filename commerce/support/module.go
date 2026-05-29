@@ -3,7 +3,6 @@ package support
 import (
 	"context"
 
-	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )
@@ -11,7 +10,6 @@ import (
 // Module implements the registry.Module interface for Support.
 type Module struct {
 	repo      *Repository
-	projector *ctxEngine.Projector
 }
 
 func NewModule() *Module {
@@ -54,8 +52,4 @@ func (m *Module) Handlers() map[string]workflow.TaskHandler {
 
 func (m *Module) Repo() *Repository {
 	return m.repo
-}
-
-func (m *Module) SetProjector(p *ctxEngine.Projector) {
-	m.projector = p
 }

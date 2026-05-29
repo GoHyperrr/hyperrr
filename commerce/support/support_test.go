@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
-	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
@@ -75,40 +74,6 @@ func TestSupportModule(t *testing.T) {
 		if msg.Sender != SenderAI {
 			t.Error("expected AI sender")
 		}
-
-		// Test response with failed workflow in context
-		proj := ctxEngine.NewProjector(bus)
-		proj.Start(context.Background())
-		mod.SetProjector(proj)
-
-		wfID := "wf_fail_1"
-		bus.Publish(context.Background(), eventbus.Event{
-			Type: workflow.EventWorkflowStarted,
-			Payload: map[string]any{
-				"id":   wfID,
-				"name": "TestFailure",
-			},
-		})
-		bus.Publish(context.Background(), eventbus.Event{
-			Type: workflow.EventWorkflowFailed,
-			Payload: map[string]any{
-				"id":    wfID,
-				"error": "simulated error",
-			},
-		})
-
-		// Give it a moment to process the async event
-		time.Sleep(100 * time.Millisecond)
-
-		res, err = mod.DispatchAIResponse(context.Background(), results)
-		if err != nil {
-			t.Fatalf("DispatchAIResponse failed with projector: %v", err)
-		}
-		msg = res.(map[string]any)["message"].(*Message)
-		expected := "I see your last operation 'TestFailure' failed with error: simulated error. I have flagged this for a human agent."
-		if msg.Content != expected {
-			t.Errorf("expected failed lineage message, got: %s", msg.Content)
-		}
 	})
 
 	t.Run("Handler Error Cases", func(t *testing.T) {
@@ -128,8 +93,7 @@ func TestSupportModule(t *testing.T) {
 		_, err = mod.DispatchAIResponse(context.Background(), map[string]any{"ticket": map[string]any{"wrong": 1}})
 		if err == nil { t.Error("expected error for missing ticket in map") }
 
-		// DispatchAIResponse - Projector is nil
-		mod.SetProjector(nil)
+		// DispatchAIResponse - No special setup needed for default
 		tkt := &Ticket{ID: "tkt_no_proj", CustomerID: "cust1", Status: TicketOpen}
 		res, err := mod.DispatchAIResponse(context.Background(), map[string]any{"ticket": map[string]any{"ticket": tkt}})
 		if err != nil { t.Fatalf("failed without projector: %v", err) }

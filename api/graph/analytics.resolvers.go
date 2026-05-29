@@ -16,11 +16,11 @@ import (
 
 // GetSystemStats is the resolver for the getSystemStats field.
 func (r *queryResolver) GetSystemStats(ctx context.Context) (*model.SystemStats, error) {
-	if r.AnalyticsModule.Projector() == nil {
+	if r.Projector == nil {
 		return nil, fmt.Errorf("analytics module not initialized with projector")
 	}
 
-	lineages := r.AnalyticsModule.Projector().ListLineages()
+	lineages := r.Projector.ListLineages()
 	
 	total := len(lineages)
 	if total == 0 {
@@ -52,11 +52,11 @@ func (r *queryResolver) GetSystemStats(ctx context.Context) (*model.SystemStats,
 
 // GetSalesStats is the resolver for the getSalesStats field.
 func (r *queryResolver) GetSalesStats(ctx context.Context) (*model.SalesStats, error) {
-	if r.AnalyticsModule.Projector() == nil {
+	if r.Projector == nil {
 		return nil, fmt.Errorf("analytics module not initialized with projector")
 	}
 
-	lineages := r.AnalyticsModule.Projector().ListLineages()
+	lineages := r.Projector.ListLineages()
 	
 	var totalRevenue float64
 	orderCount := 0

@@ -10,15 +10,26 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 )
 
+// WorkflowRunner defines the interface for executing workflows.
+type WorkflowRunner interface {
+	Execute(ctx context.Context, id string, wf *workflow.Workflow, input any) (map[string]any, error)
+}
+
+// WorkflowRegistry defines the interface for managing workflow definitions.
+type WorkflowRegistry interface {
+	Register(wf *workflow.Workflow) error
+	Get(name string) (*workflow.Workflow, error)
+}
+
 // Dependencies provides common utilities to modules.
 type Dependencies struct {
 	Config    *config.Config
 	DB        *db.DB
 	EventBus  eventbus.EventBus
-	Runner    *workflow.Runner
-	Registry  *workflow.Registry
-	Projector Projector
+	Runner    WorkflowRunner
+	Registry  WorkflowRegistry
 }
+
 
 // LineageData defines the minimal interface for accessing workflow execution data.
 type LineageData interface {

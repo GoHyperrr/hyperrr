@@ -21,7 +21,6 @@ func (m *Module) ID() string {
 
 func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 	m.projector = NewProjector(deps.EventBus)
-	m.projector.store = NewLineageStore(deps.DB)
 	return m.projector.Start(ctx)
 }
 
@@ -30,7 +29,7 @@ func (m *Module) Shutdown(ctx context.Context) error {
 }
 
 func (m *Module) Models() []any {
-	return []any{&LineageModel{}, &CorrelationIndex{}}
+	return nil
 }
 
 func (m *Module) Handlers() map[string]workflow.TaskHandler {

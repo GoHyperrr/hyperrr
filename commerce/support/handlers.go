@@ -69,23 +69,8 @@ func (m *Module) DispatchAIResponse(ctx context.Context, input any) (any, error)
 		return nil, fmt.Errorf("missing ticket from ticket step result")
 	}
 
-	// AI Logic: Query Context Engine
+	// AI Logic: Placeholder for future Context Engine integration via decoupled registry
 	aiContent := "Hello! I am your AI assistant. How can I help you today?"
-	
-	if m.projector != nil {
-		lineages := m.projector.ListLineages()
-		// Find most recent failed workflow
-		for _, l := range lineages {
-			if l.GetState() == "FAILED" {
-				errMsg := "unknown error"
-				if l.GetError() != "" {
-					errMsg = l.GetError()
-				}
-				aiContent = fmt.Sprintf("I see your last operation '%s' failed with error: %s. I have flagged this for a human agent.", l.GetName(), errMsg)
-				break
-			}
-		}
-	}
 
 	msg := &Message{
 		ID:        "msg_ai_" + uuid.New().String(),

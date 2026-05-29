@@ -3,14 +3,12 @@ package analytics
 import (
 	"context"
 
-	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )
 
 // Module implements the registry.Module interface for Analytics.
 type Module struct {
-	projector *ctxEngine.Projector
 }
 
 func NewModule() *Module {
@@ -39,12 +37,4 @@ func (m *Module) Shutdown(ctx context.Context) error {
 
 func (m *Module) Repo() any {
 	return nil
-}
-
-func (m *Module) Projector() *ctxEngine.Projector {
-	return m.projector
-}
-
-func (m *Module) SetProjector(p *ctxEngine.Projector) {
-	m.projector = p
 }

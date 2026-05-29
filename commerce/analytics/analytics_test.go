@@ -22,7 +22,6 @@ func TestAnalyticsModule(t *testing.T) {
 
 	mod := NewModule()
 	mod.Init(context.Background(), &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})
-	mod.SetProjector(projector)
 	database.AutoMigrateAll()
 
 	t.Run("System Stats", func(t *testing.T) {
@@ -32,7 +31,7 @@ func TestAnalyticsModule(t *testing.T) {
 			Payload: map[string]any{"id": "wf1", "name": "test", "version": "v1"},
 		})
 		
-		stats := mod.Projector().ListLineages()
+		stats := projector.ListLineages()
 		if len(stats) == 0 {
 			t.Error("expected at least 1 lineage")
 		}

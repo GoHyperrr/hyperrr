@@ -102,7 +102,6 @@ func TestResolvers(t *testing.T) {
 
 	supportMod := support.NewModule()
 	supportMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
-	supportMod.SetProjector(projector)
 	db.Register(supportMod.Models()...)
 	for name, h := range supportMod.Handlers() {
 		runner.RegisterTask(name, h)
@@ -125,7 +124,6 @@ func TestResolvers(t *testing.T) {
 
 	analyticsMod := analytics.NewModule()
 	analyticsMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
-	analyticsMod.SetProjector(projector)
 
 	database.AutoMigrateAll()
 

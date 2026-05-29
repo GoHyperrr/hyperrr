@@ -49,7 +49,6 @@ type Projector struct {
 	mu       sync.RWMutex
 	lineages map[string]*Lineage
 	bus      eventbus.EventBus
-	store    *LineageStore
 }
 
 // NewProjector creates a new Projector.
@@ -193,14 +192,6 @@ func (p *Projector) handleEvent(ctx context.Context, event eventbus.Event) error
 	
 	p.mu.Unlock()
 
-	if p.store != nil {
-		p.store.Save(ctx, saveLineage)
-		// Save correlation index to database
-		for key, val := range event.Metadata {
-			p.store.SaveCorrelation(ctx, key, val, id)
-		}
-	}
-
 	return nil
 }
 
@@ -257,40 +248,28 @@ func (p *Projector) GetRelatedLineages(ctx context.Context, id string) ([]*Linea
 	lineage, ok := p.lineages[id]
 	p.mu.RUnlock()
 
-	if !ok {
-		// Try to load from store
-		if p.store != nil {
-			lineage, _ = p.store.Get(ctx, id)
-		}
-	}
-
-	if lineage == nil {
+	if !ok || lineage == nil {
 		return nil, fmt.Errorf("lineage not found for workflow: %s", id)
 	}
 
 	relatedIDsMap := make(map[string]bool)
 
-	// 1. Deduplicate metadata to avoid redundant DB queries
-	uniqueMetadata := make(map[string]map[string]bool)
-	for _, event := range lineage.Events {
-		for key, val := range event.Metadata {
-			if uniqueMetadata[key] == nil {
-				uniqueMetadata[key] = make(map[string]bool)
-			}
-			uniqueMetadata[key][val] = true
-		}
-	}
+	// Since we removed SQL persistence, related lineages are only found
+	// if they are currently in the in-memory lineages map.
 
-	// 2. Query database index for relationships
-	if p.store != nil {
-		for key, values := range uniqueMetadata {
-			for val := range values {
-				dbIDs, err := p.store.ListRelatedIDs(ctx, key, val)
-				if err == nil {
-					for _, dbID := range dbIDs {
-						if dbID != id {
-							relatedIDsMap[dbID] = true
-						}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	for _, other := range p.lineages {
+		if other.ID == id {
+			continue
+		}
+		
+		for _, event := range lineage.Events {
+			for key, val := range event.Metadata {
+				for _, otherEvent := range other.Events {
+					if otherVal, ok := otherEvent.Metadata[key]; ok && otherVal == val {
+						relatedIDsMap[other.ID] = true
 					}
 				}
 			}
@@ -299,16 +278,7 @@ func (p *Projector) GetRelatedLineages(ctx context.Context, id string) ([]*Linea
 
 	res := make([]*Lineage, 0, len(relatedIDsMap))
 	for relatedID := range relatedIDsMap {
-		l, err := p.GetLineage(relatedID)
-		if err == nil {
-			res = append(res, l)
-		} else if p.store != nil {
-			// Fallback to store if not in memory
-			l, err = p.store.Get(ctx, relatedID)
-			if err == nil {
-				res = append(res, l)
-			}
-		}
+		res = append(res, p.lineages[relatedID])
 	}
 
 	return res, nil

@@ -7,7 +7,7 @@ import (
 
 var (
 	registryMu sync.Mutex
-	Registry   = []interface{}{&OutboxEvent{}, &IdempotencyKey{}}
+	Registry   = []interface{}{&IdempotencyKey{}}
 )
 
 // Register adds models to the global migration registry.

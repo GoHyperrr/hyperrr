@@ -112,7 +112,6 @@ func RunWithConfig(cfg *config.Config) error {
 	registry.Register(fulfillMod)
 	supportMod := support.NewModule()
 	registry.Register(supportMod)
-	supportMod.SetProjector(ctxMod.Projector())
 	marketingMod := marketing.NewModule()
 	registry.Register(marketingMod)
 	searchMod := search.NewModule()
@@ -120,7 +119,6 @@ func RunWithConfig(cfg *config.Config) error {
 	searchMod.SetProductModule(prodMod)
 	analyticsMod := analytics.NewModule()
 	registry.Register(analyticsMod)
-	analyticsMod.SetProjector(ctxMod.Projector())
 
 	// 6. Discover and Initialize Modules (Plugins)
 	deps := &registry.Dependencies{
@@ -129,7 +127,6 @@ func RunWithConfig(cfg *config.Config) error {
 		EventBus:  bus,
 		Runner:    runner,
 		Registry:  registryStore,
-		Projector: ctxMod.Projector(),
 	}
 
 	modules := registry.List()

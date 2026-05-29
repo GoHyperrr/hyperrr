@@ -6,8 +6,6 @@ import (
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
-	"github.com/GoHyperrr/hyperrr/pkg/config"
-	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )
@@ -15,14 +13,6 @@ import (
 func TestProjector(t *testing.T) {
 	bus := eventbus.NewInMemBus()
 	projector := NewProjector(bus)
-	
-	// Setup DB for store
-	cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
-	database, _ := db.Connect(cfg)
-	sqlDB, _ := database.DB.DB()
-	defer sqlDB.Close()
-	database.AutoMigrate(&LineageModel{}, &CorrelationIndex{})
-	projector.store = NewLineageStore(database)
 	
 	ctx := context.Background()
 
