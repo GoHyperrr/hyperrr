@@ -15,6 +15,7 @@ type Config struct {
 	LogFormat         string `mapstructure:"LOG_FORMAT"`
 	ServerPort        int    `mapstructure:"SERVER_PORT"`
 	EventBusProvider  string `mapstructure:"EVENT_BUS_PROVIDER"`
+	WorkflowStoreType string `mapstructure:"WORKFLOW_STORE_TYPE"`
 	DBDriver          string `mapstructure:"DB_DRIVER"`
 	DBDSN             string `mapstructure:"DB_DSN"`
 	JWTSecret         string `mapstructure:"JWT_SECRET"`
@@ -39,6 +40,7 @@ func LoadWithFile(filename string) (*Config, error) {
 	v.SetDefault("LOG_FORMAT", "text")
 	v.SetDefault("SERVER_PORT", 8080)
 	v.SetDefault("EVENT_BUS_PROVIDER", "inmem")
+	v.SetDefault("WORKFLOW_STORE_TYPE", "mem")
 	v.SetDefault("DB_DRIVER", "sqlite")
 	v.SetDefault("DB_DSN", "hyperrr.db")
 	v.SetDefault("JWT_SECRET", "hyperrr-secret-key")
