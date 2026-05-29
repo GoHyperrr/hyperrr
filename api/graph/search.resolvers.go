@@ -8,10 +8,10 @@ package graph
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/commerce/product"
+	"github.com/google/uuid"
 )
 
 // SearchProducts is the resolver for the searchProducts field.
@@ -31,7 +31,7 @@ func (r *queryResolver) SearchProducts(ctx context.Context, query string, limit 
 		"limit": lim,
 	}
 
-	execID := fmt.Sprintf("search_%d", time.Now().UnixNano())
+	execID := "search_" + uuid.New().String()
 	results, err := r.Runner.Execute(ctx, execID, wf, workflowInput)
 	if err != nil {
 		return nil, err

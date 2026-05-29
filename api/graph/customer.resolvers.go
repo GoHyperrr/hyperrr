@@ -8,11 +8,11 @@ package graph
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/commerce/customer"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	"github.com/google/uuid"
 )
 
 // UpdateCustomer is the resolver for the updateCustomer field.
@@ -34,7 +34,7 @@ func (r *mutationResolver) UpdateCustomer(ctx context.Context, id string, input 
 		workflowInput["email"] = *input.Email
 	}
 
-	execID := fmt.Sprintf("update_cust_%d", time.Now().UnixNano())
+	execID := "update_cust_" + uuid.New().String()
 	results, err := r.Runner.Execute(ctx, execID, wf, workflowInput)
 	if err != nil {
 		return nil, err

@@ -12,6 +12,7 @@ import (
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/commerce/support"
+	"github.com/google/uuid"
 )
 
 // CreateTicket is the resolver for the createTicket field.
@@ -27,7 +28,7 @@ func (r *mutationResolver) CreateTicket(ctx context.Context, customerID string, 
 		"message":     message,
 	}
 
-	execID := fmt.Sprintf("tkt_wf_%d", time.Now().UnixNano())
+	execID := "tkt_wf_" + uuid.New().String()
 	results, err := r.Runner.Execute(ctx, execID, wf, workflowInput)
 	if err != nil {
 		return nil, err
@@ -53,7 +54,7 @@ func (r *mutationResolver) CreateTicket(ctx context.Context, customerID string, 
 // AddTicketMessage is the resolver for the addTicketMessage field.
 func (r *mutationResolver) AddTicketMessage(ctx context.Context, ticketID string, sender string, content string) (*model.Message, error) {
 	msg := &support.Message{
-		ID:        fmt.Sprintf("msg_%d", time.Now().UnixNano()),
+		ID:        "msg_" + uuid.New().String(),
 		TicketID:  ticketID,
 		Sender:    support.SenderType(sender),
 		Content:   content,

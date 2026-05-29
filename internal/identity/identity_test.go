@@ -3,18 +3,17 @@ package identity
 import (
 	"context"
 	"fmt"
-	"os"
+	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"github.com/google/uuid"
 )
 
 func TestIdentityModule(t *testing.T) {
-	dbFile := "identity_test.db"
-	defer os.Remove(dbFile)
+	dbFile := filepath.Join(t.TempDir(), "identity_test.db")
 
 	cfg := &config.Config{
 		DBDriver: "sqlite",
@@ -25,6 +24,8 @@ func TestIdentityModule(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to connect: %v", err)
 	}
+	sqlDB, _ := database.DB.DB()
+	defer sqlDB.Close()
 
 	mod := NewModule()
 	deps := &registry.Dependencies{
@@ -108,7 +109,7 @@ func TestIdentityModule(t *testing.T) {
 	
 	t.Run("Register and Login", func(t *testing.T) {
 		ctx := context.Background()
-		email := fmt.Sprintf("new_%d@example.com", time.Now().UnixNano())
+		email := fmt.Sprintf("new_%s@example.com", uuid.New().String()[:8])
 		// 1. Success
 		actor, err := mod.Register(ctx, email, "pass123", "New User")
 		if err != nil || actor.Name != "New User" {

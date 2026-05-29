@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/config"
+	"github.com/google/uuid"
 	gormlogger "gorm.io/gorm/logger"
 )
 
@@ -21,6 +22,8 @@ func TestConnect(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to connect to sqlite: %v", err)
 		}
+		sqlDB, _ := db.DB.DB()
+		defer sqlDB.Close()
 
 		if db == nil {
 			t.Fatal("expected db to be non-nil")
@@ -34,15 +37,19 @@ func TestConnect(t *testing.T) {
 		}
 
 		// This will likely fail to connect but will cover the 'case "postgres"' line.
-		_, err := Connect(cfg)
+		db, err := Connect(cfg)
 		if err == nil {
 			t.Log("Unexpectedly connected to postgres (is it running?)")
+			sqlDB, _ := db.DB.DB()
+			defer sqlDB.Close()
 		}
 	})
 
 	t.Run("AutoMigrate empty", func(t *testing.T) {
 		cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 		db, _ := Connect(cfg)
+		sqlDB, _ := db.DB.DB()
+		defer sqlDB.Close()
 		db.AutoMigrateAll()
 	})
 
@@ -66,9 +73,11 @@ func TestConnect(t *testing.T) {
 	})
 
 	t.Run("Transaction", func(t *testing.T) {
-		id := fmt.Sprintf("tx_%d", time.Now().UnixNano())
+		id := fmt.Sprintf("tx_%s", uuid.New().String()[:8])
 		cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 		database, _ := Connect(cfg)
+		sqlDB, _ := database.DB.DB()
+		defer sqlDB.Close()
 		database.AutoMigrate(&IdempotencyKey{})
 
 		err := database.Transaction(func(tx *DB) error {
@@ -107,6 +116,8 @@ func TestConnect(t *testing.T) {
 func TestIdempotency(t *testing.T) {
 	cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 	database, _ := Connect(cfg)
+	sqlDB, _ := database.DB.DB()
+	defer sqlDB.Close()
 	database.AutoMigrate(&IdempotencyKey{})
 
 	ctx := context.Background()
@@ -174,6 +185,8 @@ func TestAutoMigrateAll(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to connect: %v", err)
 	}
+	sqlDB, _ := db.DB.DB()
+	defer sqlDB.Close()
 
 	type TestModel struct {
 		ID   uint `gorm:"primaryKey"`

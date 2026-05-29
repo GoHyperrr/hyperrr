@@ -7,6 +7,7 @@ import (
 
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
+	"github.com/google/uuid"
 )
 
 // CreateOrder initializes the order in PENDING state.
@@ -32,7 +33,7 @@ func (m *Module) CreateOrder(ctx context.Context, input any) (any, error) {
 		return nil, fmt.Errorf("invalid or missing input fields")
 	}
 
-	orderID := fmt.Sprintf("ord_%d", time.Now().UnixNano())
+	orderID := "ord_" + uuid.New().String()
 	o := &Order{
 		ID:         orderID,
 		CustomerID: customerID,
@@ -66,7 +67,7 @@ func (m *Module) CreateOrder(ctx context.Context, input any) (any, error) {
 		}
 		
 		o.Items = append(o.Items, OrderItem{
-			ID:        fmt.Sprintf("oi_%d_%s", time.Now().UnixNano(), productID),
+			ID:        "oi_" + uuid.New().String() + "_" + productID,
 			OrderID:   orderID,
 			ProductID: productID,
 			Quantity:  quantity,
@@ -84,7 +85,7 @@ func (m *Module) CreateOrder(ctx context.Context, input any) (any, error) {
 	if m.bus != nil {
 		wfID, _ := data["_workflow_id"].(string)
 		m.bus.Publish(ctx, eventbus.Event{
-			ID:   fmt.Sprintf("evt_ord_cre_%d", time.Now().UnixNano()),
+			ID:   "evt_ord_cre_" + uuid.New().String(),
 			Type: "order.created",
 			Metadata: map[string]string{
 				"correlation_id": wfID,
@@ -133,7 +134,7 @@ func (m *Module) FinalizeOrder(ctx context.Context, input any) (any, error) {
 	if m.bus != nil {
 		wfID, _ := data["_workflow_id"].(string)
 		m.bus.Publish(ctx, eventbus.Event{
-			ID:   fmt.Sprintf("evt_ord_paid_%d", time.Now().UnixNano()),
+			ID:   "evt_ord_paid_" + uuid.New().String(),
 			Type: "order.paid",
 			Metadata: map[string]string{
 				"correlation_id": wfID,

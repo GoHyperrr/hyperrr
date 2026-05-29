@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
+	"github.com/google/uuid"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
@@ -37,7 +37,7 @@ func TestMarketingModule(t *testing.T) {
 	database.AutoMigrateAll()
 
 	t.Run("Validate Coupon", func(t *testing.T) {
-		code := fmt.Sprintf("SAVE_%d", time.Now().UnixNano())
+		code := fmt.Sprintf("SAVE_%s", uuid.New().String()[:8])
 		c := &Coupon{ID: "c1", Code: code, DiscountPercentage: 10.0, Active: true}
 		mod.Repo().SaveCoupon(context.Background(), c)
 
@@ -58,7 +58,7 @@ func TestMarketingModule(t *testing.T) {
 	})
 
 	t.Run("Add Loyalty Points", func(t *testing.T) {
-		customerID := fmt.Sprintf("cust_%d", time.Now().UnixNano())
+		customerID := fmt.Sprintf("cust_%s", uuid.New().String()[:8])
 		o := &mockOrder{ID: "ord1", CustomerID: customerID, TotalPrice: 150.0}
 		
 		results := map[string]any{
@@ -78,7 +78,7 @@ func TestMarketingModule(t *testing.T) {
 	})
 
 	t.Run("Add Loyalty Points Fallback", func(t *testing.T) {
-		customerID := fmt.Sprintf("cust_fb_%d", time.Now().UnixNano())
+		customerID := fmt.Sprintf("cust_fb_%s", uuid.New().String()[:8])
 		o := &mockOrder{ID: "ord_fb", CustomerID: customerID, TotalPrice: 100.0}
 		
 		results := map[string]any{

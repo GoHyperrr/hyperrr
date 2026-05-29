@@ -3,8 +3,8 @@ package cart
 import (
 	"context"
 	"fmt"
-	"time"
 
+	"github.com/google/uuid"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 )
 
@@ -60,7 +60,7 @@ func (m *Module) AddItem(ctx context.Context, input any) (any, error) {
 
 	if !found {
 		c.Items = append(c.Items, CartItem{
-			ID:        fmt.Sprintf("ci_%d", time.Now().UnixNano()),
+			ID:        "ci_" + uuid.New().String(),
 			CartID:    cartID,
 			ProductID: productID,
 			Quantity:  quantity,

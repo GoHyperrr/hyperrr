@@ -1,10 +1,8 @@
 package db
 
 import (
-	"fmt"
-	"os"
+	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 )
@@ -23,10 +21,11 @@ func TestAutoMigrateAllEdgeCases(t *testing.T) {
 			registryMu.Unlock()
 		}()
 		
-		dbFile := fmt.Sprintf("empty_migrate_%d.db", time.Now().UnixNano())
-		defer os.Remove(dbFile)
+		dbFile := filepath.Join(t.TempDir(), "empty_migrate.db")
 		cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
 		database, _ := Connect(cfg)
+		sqlDB, _ := database.DB.DB()
+		defer sqlDB.Close()
 		
 		err := database.AutoMigrateAll()
 		if err != nil {
@@ -35,13 +34,13 @@ func TestAutoMigrateAllEdgeCases(t *testing.T) {
 	})
 
 	t.Run("AutoMigrateAll Failure", func(t *testing.T) {
-		dbFile := fmt.Sprintf("migrate_fail_%d.db", time.Now().UnixNano())
-		defer os.Remove(dbFile)
+		dbFile := filepath.Join(t.TempDir(), "migrate_fail.db")
 		cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
 		database, _ := Connect(cfg)
+		sqlDB, _ := database.DB.DB()
+		defer sqlDB.Close()
 		
-		d, _ := database.DB.DB()
-		d.Close() // Close underlying DB to force failure
+		sqlDB.Close() // Close underlying DB to force failure
 		
 		err := database.AutoMigrateAll()
 		if err == nil {

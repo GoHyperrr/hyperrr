@@ -3,8 +3,8 @@ package finance
 import (
 	"context"
 	"fmt"
-	"time"
 
+	"github.com/google/uuid"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 	"github.com/GoHyperrr/hyperrr/pkg/utils"
@@ -54,7 +54,7 @@ func (m *Module) ProcessPayment(ctx context.Context, input any) (any, error) {
 
 	forceFail, _ := workflowInput["fail_payment"].(bool)
 
-	paymentID := fmt.Sprintf("pay_%d", time.Now().UnixNano())
+	paymentID := "pay_" + uuid.New().String()
 	
 	p := &Payment{
 		ID:      paymentID,

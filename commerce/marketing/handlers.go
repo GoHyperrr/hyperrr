@@ -3,11 +3,11 @@ package marketing
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 	"github.com/GoHyperrr/hyperrr/pkg/utils"
+	"github.com/google/uuid"
 )
 
 // ValidateCoupon checks if a coupon is valid and returns it.
@@ -70,7 +70,7 @@ func (m *Module) AddLoyaltyPoints(ctx context.Context, input any) (any, error) {
 	if err != nil {
 		// Auto-create loyalty account if it doesn't exist
 		lp = &LoyaltyPoints{
-			ID:         fmt.Sprintf("lp_%d", time.Now().UnixNano()),
+			ID:         "lp_" + uuid.New().String(),
 			CustomerID: o.GetCustomerID(),
 			Balance:    0,
 		}

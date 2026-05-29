@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
@@ -29,7 +30,7 @@ func TestNotificationModule(t *testing.T) {
 	database.AutoMigrateAll()
 
 	t.Run("Send Notification Success", func(t *testing.T) {
-		recipient := fmt.Sprintf("test_%d@example.com", time.Now().UnixNano())
+		recipient := fmt.Sprintf("test_%s@example.com", uuid.New().String()[:8])
 		wf := &workflow.Workflow{
 			Steps: []workflow.Step{{ID: "send", Uses: "notification.send"}},
 		}
@@ -59,7 +60,7 @@ func TestNotificationModule(t *testing.T) {
 	})
 
 	t.Run("Send Notification Failure", func(t *testing.T) {
-		recipient := fmt.Sprintf("fail_%d@example.com", time.Now().UnixNano())
+		recipient := fmt.Sprintf("fail_%s@example.com", uuid.New().String()[:8])
 		mockProv.ShouldFail = true
 		
 		wf := &workflow.Workflow{
@@ -88,7 +89,7 @@ func TestNotificationModule(t *testing.T) {
 	})
 	
 	t.Run("Event Subscriptions", func(t *testing.T) {
-		recipient := fmt.Sprintf("event_%d@example.com", time.Now().UnixNano())
+		recipient := fmt.Sprintf("event_%s@example.com", uuid.New().String()[:8])
 		// Test identity.user_created
 		bus.Publish(context.Background(), eventbus.Event{
 			Type: "identity.user_created",

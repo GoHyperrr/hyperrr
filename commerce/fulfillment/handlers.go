@@ -3,8 +3,8 @@ package fulfillment
 import (
 	"context"
 	"fmt"
-	"time"
 
+	"github.com/google/uuid"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 	"github.com/GoHyperrr/hyperrr/pkg/utils"
@@ -51,7 +51,7 @@ func (m *Module) ReserveInventory(ctx context.Context, input any) (any, error) {
 		if err != nil {
 			// In MVP, we might auto-create inventory if it doesn't exist just for testing
 			inv = &Inventory{
-				ID:                fmt.Sprintf("inv_%d", time.Now().UnixNano()),
+				ID: "inv_" + uuid.New().String(),
 				ProductID:         productID,
 				AvailableQuantity: 100, // Mock stock
 			}
@@ -141,7 +141,7 @@ func (m *Module) CreateShipment(ctx context.Context, input any) (any, error) {
 	}
 
 	s := &Shipment{
-		ID:      fmt.Sprintf("shp_%d", time.Now().UnixNano()),
+		ID:      "shp_" + uuid.New().String(),
 		OrderID: o.GetOrderID(),
 		Status:  ShipmentPending,
 	}

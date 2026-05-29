@@ -8,10 +8,10 @@ package graph
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/commerce/order"
+	"github.com/google/uuid"
 )
 
 // CreateOrderFromCart is the resolver for the createOrderFromCart field.
@@ -46,7 +46,7 @@ func (r *mutationResolver) CreateOrderFromCart(ctx context.Context, cartID strin
 		return nil, err
 	}
 
-	execID := fmt.Sprintf("fulfill_%d", time.Now().UnixNano())
+	execID := "fulfill_" + uuid.New().String()
 	results, err := r.Runner.Execute(ctx, execID, wf, workflowInput)
 	if err != nil {
 		return nil, err

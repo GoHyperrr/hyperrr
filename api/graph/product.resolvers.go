@@ -8,10 +8,10 @@ package graph
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/commerce/product"
+	"github.com/google/uuid"
 )
 
 // CreateProduct is the resolver for the createProduct field.
@@ -33,7 +33,7 @@ func (r *mutationResolver) CreateProduct(ctx context.Context, input model.Create
 		"price":       input.Price,
 	}
 
-	execID := fmt.Sprintf("create_prod_%d", time.Now().UnixNano())
+	execID := "create_prod_" + uuid.New().String()
 	results, err := r.Runner.Execute(ctx, execID, wf, workflowInput)
 	if err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func (r *mutationResolver) UpdateProduct(ctx context.Context, id string, input m
 		workflowInput["price"] = *input.Price
 	}
 
-	execID := fmt.Sprintf("update_prod_%d", time.Now().UnixNano())
+	execID := "update_prod_" + uuid.New().String()
 	results, err := r.Runner.Execute(ctx, execID, wf, workflowInput)
 	if err != nil {
 		return nil, err

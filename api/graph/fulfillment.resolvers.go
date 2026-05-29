@@ -8,10 +8,10 @@ package graph
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/commerce/fulfillment"
+	"github.com/google/uuid"
 )
 
 // UpdateShipmentStatus is the resolver for the updateShipmentStatus field.
@@ -31,7 +31,7 @@ func (r *mutationResolver) UpdateShipmentStatus(ctx context.Context, shipmentID 
 		workflowInput["carrier"] = *carrier
 	}
 
-	execID := fmt.Sprintf("ship_%d", time.Now().UnixNano())
+	execID := "ship_" + uuid.New().String()
 	results, err := r.Runner.Execute(ctx, execID, wf, workflowInput)
 	if err != nil {
 		return nil, err

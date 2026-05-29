@@ -3,10 +3,10 @@ package auth
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/db"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -44,7 +44,7 @@ func NewAuthStore(database *db.DB, signingKey string, expiration time.Duration) 
 
 func (s *AuthStore) Blacklist(ctx context.Context, jti string, expiresAt time.Time) error {
 	return s.db.WithContext(ctx).Create(&Blacklist{
-		ID:        fmt.Sprintf("bl_%d", time.Now().UnixNano()),
+		ID:        "bl_" + uuid.New().String(),
 		JTI:       jti,
 		ExpiresAt: expiresAt,
 	}).Error

@@ -14,6 +14,9 @@ func TestOutbox(t *testing.T) {
 
 	cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
 	database, _ := Connect(cfg)
+	sqlDB, _ := database.DB.DB()
+	defer sqlDB.Close()
+
 	database.AutoMigrateAll()
 
 	t.Run("SaveToOutbox", func(t *testing.T) {
@@ -48,10 +51,12 @@ func TestOutbox(t *testing.T) {
 		defer os.Remove(dbFile)
 		cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
 		db, _ := Connect(cfg)
+		sqlDB, _ := db.DB.DB()
+		defer sqlDB.Close()
+		
 		db.AutoMigrateAll()
 		
-		d, _ := db.DB.DB()
-		d.Close() // Close to force failure
+		sqlDB.Close() // Close to force failure
 
 		err := db.SaveToOutbox(context.Background(), "test", map[string]string{"a": "b"})
 		if err == nil {

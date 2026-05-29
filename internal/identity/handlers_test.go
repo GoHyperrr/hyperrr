@@ -3,22 +3,24 @@ package identity
 import (
 	"context"
 	"fmt"
-	"os"
+	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"github.com/google/uuid"
 )
 
 func TestIdentityHandlers(t *testing.T) {
-	dbFile := "identity_h_test.db"
-	defer os.Remove(dbFile)
+	dbFile := filepath.Join(t.TempDir(), "identity_h_test.db")
 
 	cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
 	database, _ := db.Connect(cfg)
+	sqlDB, _ := database.DB.DB()
+	defer sqlDB.Close()
+
 	bus := eventbus.NewInMemBus()
 
 	mod := NewModule()
@@ -82,7 +84,7 @@ func TestIdentityHandlers(t *testing.T) {
 	})
 
 	t.Run("Register", func(t *testing.T) {
-		email := fmt.Sprintf("reg_%d@example.com", time.Now().UnixNano())
+		email := fmt.Sprintf("reg_%s@example.com", uuid.New().String()[:8])
 		actor, err := mod.Register(context.Background(), email, "pass", "New User")
 		if err != nil {
 			t.Fatalf("failed to register: %v", err)

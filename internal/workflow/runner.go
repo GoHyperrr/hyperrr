@@ -9,6 +9,7 @@ import (
 
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
+	"github.com/google/uuid"
 )
 
 // TaskHandler is a function that executes a workflow step.
@@ -311,7 +312,7 @@ func (r *Runner) emit(ctx context.Context, eventType string, payload any) {
 		return
 	}
 	event := eventbus.Event{
-		ID:        fmt.Sprintf("evt_%d", time.Now().UnixNano()),
+		ID:        "evt_" + uuid.New().String(),
 		Type:      eventType,
 		Payload:   payload,
 		Timestamp: time.Now(),

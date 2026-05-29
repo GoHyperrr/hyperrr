@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
+	"github.com/google/uuid"
 )
 
 func (m *Module) CreateTicket(ctx context.Context, input any) (any, error) {
@@ -23,7 +24,7 @@ func (m *Module) CreateTicket(ctx context.Context, input any) (any, error) {
 	subject, _ := workflowInput["subject"].(string)
 	initialMessage, _ := workflowInput["message"].(string)
 
-	ticketID := fmt.Sprintf("tkt_%d", time.Now().UnixNano())
+	ticketID := "tkt_" + uuid.New().String()
 	t := &Ticket{
 		ID:         ticketID,
 		CustomerID: customerID,
@@ -31,7 +32,7 @@ func (m *Module) CreateTicket(ctx context.Context, input any) (any, error) {
 		Status:     TicketOpen,
 		Messages: []Message{
 			{
-				ID:        fmt.Sprintf("msg_%d", time.Now().UnixNano()),
+				ID:        "msg_" + uuid.New().String(),
 				TicketID:  ticketID,
 				Sender:    SenderHuman,
 				Content:   initialMessage,
@@ -87,7 +88,7 @@ func (m *Module) DispatchAIResponse(ctx context.Context, input any) (any, error)
 	}
 
 	msg := &Message{
-		ID:        fmt.Sprintf("msg_ai_%d", time.Now().UnixNano()),
+		ID:        "msg_ai_" + uuid.New().String(),
 		TicketID:  t.ID,
 		Sender:    SenderAI,
 		Content:   aiContent,

@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/GoHyperrr/hyperrr/commerce/product"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
+	"github.com/google/uuid"
 )
 
 // SearchProducts simulates a semantic/vector search across the product catalog.
@@ -60,7 +60,7 @@ func (m *Module) SearchProducts(ctx context.Context, input any) (any, error) {
 
 	// Track search history
 	history := &SearchHistory{
-		ID:        fmt.Sprintf("sh_%d", time.Now().UnixNano()),
+		ID:        "sh_" + uuid.New().String(),
 		Query:     query,
 		ActorID:   actorID,
 		ResultCount: len(results),

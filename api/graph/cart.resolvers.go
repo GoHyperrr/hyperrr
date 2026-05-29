@@ -8,10 +8,10 @@ package graph
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/commerce/cart"
+	"github.com/google/uuid"
 )
 
 // AddItemToCart is the resolver for the addItemToCart field.
@@ -28,7 +28,7 @@ func (r *mutationResolver) AddItemToCart(ctx context.Context, cartID string, inp
 		"price":      input.Price,
 	}
 
-	execID := fmt.Sprintf("add_item_%d", time.Now().UnixNano())
+	execID := "add_item_" + uuid.New().String()
 	results, err := r.Runner.Execute(ctx, execID, wf, workflowInput)
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func (r *mutationResolver) RemoveItemFromCart(ctx context.Context, cartID string
 		"item_id": itemID,
 	}
 
-	execID := fmt.Sprintf("remove_item_%d", time.Now().UnixNano())
+	execID := "remove_item_" + uuid.New().String()
 	results, err := r.Runner.Execute(ctx, execID, wf, workflowInput)
 	if err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func (r *mutationResolver) CheckoutCart(ctx context.Context, cartID string) (boo
 		"cart_id": cartID,
 	}
 
-	execID := fmt.Sprintf("checkout_%d", time.Now().UnixNano())
+	execID := "checkout_" + uuid.New().String()
 	_, err = r.Runner.Execute(ctx, execID, wf, workflowInput)
 	if err != nil {
 		return false, err
@@ -123,7 +123,7 @@ func (r *queryResolver) GetActiveCart(ctx context.Context, customerID string) (*
 	if err != nil {
 		// If not found, create a new one
 		newCart := &cart.Cart{
-			ID:         fmt.Sprintf("cart_%d", time.Now().UnixNano()),
+			ID:         "cart_" + uuid.New().String(),
 			CustomerID: customerID,
 			Status:     cart.CartActive,
 		}

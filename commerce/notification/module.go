@@ -3,13 +3,13 @@ package notification
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 	"github.com/GoHyperrr/hyperrr/pkg/utils"
+	"github.com/google/uuid"
 )
 
 // Module implements the registry.Module interface for Notification.
@@ -53,7 +53,7 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 			"body":      fmt.Sprintf("Hi %s, thanks for joining.", name),
 		}
 
-		go deps.Runner.Execute(ctx, fmt.Sprintf("notify_%d", time.Now().UnixNano()), wf, input)
+		go deps.Runner.Execute(ctx, "notify_"+uuid.New().String(), wf, input)
 		return nil
 	})
 

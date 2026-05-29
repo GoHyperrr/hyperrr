@@ -3,27 +3,30 @@ package auth
 import (
 	"context"
 	"fmt"
-	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 )
 
 func TestAuthStore(t *testing.T) {
-	dbFile := "auth_store_test.db"
-	defer os.Remove(dbFile)
+	dbFile := filepath.Join(t.TempDir(), "auth_store_test.db")
 
 	cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
 	database, _ := db.Connect(cfg)
+	sqlDB, _ := database.DB.DB()
+	defer sqlDB.Close()
+
 	database.AutoMigrate(&Blacklist{}, &RefreshToken{})
 
 	store := NewAuthStore(database, "secret", 24*time.Hour)
 	ctx := context.Background()
 
 	t.Run("Blacklist", func(t *testing.T) {
-		jti := fmt.Sprintf("jti_%d", time.Now().UnixNano())
+		jti := fmt.Sprintf("jti_%s", uuid.New().String()[:8])
 		err := store.Blacklist(ctx, jti, time.Now().Add(time.Hour))
 		if err != nil { t.Error(err) }
 		
@@ -33,7 +36,7 @@ func TestAuthStore(t *testing.T) {
 	})
 
 	t.Run("RefreshTokens", func(t *testing.T) {
-		token := fmt.Sprintf("token_%d", time.Now().UnixNano())
+		token := fmt.Sprintf("token_%s", uuid.New().String()[:8])
 		err := store.SaveRefreshToken(ctx, &RefreshToken{ID: token, ActorID: "a1", Token: token, ExpiresAt: time.Now().Add(time.Hour)})
 		if err != nil { t.Error(err) }
 		

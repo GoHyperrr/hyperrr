@@ -3,7 +3,8 @@ package notification
 import (
 	"context"
 	"fmt"
-	"time"
+
+	"github.com/google/uuid"
 )
 
 // SendNotification executes the notification delivery via the provider.
@@ -27,7 +28,7 @@ func (m *Module) SendNotification(ctx context.Context, input any) (any, error) {
 	body, _ := workflowInput["body"].(string)
 
 	n := &Notification{
-		ID:        fmt.Sprintf("notif_%d", time.Now().UnixNano()),
+		ID:        "notif_" + uuid.New().String(),
 		Recipient: recipient,
 		Channel:   NotificationChannel(channelStr),
 		Subject:   subject,

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
+	"github.com/google/uuid"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
@@ -38,7 +38,7 @@ func TestFulfillmentWorkflow(t *testing.T) {
 	database.AutoMigrateAll()
 
 	t.Run("Reserve Inventory Success", func(t *testing.T) {
-		productID := fmt.Sprintf("p_res_%d", time.Now().UnixNano())
+		productID := "p_res_" + uuid.New().String()[:8]
 		wf := &workflow.Workflow{
 			Steps: []workflow.Step{{ID: "reserve", Uses: "fulfillment.reserve_inventory"}},
 		}
@@ -67,7 +67,7 @@ func TestFulfillmentWorkflow(t *testing.T) {
 	})
 
 	t.Run("Reserve Inventory Failure", func(t *testing.T) {
-		productID := fmt.Sprintf("p_fail_%d", time.Now().UnixNano())
+		productID := "p_fail_" + uuid.New().String()[:8]
 		wf := &workflow.Workflow{
 			Steps: []workflow.Step{{ID: "reserve", Uses: "fulfillment.reserve_inventory"}},
 		}
@@ -85,7 +85,7 @@ func TestFulfillmentWorkflow(t *testing.T) {
 	})
 
 	t.Run("Release Inventory Compensation", func(t *testing.T) {
-		productID := fmt.Sprintf("p_rel_%d", time.Now().UnixNano())
+		productID := "p_rel_" + uuid.New().String()[:8]
 		inv := &Inventory{ID: "inv_rel", ProductID: productID, AvailableQuantity: 50}
 		mod.Repo().SaveInventory(context.Background(), inv)
 
@@ -109,7 +109,7 @@ func TestFulfillmentWorkflow(t *testing.T) {
 	})
 
 	t.Run("Create Shipment", func(t *testing.T) {
-		orderID := fmt.Sprintf("ord_ship_%d", time.Now().UnixNano())
+		orderID := fmt.Sprintf("ord_ship_%s", uuid.New().String()[:8])
 		o := &mockOrder{ID: orderID}
 
 		input := map[string]any{}
@@ -132,8 +132,8 @@ func TestFulfillmentWorkflow(t *testing.T) {
 	})
 
 	t.Run("Ship Order", func(t *testing.T) {
-		orderID := fmt.Sprintf("ord_shipped_%d", time.Now().UnixNano())
-		shipID := fmt.Sprintf("s_%d", time.Now().UnixNano())
+		orderID := fmt.Sprintf("ord_shipped_%s", uuid.New().String()[:8])
+		shipID := fmt.Sprintf("s_%s", uuid.New().String()[:8])
 		s := &Shipment{ID: shipID, OrderID: orderID, Status: ShipmentPending}
 		mod.Repo().SaveShipment(context.Background(), s)
 

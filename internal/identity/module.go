@@ -2,7 +2,6 @@ package identity
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
@@ -10,6 +9,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"github.com/google/uuid"
 )
 
 // Module implements the registry.Module interface for Identity.
@@ -60,7 +60,7 @@ func (m *Module) emit(ctx context.Context, eventType string, payload any) {
 		return
 	}
 	event := eventbus.Event{
-		ID:        fmt.Sprintf("evt_%d", time.Now().UnixNano()),
+		ID:        "evt_" + uuid.New().String(),
 		Type:      eventType,
 		Payload:   payload,
 		Timestamp: time.Now(),

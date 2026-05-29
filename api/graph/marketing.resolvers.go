@@ -7,11 +7,10 @@ package graph
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/commerce/cart"
+	"github.com/google/uuid"
 )
 
 // ApplyCouponToCart is the resolver for the applyCouponToCart field.
@@ -31,7 +30,7 @@ func (r *mutationResolver) ApplyCouponToCart(ctx context.Context, cartID string,
 		"price":       0.0, // Simplified
 	}
 
-	execID := fmt.Sprintf("promo_%d", time.Now().UnixNano())
+	execID := "promo_" + uuid.New().String()
 	results, err := r.Runner.Execute(ctx, execID, wf, workflowInput)
 	if err != nil {
 		return nil, err
