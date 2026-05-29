@@ -2,10 +2,13 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/config"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 func TestConnect(t *testing.T) {
@@ -67,31 +70,108 @@ func TestConnect(t *testing.T) {
 			t.Error("expected error for invalid sqlite dsn")
 		}
 	})
+
+	t.Run("Transaction", func(t *testing.T) {
+		id := fmt.Sprintf("tx_%d", time.Now().UnixNano())
+		dbFile := fmt.Sprintf("tx_test_%d.db", time.Now().UnixNano())
+		defer os.Remove(dbFile)
+		cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+		database, _ := Connect(cfg)
+		database.AutoMigrate(&IdempotencyKey{})
+
+		err := database.Transaction(func(tx *DB) error {
+			return tx.Create(&IdempotencyKey{ID: id, Scope: "unique_s_" + id, Key: "unique_k_" + id}).Error
+		})
+		if err != nil { t.Errorf("Transaction failed: %v", err) }
+
+		var got IdempotencyKey
+		database.First(&got, "id = ?", id)
+		if got.ID != id { t.Error("Transaction did not persist") }
+	})
+
+	t.Run("Logger Bridge", func(t *testing.T) {
+		bridge := &gormLoggerBridge{LogLevel: gormlogger.Info}
+		ctx := context.Background()
+		
+		// Cover LogMode
+		bridge.LogMode(gormlogger.Warn)
+		
+		// Cover Info/Warn/Error
+		bridge.Info(ctx, "test info")
+		bridge.Warn(ctx, "test warn")
+		bridge.Error(ctx, "test error")
+
+		// Cover Trace
+		bridge.Trace(ctx, time.Now(), func() (string, int64) { return "SELECT 1", 1 }, nil)
+		bridge.Trace(ctx, time.Now().Add(-2*time.Second), func() (string, int64) { return "SELECT 1", 1 }, nil)
+		bridge.Trace(ctx, time.Now(), func() (string, int64) { return "SELECT 1", 1 }, fmt.Errorf("trace err"))
+		
+		// Cover LogLevel 0 (silent)
+		quiet := &gormLoggerBridge{LogLevel: 0}
+		quiet.Trace(ctx, time.Now(), func() (string, int64) { return "SELECT 1", 1 }, nil)
+	})
 }
 
-func TestIdempotencyFailures(t *testing.T) {
-	dbFile := "idempotency_fail.db"
+func TestIdempotency(t *testing.T) {
+	dbFile := "idempotency.db"
 	defer os.Remove(dbFile)
 	cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
 	database, _ := Connect(cfg)
 	database.AutoMigrate(&IdempotencyKey{})
 
-	// Close the underlying sql.DB to trigger failures
-	sqlDB, _ := database.DB.DB()
-	sqlDB.Close()
-
 	ctx := context.Background()
+	scope := "test_scope"
+	key := "test_key"
 
-	// IsProcessed should return false on error based on current implementation
-	if database.IsProcessed(ctx, "test", "key") {
-		t.Error("expected IsProcessed to return false on error")
-	}
+	t.Run("Success Path", func(t *testing.T) {
+		// Should not be processed initially
+		processed, err := database.IsProcessed(ctx, scope, key)
+		if err != nil {
+			t.Fatalf("IsProcessed failed: %v", err)
+		}
+		if processed {
+			t.Error("expected processed to be false")
+		}
 
-	// MarkProcessed should return error
-	err := database.MarkProcessed(ctx, "test", "key")
-	if err == nil {
-		t.Error("expected MarkProcessed to return error on closed DB")
-	}
+		// Mark as processed
+		err = database.MarkProcessed(ctx, scope, key)
+		if err != nil {
+			t.Fatalf("MarkProcessed failed: %v", err)
+		}
+
+		// Should now be processed
+		processed, err = database.IsProcessed(ctx, scope, key)
+		if err != nil {
+			t.Fatalf("IsProcessed failed: %v", err)
+		}
+		if !processed {
+			t.Error("expected processed to be true")
+		}
+
+		// Duplicate mark should fail (unique constraint)
+		err = database.MarkProcessed(ctx, scope, key)
+		if err == nil {
+			t.Error("expected error for duplicate MarkProcessed")
+		}
+	})
+
+	t.Run("Failures", func(t *testing.T) {
+		// Close the underlying sql.DB to trigger failures
+		sqlDB, _ := database.DB.DB()
+		sqlDB.Close()
+
+		// IsProcessed should return error on closed DB
+		_, err := database.IsProcessed(ctx, "fail", "key")
+		if err == nil {
+			t.Error("expected IsProcessed to return error on closed DB")
+		}
+
+		// MarkProcessed should return error on closed DB
+		err = database.MarkProcessed(ctx, "fail", "key")
+		if err == nil {
+			t.Error("expected MarkProcessed to return error on closed DB")
+		}
+	})
 }
 
 func TestAutoMigrateAll(t *testing.T) {

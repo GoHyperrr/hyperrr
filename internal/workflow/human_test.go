@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -96,10 +97,19 @@ func TestHumanIntervention(t *testing.T) {
 		}
 	})
 
-	t.Run("Invalid Signal", func(t *testing.T) {
-		err := runner.ResumeWorkflow("ghost", "retry")
-		if err == nil {
-			t.Error("expected error for non-existent workflow")
+	t.Run("Resume Timeout", func(t *testing.T) {
+		// Create a runner with a blocked channel
+		r := NewRunner(bus)
+		id := "wf-timeout"
+		ch := make(chan string) // no buffer, no one reading
+		r.mu.Lock()
+		r.waiting[id] = ch
+		r.mu.Unlock()
+
+		// We need to decrease the timeout for test or just wait 500ms
+		err := r.ResumeWorkflow(id, "retry")
+		if err == nil || !strings.Contains(err.Error(), "timeout") {
+			t.Errorf("expected timeout error, got %v", err)
 		}
 	})
 }

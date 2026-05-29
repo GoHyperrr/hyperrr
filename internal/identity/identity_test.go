@@ -47,7 +47,7 @@ func TestIdentityModule(t *testing.T) {
 
 		input := map[string]any{
 			"input": map[string]any{
-				"actor_id": "actor_1",
+				KeyActorID: "actor_1",
 			},
 		}
 
@@ -78,7 +78,7 @@ func TestIdentityModule(t *testing.T) {
 	})
 
 	t.Run("Actor Not Found", func(t *testing.T) {
-		input := map[string]any{"input": map[string]any{"actor_id": "ghost"}}
+		input := map[string]any{"input": map[string]any{KeyActorID: "ghost"}}
 		_, err := mod.ValidateActor(context.Background(), input)
 		if err == nil {
 			t.Error("expected error for non-existent actor")
@@ -98,7 +98,7 @@ func TestIdentityModule(t *testing.T) {
 		
 		_, err = mod.ValidateActor(context.Background(), map[string]any{"input": map[string]any{"wrong": "key"}})
 		if err == nil {
-			t.Error("expected error for missing actor_id")
+			t.Errorf("expected error for missing %s", KeyActorID)
 		}
 		_, err = mod.ValidateActor(context.Background(), map[string]any{"input": "invalid"})
 		if err == nil {
@@ -136,7 +136,7 @@ func TestIdentityModule(t *testing.T) {
 
 	t.Run("Handlers Map", func(t *testing.T) {
 		h := mod.Handlers()
-		if _, ok := h["identity.validate_actor"]; !ok {
+		if _, ok := h[TaskValidateActor]; !ok {
 			t.Error("missing validate_actor handler")
 		}
 	})

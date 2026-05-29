@@ -25,7 +25,11 @@ func (m *Module) ProcessPayment(ctx context.Context, input any) (any, error) {
 	// Idempotency check
 	wfID := utils.GetString(data, "_workflow_id")
 	if wfID != "" {
-		if m.repo.db.IsProcessed(ctx, "finance.process_payment", wfID) {
+		processed, err := m.repo.db.IsProcessed(ctx, "finance.process_payment", wfID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check idempotency: %w", err)
+		}
+		if processed {
 			logger.Info("Payment already processed for this workflow, skipping", "wf_id", wfID)
 			// Need to return the payment result to satisfy subsequent steps
 			var p Payment
@@ -93,7 +97,11 @@ func (m *Module) CompensatePayment(ctx context.Context, input any) (any, error) 
 	// Idempotency check
 	wfID := utils.GetString(data, "_workflow_id")
 	if wfID != "" {
-		if m.repo.db.IsProcessed(ctx, "finance.compensate_payment", wfID) {
+		processed, err := m.repo.db.IsProcessed(ctx, "finance.compensate_payment", wfID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check idempotency: %w", err)
+		}
+		if processed {
 			logger.Info("Payment already refunded for this workflow, skipping", "wf_id", wfID)
 			return nil, nil
 		}

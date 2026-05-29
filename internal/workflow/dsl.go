@@ -39,7 +39,8 @@ type Fallback struct {
 
 // Saga defines the compensation logic for a step.
 type Saga struct {
-	Uses string `yaml:"uses" json:"uses"`
+	Uses       string `yaml:"uses" json:"uses"`
+	IsCritical bool   `yaml:"is_critical,omitempty" json:"is_critical,omitempty"`
 }
 
 // ExecutionState represents the current state of a workflow execution.

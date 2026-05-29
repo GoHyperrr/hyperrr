@@ -3,9 +3,10 @@ package identity
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/db"
+	"github.com/GoHyperrr/hyperrr/pkg/utils"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -16,12 +17,12 @@ func (m *Module) ValidateActor(ctx context.Context, input any) (any, error) {
 		return nil, fmt.Errorf("invalid input type")
 	}
 
-	workflowInput, ok := data["input"].(map[string]any)
-	if !ok {
+	workflowInput := utils.GetMap(data, "input")
+	if workflowInput == nil {
 		return nil, fmt.Errorf("missing workflow input")
 	}
 
-	actorID, _ := workflowInput["actor_id"].(string)
+	actorID := utils.GetString(workflowInput, KeyActorID)
 	if actorID == "" {
 		return nil, fmt.Errorf("actor_id is required")
 	}
@@ -48,7 +49,7 @@ func (m *Module) Register(ctx context.Context, email, password, name string) (*A
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	actorID := fmt.Sprintf("act_%d", time.Now().UnixNano())
+	actorID := "act_" + uuid.New().String()
 	actor := Actor{
 		ID:   actorID,
 		Type: ActorHuman,
@@ -56,7 +57,7 @@ func (m *Module) Register(ctx context.Context, email, password, name string) (*A
 	}
 
 	user := User{
-		ID:           fmt.Sprintf("usr_%d", time.Now().UnixNano()),
+		ID:           "usr_" + uuid.New().String(),
 		Email:        email,
 		PasswordHash: string(hashedPassword),
 		ActorID:      actorID,
@@ -77,11 +78,11 @@ func (m *Module) Register(ctx context.Context, email, password, name string) (*A
 	}
 
 	// Emit event for other modules (like Customer) to react
-	m.emit(ctx, "identity.user_created", map[string]any{
-		"user_id":  user.ID,
-		"actor_id": actor.ID,
-		"email":    user.Email,
-		"name":     actor.Name,
+	m.emit(ctx, EventUserCreated, map[string]any{
+		KeyUserID:  user.ID,
+		KeyActorID: actor.ID,
+		KeyEmail:   user.Email,
+		KeyName:    actor.Name,
 	})
 
 	return &actor, nil

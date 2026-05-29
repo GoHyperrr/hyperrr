@@ -71,11 +71,11 @@ func TestIdentityHandlers(t *testing.T) {
 		// Test missing actor_id
 		_, err = mod.ValidateActor(context.Background(), map[string]any{"input": map[string]any{}})
 		if err == nil {
-			t.Error("expected error for missing actor_id")
+			t.Errorf("expected error for missing %s", KeyActorID)
 		}
 
 		// Test actor not found
-		_, err = mod.ValidateActor(context.Background(), map[string]any{"input": map[string]any{"actor_id": "ghost"}})
+		_, err = mod.ValidateActor(context.Background(), map[string]any{"input": map[string]any{KeyActorID: "ghost"}})
 		if err == nil {
 			t.Error("expected error for ghost actor")
 		}

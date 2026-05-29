@@ -134,4 +134,25 @@ func TestNotificationModule(t *testing.T) {
 		_, err = mod.SendNotification(context.Background(), map[string]any{"input": map[string]any{}})
 		if err == nil { t.Error("expected error for missing recipient") }
 	})
+
+	t.Run("Repository Edge Cases", func(t *testing.T) {
+		repo := mod.Repo()
+		ctx := context.Background()
+
+		// 1. GetByID Not Found
+		_, err := repo.GetByID(ctx, "ghost")
+		if err == nil { t.Error("expected error for non-existent notif") }
+
+		// 2. List with recipient filter
+		n1 := &Notification{ID: "notif_1", Recipient: "user1", Status: StatusSent}
+		n2 := &Notification{ID: "notif_2", Recipient: "user2", Status: StatusSent}
+		repo.Save(ctx, n1)
+		repo.Save(ctx, n2)
+
+		list1, _ := repo.List(ctx, "user1")
+		if len(list1) != 1 || list1[0].ID != "notif_1" { t.Error("List filter failed for user1") }
+
+		listAll, _ := repo.List(ctx, "")
+		if len(listAll) < 2 { t.Error("List with empty filter failed") }
+	})
 }

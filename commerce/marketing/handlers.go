@@ -79,7 +79,11 @@ func (m *Module) AddLoyaltyPoints(ctx context.Context, input any) (any, error) {
 	// Idempotency check
 	wfID := utils.GetString(data, "_workflow_id")
 	if wfID != "" {
-		if m.repo.db.IsProcessed(ctx, "marketing.add_loyalty_points", wfID) {
+		processed, err := m.repo.db.IsProcessed(ctx, "marketing.add_loyalty_points", wfID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check idempotency: %w", err)
+		}
+		if processed {
 			logger.Info("Loyalty points already added for this workflow, skipping", "wf_id", wfID)
 			return map[string]any{"loyalty_points": lp}, nil
 		}

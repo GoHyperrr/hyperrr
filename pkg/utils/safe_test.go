@@ -17,12 +17,24 @@ func TestSafeUtils(t *testing.T) {
 	})
 
 	t.Run("GetFloat64", func(t *testing.T) {
-		m := map[string]any{"float": 10.5, "int": 42, "str": "fail"}
+		m := map[string]any{
+			"float": 10.5,
+			"int":   42,
+			"int64": int64(64),
+			"int32": int32(32),
+			"str":   "fail",
+		}
 		if GetFloat64(m, "float") != 10.5 {
 			t.Error("GetFloat64 failed to retrieve float64")
 		}
 		if GetFloat64(m, "int") != 42.0 {
 			t.Error("GetFloat64 failed to convert int to float64")
+		}
+		if GetFloat64(m, "int64") != 64.0 {
+			t.Error("GetFloat64 failed to convert int64 to float64")
+		}
+		if GetFloat64(m, "int32") != 32.0 {
+			t.Error("GetFloat64 failed to convert int32 to float64")
 		}
 		if GetFloat64(m, "str") != 0 {
 			t.Error("GetFloat64 should return 0 for non-numeric")

@@ -2,8 +2,11 @@ package db
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // IdempotencyKey prevents duplicate processing of the same operation.
@@ -15,16 +18,22 @@ type IdempotencyKey struct {
 }
 
 // IsProcessed checks if an operation has already been completed.
-func (db *DB) IsProcessed(ctx context.Context, scope, key string) bool {
+func (db *DB) IsProcessed(ctx context.Context, scope, key string) (bool, error) {
 	var ik IdempotencyKey
 	err := db.WithContext(ctx).Where("scope = ? AND key = ?", scope, key).First(&ik).Error
-	return err == nil
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 // MarkProcessed records that an operation has been completed.
 func (db *DB) MarkProcessed(ctx context.Context, scope, key string) error {
 	ik := &IdempotencyKey{
-		ID:        fmt.Sprintf("ik_%d", time.Now().UnixNano()),
+		ID:        "ik_" + uuid.New().String(),
 		Scope:     scope,
 		Key:       key,
 		CreatedAt: time.Now(),

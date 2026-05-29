@@ -159,17 +159,19 @@ func (r *Runner) executeStepWithPolicies(ctx context.Context, id string, step St
 			"reason":  lastErr.Error(),
 		})
 
-		ch := make(chan string)
+		ch := make(chan string, 1)
 		r.mu.Lock()
 		r.waiting[id] = ch
 		r.mu.Unlock()
 
-		select {
-		case action := <-ch:
+		defer func() {
 			r.mu.Lock()
 			delete(r.waiting, id)
 			r.mu.Unlock()
+		}()
 
+		select {
+		case action := <-ch:
 			if action == "retry" {
 				return r.executeStepWithPolicies(ctx, id, step, results)
 			}
@@ -198,8 +200,8 @@ func (r *Runner) ResumeWorkflow(id string, action string) error {
 	select {
 	case ch <- action:
 		return nil
-	case <-time.After(5 * time.Second):
-		return fmt.Errorf("timeout waiting for workflow %s to receive signal", id)
+	case <-time.After(500 * time.Millisecond):
+		return fmt.Errorf("timeout signaling workflow %s - channel might be abandoned", id)
 	}
 }
 
@@ -211,7 +213,7 @@ func (r *Runner) applyBackoff(policy *Retry, attempt int) {
 	if interval == 0 {
 		interval = 100 * time.Millisecond
 	}
-	if policy.Backoff == "exponential" {
+	if policy.Backoff == BackoffExponential {
 		mult := math.Pow(2, float64(attempt-2))
 		interval = time.Duration(float64(interval) * mult)
 	}
@@ -223,7 +225,7 @@ func (r *Runner) compensate(ctx context.Context, id string, history []Step, resu
 		return
 	}
 	logger.Info("workflow compensating", "id", id, "steps_count", len(history))
-	r.emit(ctx, "workflow.compensating", map[string]any{"id": id, "steps_count": len(history)})
+	r.emit(ctx, EventWorkflowCompensating, map[string]any{"id": id, "steps_count": len(history)})
 	for i := len(history) - 1; i >= 0; i-- {
 		step := history[i]
 		if step.Saga == nil || step.Saga.Uses == "" {
@@ -236,7 +238,11 @@ func (r *Runner) compensate(ctx context.Context, id string, history []Step, resu
 			logger.Info("running compensation task", "id", id, "uses", step.Saga.Uses)
 			_, err := handler(ctx, results)
 			if err != nil {
-				logger.Error("compensation task failed", "id", id, "uses", step.Saga.Uses, "error", err)
+				if step.Saga.IsCritical {
+					logger.Error("CRITICAL COMPENSATION FAILED", "id", id, "uses", step.Saga.Uses, "error", err)
+				} else {
+					logger.Error("compensation task failed", "id", id, "uses", step.Saga.Uses, "error", err)
+				}
 			}
 		} else {
 			logger.Warn("compensation handler not found", "id", id, "uses", step.Saga.Uses)

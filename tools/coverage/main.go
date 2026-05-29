@@ -67,8 +67,17 @@ func run(args []string, out io.Writer) error {
 		if stats.total > 0 {
 			perc = (float64(stats.covered) / float64(stats.total)) * 100
 		}
-		if perc < 85 {
-			fmt.Fprintf(out, "- %s: %.2f%% (%d/%d statements)\n", name, perc, stats.covered, stats.total)
+		
+		// Debug unique ranges
+		rangeCount := 0
+		for r := range statementsMap {
+			if strings.HasPrefix(r, name) {
+				rangeCount++
+			}
+		}
+
+		if perc < 95 {
+			fmt.Fprintf(out, "- %s: %.2f%% (%d/%d statements in %d ranges)\n", name, perc, stats.covered, stats.total, rangeCount)
 		}
 	}
 

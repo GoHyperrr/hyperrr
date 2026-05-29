@@ -2,23 +2,33 @@ package db
 
 import (
 	"fmt"
+	"sync"
 )
 
-// Registry maintains a list of all models to be migrated.
-var Registry = []interface{}{&OutboxEvent{}, &IdempotencyKey{}}
+var (
+	registryMu sync.Mutex
+	Registry   = []interface{}{&OutboxEvent{}, &IdempotencyKey{}}
+)
 
 // Register adds models to the global migration registry.
 func Register(models ...interface{}) {
+	registryMu.Lock()
+	defer registryMu.Unlock()
 	Registry = append(Registry, models...)
 }
 
 // AutoMigrate runs the GORM AutoMigrate for all registered models.
 func (db *DB) AutoMigrateAll() error {
-	if len(Registry) == 0 {
+	registryMu.Lock()
+	models := make([]interface{}, len(Registry))
+	copy(models, Registry)
+	registryMu.Unlock()
+
+	if len(models) == 0 {
 		return nil
 	}
 
-	if err := db.AutoMigrate(Registry...); err != nil {
+	if err := db.AutoMigrate(models...); err != nil {
 		return fmt.Errorf("failed to run migrations: %w", err)
 	}
 

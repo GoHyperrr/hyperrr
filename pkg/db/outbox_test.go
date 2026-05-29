@@ -33,4 +33,29 @@ func TestOutbox(t *testing.T) {
 			t.Errorf("expected type test.event, got %s", event.Type)
 		}
 	})
+
+	t.Run("SaveToOutbox Marshal Failure", func(t *testing.T) {
+		// Use a type that cannot be marshaled to JSON
+		payload := make(chan int)
+		err := database.SaveToOutbox(context.Background(), "test.fail", payload)
+		if err == nil {
+			t.Error("expected marshal error, got nil")
+		}
+	})
+
+	t.Run("SaveToOutbox DB Failure", func(t *testing.T) {
+		dbFile := "outbox_fail.db"
+		defer os.Remove(dbFile)
+		cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+		db, _ := Connect(cfg)
+		db.AutoMigrateAll()
+		
+		d, _ := db.DB.DB()
+		d.Close() // Close to force failure
+
+		err := db.SaveToOutbox(context.Background(), "test", map[string]string{"a": "b"})
+		if err == nil {
+			t.Error("expected DB error, got nil")
+		}
+	})
 }

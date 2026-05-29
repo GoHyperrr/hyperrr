@@ -105,4 +105,12 @@ func TestJWT(t *testing.T) {
 			t.Errorf("expected revoked error, got %v", err)
 		}
 	})
+
+	t.Run("Invalid Algorithm", func(t *testing.T) {
+		tokenString := "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.e30."
+		_, err := ValidateToken(context.Background(), tokenString)
+		if err == nil {
+			t.Error("expected error for 'none' algorithm")
+		}
+	})
 }

@@ -21,26 +21,51 @@ func (m *mockModule) Handlers() map[string]workflow.TaskHandler { return m.handl
 
 func TestRegistry(t *testing.T) {
 	t.Run("Register and List", func(t *testing.T) {
-		// Clean up global state for test
-		mu.Lock()
-		modules = make(map[string]Module)
-		mu.Unlock()
-
+		reg := NewRegistry()
 		m1 := &mockModule{id: "mod1"}
 		m2 := &mockModule{id: "mod2"}
 
-		Register(m1)
-		Register(m2)
+		reg.Register(m1)
+		reg.Register(m2)
 
-		list := List()
+		list := reg.List()
 		if len(list) != 2 {
 			t.Errorf("expected 2 modules, got %d", len(list))
 		}
 
-		got, ok := Get("mod1")
+		got, ok := reg.Get("mod1")
 		if !ok || got != m1 {
 			t.Error("failed to get mod1")
 		}
+	})
+
+	t.Run("Duplicate Registration", func(t *testing.T) {
+		reg := NewRegistry()
+		m1 := &mockModule{id: "dup"}
+		m2 := &mockModule{id: "dup"}
+
+		reg.Register(m1)
+		reg.Register(m2) // Should trigger warning but succeed in overwriting
+
+		got, _ := reg.Get("dup")
+		if got != m2 {
+			t.Error("expected second registration to overwrite")
+		}
+	})
+
+	t.Run("Global Registry Wrappers", func(t *testing.T) {
+		m := &mockModule{id: "global_mod"}
+		Register(m)
+		
+		list := List()
+		found := false
+		for _, mod := range list {
+			if mod.ID() == "global_mod" { found = true; break }
+		}
+		if !found { t.Error("global List failed") }
+
+		got, ok := Get("global_mod")
+		if !ok || got != m { t.Error("global Get failed") }
 	})
 
 	t.Run("Module Interface", func(t *testing.T) {

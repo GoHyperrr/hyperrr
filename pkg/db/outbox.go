@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // OutboxEvent represents an event that needs to be published after a transaction commits.
@@ -24,7 +26,7 @@ func (db *DB) SaveToOutbox(ctx context.Context, eventType string, payload any) e
 	}
 
 	outboxEvent := &OutboxEvent{
-		ID:        fmt.Sprintf("out_%d", time.Now().UnixNano()),
+		ID:        "out_" + uuid.New().String(),
 		Type:      eventType,
 		Payload:   string(payloadJSON),
 		CreatedAt: time.Now(),
