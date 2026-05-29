@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"sync"
@@ -18,15 +19,20 @@ type TaskHandler func(ctx context.Context, input any) (any, error)
 // Runner executes workflow instances.
 type Runner struct {
 	bus      eventbus.EventBus
+	store    StateStore
 	handlers map[string]TaskHandler
 	mu       sync.RWMutex
 	waiting  map[string]chan string // workflowID -> signal channel
 }
 
 // NewRunner creates a new Runner.
-func NewRunner(bus eventbus.EventBus) *Runner {
+func NewRunner(bus eventbus.EventBus, store StateStore) *Runner {
+	if store == nil {
+		store = NewInMemStore() // Fallback for tests not explicitly providing one
+	}
 	return &Runner{
 		bus:      bus,
+		store:    store,
 		handlers: make(map[string]TaskHandler),
 		waiting:  make(map[string]chan string),
 	}
@@ -52,6 +58,13 @@ func (r *Runner) Execute(ctx context.Context, id string, wf *Workflow, input any
 	results := make(map[string]any)
 	results["input"] = input
 	results["_workflow_id"] = id
+
+	// Checkpoint initial input
+	if r.store != nil {
+		if inputBytes, err := json.Marshal(input); err == nil {
+			r.store.SaveInput(ctx, id, inputBytes)
+		}
+	}
 
 	completed := make(map[string]bool)
 	launched := make(map[string]bool)
@@ -103,11 +116,22 @@ func (r *Runner) Execute(ctx context.Context, id string, wf *Workflow, input any
 			}
 
 			go func(s Step, inp map[string]any) {
+				if r.store != nil {
+					_ = r.store.SaveState(ctx, id, s.ID, StateRunning)
+				}
+				
 				res, err := r.executeStepWithPolicies(ctx, id, s, inp)
 
 				if err != nil {
+					if r.store != nil {
+						_ = r.store.SaveState(ctx, id, s.ID, StateFailed)
+					}
 					stepFinished <- fmt.Errorf("workflow %s failed at step %s: %w", id, s.ID, err)
 					return
+				}
+
+				if r.store != nil {
+					_ = r.store.SaveState(ctx, id, s.ID, StateCompleted)
 				}
 
 				stateMu.Lock()

@@ -11,7 +11,7 @@ import (
 
 func TestFailurePolicies(t *testing.T) {
 	bus := eventbus.NewInMemBus()
-	runner := NewRunner(bus)
+	runner := NewRunner(bus, nil)
 
 	t.Run("Retry Success", func(t *testing.T) {
 		attempts := 0
@@ -123,7 +123,7 @@ func TestFailurePolicies(t *testing.T) {
 
 func TestSagaCompensate(t *testing.T) {
 	bus := eventbus.NewInMemBus()
-	runner := NewRunner(bus)
+	runner := NewRunner(bus, nil)
 
 	t.Run("Saga Compensation", func(t *testing.T) {
 		compCalled := false
@@ -241,7 +241,7 @@ func TestSagaCompensate(t *testing.T) {
 func TestEmitError(t *testing.T) {
 	// Mock bus that fails on Publish
 	bus := &errBus{}
-	runner := NewRunner(bus)
+	runner := NewRunner(bus, nil)
 	
 	t.Run("Emit Error Path", func(t *testing.T) {
 		// Just ensure it doesn't panic

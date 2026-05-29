@@ -83,7 +83,7 @@ func RunWithConfig(cfg *config.Config) error {
 		bus = eventbus.NewInMemBus()
 	}
 	defer bus.Close()
-	runner := workflow.NewRunner(bus)
+	runner := workflow.NewRunner(bus, nil)
 	registryStore := workflow.NewRegistry()
 
 	// 5. Register Core Modules

@@ -16,7 +16,7 @@ func TestAnalyticsModule(t *testing.T) {
 	cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 	database, _ := db.Connect(cfg)
 	bus := eventbus.NewInMemBus()
-	runner := workflow.NewRunner(bus)
+	runner := workflow.NewRunner(bus, nil)
 	projector := ctxEngine.NewProjector(bus)
 	projector.Start(context.Background())
 

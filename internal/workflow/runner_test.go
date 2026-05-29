@@ -9,7 +9,7 @@ import (
 
 func TestRunner(t *testing.T) {
 	bus := eventbus.NewInMemBus()
-	runner := NewRunner(bus)
+	runner := NewRunner(bus, nil)
 
 	runner.RegisterTask("step1", func(ctx context.Context, input any) (any, error) {
 		return "res1", nil

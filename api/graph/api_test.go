@@ -30,7 +30,7 @@ import (
 func TestResolvers(t *testing.T) {
 	ctx := context.Background()
 	bus := eventbus.NewInMemBus()
-	runner := workflow.NewRunner(bus)
+	runner := workflow.NewRunner(bus, nil)
 	registryStore := workflow.NewRegistry()
 	projector := domain.NewProjector(bus)
 	projector.Start(ctx)

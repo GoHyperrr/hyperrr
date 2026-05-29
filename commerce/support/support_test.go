@@ -20,7 +20,7 @@ func TestSupportModule(t *testing.T) {
 	cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
 	database, _ := db.Connect(cfg)
 	bus := eventbus.NewInMemBus()
-	runner := workflow.NewRunner(bus)
+	runner := workflow.NewRunner(bus, nil)
 	registryStore := workflow.NewRegistry()
 
 	mod := NewModule()

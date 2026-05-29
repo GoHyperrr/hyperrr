@@ -12,7 +12,7 @@ import (
 
 func TestHumanIntervention(t *testing.T) {
 	bus := eventbus.NewInMemBus()
-	runner := NewRunner(bus)
+	runner := NewRunner(bus, nil)
 
 	t.Run("Resume Success", func(t *testing.T) {
 		workflowID := "wf-h1"
@@ -99,7 +99,7 @@ func TestHumanIntervention(t *testing.T) {
 
 	t.Run("Resume Timeout", func(t *testing.T) {
 		// Create a runner with a blocked channel
-		r := NewRunner(bus)
+		r := NewRunner(bus, nil)
 		id := "wf-timeout"
 		ch := make(chan string) // no buffer, no one reading
 		r.mu.Lock()

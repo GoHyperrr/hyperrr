@@ -45,7 +45,7 @@ func TestFinanceWorkflow(t *testing.T) {
 	cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 	database, _ := db.Connect(cfg)
 	bus := eventbus.NewInMemBus()
-	runner := workflow.NewRunner(bus)
+	runner := workflow.NewRunner(bus, nil)
 
 	mod := NewModule()
 	mod.Init(context.Background(), &registry.Dependencies{DB: database, EventBus: bus, Runner: runner})

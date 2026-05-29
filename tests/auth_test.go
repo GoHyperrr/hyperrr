@@ -38,7 +38,7 @@ func TestAuthFlow(t *testing.T) {
 	custMod.Init(ctx, &registry.Dependencies{
 		DB:       database,
 		EventBus: bus,
-		Runner:   workflow.NewRunner(bus),
+		Runner:   workflow.NewRunner(bus, nil),
 		Registry: workflow.NewRegistry(),
 	})
 	db.Register(custMod.Models()...)
