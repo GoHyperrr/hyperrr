@@ -113,6 +113,10 @@ func (m *Module) Handlers() map[string]workflow.TaskHandler {
 	}
 }
 
+func (m *Module) Shutdown(ctx context.Context) error {
+	return nil
+}
+
 func (m *Module) Repo() *Repository {
 	return m.repo
 }

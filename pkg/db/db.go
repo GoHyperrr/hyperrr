@@ -10,6 +10,7 @@ import (
 
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
+	"github.com/GoHyperrr/hyperrr/pkg/utils"
 	"github.com/glebarez/sqlite"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -71,7 +72,7 @@ func Connect(cfg *config.Config) (*DB, error) {
 	case "sqlite":
 		dsn := cfg.DBDSN
 		if dsn != ":memory:" && !filepath.IsAbs(dsn) && !strings.Contains(dsn, "/") && !strings.Contains(dsn, "\\") {
-			root := findProjectRoot()
+			root := utils.FindProjectRoot()
 			workspace := filepath.Join(root, ".hyperrr")
 			if err := os.MkdirAll(workspace, 0755); err != nil {
 				return nil, fmt.Errorf("failed to create .hyperrr workspace: %w", err)
@@ -95,26 +96,6 @@ func Connect(cfg *config.Config) (*DB, error) {
 	}
 
 	return &DB{db}, nil
-}
-
-// findProjectRoot attempts to locate the directory containing go.mod.
-func findProjectRoot() string {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "."
-	}
-
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-	return "."
 }
 
 // Transaction executes the given function within a database transaction.

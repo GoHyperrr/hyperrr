@@ -68,6 +68,10 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 	return nil
 }
 
+func (m *Module) Shutdown(ctx context.Context) error {
+	return nil
+}
+
 func (m *Module) Models() []any {
 	return []any{&Order{}, &OrderItem{}}
 }

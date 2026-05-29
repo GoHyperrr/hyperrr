@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
@@ -24,10 +25,14 @@ func (m *Module) ID() string {
 
 // Init initializes the module.
 func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
-	// For now, hardcode local provider. In Task 4 we can make it swappable.
-	p, err := NewLocalProvider("storage")
+	bucketURL := deps.Config.StorageBucketURL
+	if bucketURL == "" {
+		bucketURL = "mem://"
+	}
+
+	p, err := NewCloudProvider(ctx, bucketURL)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to initialize cloud storage: %w", err)
 	}
 	m.provider = p
 	return nil
@@ -40,6 +45,16 @@ func (m *Module) Models() []any {
 
 // Handlers returns the workflow task handlers provided by this module.
 func (m *Module) Handlers() map[string]workflow.TaskHandler {
+	return nil
+}
+
+// Shutdown releases storage resources.
+func (m *Module) Shutdown(ctx context.Context) error {
+	if m.provider != nil {
+		if cp, ok := m.provider.(*CloudProvider); ok {
+			return cp.Close()
+		}
+	}
 	return nil
 }
 

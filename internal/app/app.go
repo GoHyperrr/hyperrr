@@ -129,7 +129,18 @@ func RunWithConfig(cfg *config.Config) error {
 		Projector: ctxMod.Projector(),
 	}
 
-	for _, mod := range registry.List() {
+	modules := registry.List()
+	
+	// Ensure cleanup on error or exit
+	defer func() {
+		for _, mod := range modules {
+			if err := mod.Shutdown(context.Background()); err != nil {
+				logger.Error("failed to shutdown module", "id", mod.ID(), "error", err)
+			}
+		}
+	}()
+
+	for _, mod := range modules {
 		logger.Info("Initializing module", "id", mod.ID())
 
 		// Auto-register models

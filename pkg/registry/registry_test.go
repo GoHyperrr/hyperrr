@@ -16,6 +16,7 @@ type mockModule struct {
 
 func (m *mockModule) ID() string { return m.id }
 func (m *mockModule) Init(ctx context.Context, deps *Dependencies) error { return m.initErr }
+func (m *mockModule) Shutdown(ctx context.Context) error { return nil }
 func (m *mockModule) Models() []any { return m.models }
 func (m *mockModule) Handlers() map[string]workflow.TaskHandler { return m.handlers }
 

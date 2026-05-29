@@ -57,4 +57,7 @@ type Module interface {
 	
 	// Handlers returns the workflow task handlers provided by this module.
 	Handlers() map[string]workflow.TaskHandler
+
+	// Shutdown allows the module to release resources cleanly.
+	Shutdown(ctx context.Context) error
 }

@@ -19,6 +19,9 @@ type Config struct {
 	DBDSN             string `mapstructure:"DB_DSN"`
 	JWTSecret         string `mapstructure:"JWT_SECRET"`
 	JWTExpiration     string `mapstructure:"JWT_EXPIRATION"`
+	StorageProvider   string `mapstructure:"STORAGE_PROVIDER"`
+	StoragePath       string `mapstructure:"STORAGE_PATH"`
+	StorageBucketURL  string `mapstructure:"STORAGE_BUCKET_URL"`
 	NATSURL           string `mapstructure:"NATS_URL"`
 }
 
@@ -40,6 +43,8 @@ func LoadWithFile(filename string) (*Config, error) {
 	v.SetDefault("DB_DSN", "hyperrr.db")
 	v.SetDefault("JWT_SECRET", "hyperrr-secret-key")
 	v.SetDefault("JWT_EXPIRATION", "24h")
+	v.SetDefault("STORAGE_PROVIDER", "cloud")
+	v.SetDefault("STORAGE_BUCKET_URL", "mem://")
 	v.SetDefault("NATS_URL", "nats://localhost:4222")
 
 	if filename != "" {
