@@ -2,10 +2,12 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/db"
+	"gorm.io/gorm"
 )
 
 // RefreshToken represents a long-lived token used to generate new JWTs.
@@ -27,11 +29,17 @@ type Blacklist struct {
 
 // AuthStore handles persistence for authentication tokens.
 type AuthStore struct {
-	db *db.DB
+	db            *db.DB
+	signingKey    []byte
+	jwtExpiration time.Duration
 }
 
-func NewAuthStore(database *db.DB) *AuthStore {
-	return &AuthStore{db: database}
+func NewAuthStore(database *db.DB, signingKey string, expiration time.Duration) *AuthStore {
+	return &AuthStore{
+		db:            database,
+		signingKey:    []byte(signingKey),
+		jwtExpiration: expiration,
+	}
 }
 
 func (s *AuthStore) Blacklist(ctx context.Context, jti string, expiresAt time.Time) error {
@@ -42,10 +50,16 @@ func (s *AuthStore) Blacklist(ctx context.Context, jti string, expiresAt time.Ti
 	}).Error
 }
 
-func (s *AuthStore) IsBlacklisted(ctx context.Context, jti string) bool {
+func (s *AuthStore) IsBlacklisted(ctx context.Context, jti string) (bool, error) {
 	var b Blacklist
 	err := s.db.WithContext(ctx).First(&b, "jti = ?", jti).Error
-	return err == nil
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 func (s *AuthStore) SaveRefreshToken(ctx context.Context, t *RefreshToken) error {

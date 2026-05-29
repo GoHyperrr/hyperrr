@@ -27,11 +27,12 @@ func TestModule(t *testing.T) {
 		t.Error("expected nil handlers")
 	}
 
-	cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+	cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile, JWTSecret: "secret", JWTExpiration: "24h"}
 	database, _ := db.Connect(cfg)
 	
 	deps := &registry.Dependencies{
-		DB: database,
+		Config: cfg,
+		DB:     database,
 	}
 
 	err := m.Init(context.Background(), deps)

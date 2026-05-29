@@ -3,7 +3,6 @@ package customer
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -17,12 +16,9 @@ import (
 )
 
 func TestCustomerWorkflow(t *testing.T) {
-	dbFile := "customer_test.db"
-	defer os.Remove(dbFile)
-
 	cfg := &config.Config{
 		DBDriver: "sqlite",
-		DBDSN:    dbFile,
+		DBDSN:    ":memory:",
 	}
 
 	database, _ := db.Connect(cfg)
@@ -121,9 +117,7 @@ func TestCustomerWorkflow(t *testing.T) {
 	})
 
 	t.Run("Handler Error Cases", func(t *testing.T) {
-		dbFile := "cust_err_test.db"
-		defer os.Remove(dbFile)
-		cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+		cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 		database, _ := db.Connect(cfg)
 		bus := eventbus.NewInMemBus()
 		runner := workflow.NewRunner(bus)
@@ -208,7 +202,7 @@ func TestCustomerWorkflow(t *testing.T) {
 		}
 
 		// 10. UpdateCustomerDetails - Save Failure
-		badCfg := &config.Config{DBDriver: "sqlite", DBDSN: "fail_save_cust.db"}
+		badCfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 		badDB, _ := db.Connect(badCfg)
 		sqlDB, _ := badDB.DB.DB()
 		sqlDB.Close()
@@ -293,8 +287,6 @@ func TestCustomerWorkflow(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 		// No direct way to check background execution easily without mocking runner,
 		// but this covers the handler logic.
-
-		os.Remove("fail_save_cust.db")
 	})
 
 	t.Run("Handler Error Paths Surgical", func(t *testing.T) {

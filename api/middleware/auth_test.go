@@ -5,14 +5,22 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/GoHyperrr/hyperrr/internal/auth"
 	"github.com/GoHyperrr/hyperrr/internal/identity"
+	"github.com/GoHyperrr/hyperrr/pkg/config"
+	"github.com/GoHyperrr/hyperrr/pkg/db"
 )
 
 func TestAuthMiddleware(t *testing.T) {
+	cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
+	database, _ := db.Connect(cfg)
+	database.AutoMigrate(&auth.Blacklist{})
+	store := auth.NewAuthStore(database, "secret", 24*time.Hour)
+
 	t.Run("No Authorization Header", func(t *testing.T) {
-		mw := AuthMiddleware()
+		mw := AuthMiddleware(store)
 		handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			actor, ok := ForContext(r.Context())
 			if ok || actor != nil {
@@ -26,9 +34,9 @@ func TestAuthMiddleware(t *testing.T) {
 
 	t.Run("Valid Token", func(t *testing.T) {
 		actor := identity.Actor{ID: "act_1", Type: identity.ActorHuman}
-		token, _ := auth.GenerateToken(actor)
+		token, _ := store.GenerateToken(actor)
 
-		mw := AuthMiddleware()
+		mw := AuthMiddleware(store)
 		handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			got, ok := ForContext(r.Context())
 			if !ok || got == nil || got.ID != actor.ID {
@@ -42,7 +50,7 @@ func TestAuthMiddleware(t *testing.T) {
 	})
 
 	t.Run("Invalid Token Format", func(t *testing.T) {
-		mw := AuthMiddleware()
+		mw := AuthMiddleware(store)
 		handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, ok := ForContext(r.Context())
 			if ok {
@@ -56,7 +64,7 @@ func TestAuthMiddleware(t *testing.T) {
 	})
 
 	t.Run("Invalid JWT", func(t *testing.T) {
-		mw := AuthMiddleware()
+		mw := AuthMiddleware(store)
 		handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, ok := ForContext(r.Context())
 			if ok {

@@ -18,6 +18,7 @@ type Config struct {
 	DBDriver          string `mapstructure:"DB_DRIVER"`
 	DBDSN             string `mapstructure:"DB_DSN"`
 	JWTSecret         string `mapstructure:"JWT_SECRET"`
+	JWTExpiration     string `mapstructure:"JWT_EXPIRATION"`
 	NATSURL           string `mapstructure:"NATS_URL"`
 }
 
@@ -38,6 +39,7 @@ func LoadWithFile(filename string) (*Config, error) {
 	v.SetDefault("DB_DRIVER", "sqlite")
 	v.SetDefault("DB_DSN", "hyperrr.db")
 	v.SetDefault("JWT_SECRET", "hyperrr-secret-key")
+	v.SetDefault("JWT_EXPIRATION", "24h")
 	v.SetDefault("NATS_URL", "nats://localhost:4222")
 
 	if filename != "" {

@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -13,12 +12,9 @@ import (
 
 func TestConnect(t *testing.T) {
 	t.Run("Connect to SQLite", func(t *testing.T) {
-		dbFile := "test.db"
-		defer os.Remove(dbFile)
-
 		cfg := &config.Config{
 			DBDriver: "sqlite",
-			DBDSN:    dbFile,
+			DBDSN:    ":memory:",
 		}
 
 		db, err := Connect(cfg)
@@ -45,9 +41,7 @@ func TestConnect(t *testing.T) {
 	})
 
 	t.Run("AutoMigrate empty", func(t *testing.T) {
-		dbFile := "empty_migrate.db"
-		defer os.Remove(dbFile)
-		cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+		cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 		db, _ := Connect(cfg)
 		db.AutoMigrateAll()
 	})
@@ -73,9 +67,7 @@ func TestConnect(t *testing.T) {
 
 	t.Run("Transaction", func(t *testing.T) {
 		id := fmt.Sprintf("tx_%d", time.Now().UnixNano())
-		dbFile := fmt.Sprintf("tx_test_%d.db", time.Now().UnixNano())
-		defer os.Remove(dbFile)
-		cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+		cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 		database, _ := Connect(cfg)
 		database.AutoMigrate(&IdempotencyKey{})
 
@@ -113,9 +105,7 @@ func TestConnect(t *testing.T) {
 }
 
 func TestIdempotency(t *testing.T) {
-	dbFile := "idempotency.db"
-	defer os.Remove(dbFile)
-	cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+	cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 	database, _ := Connect(cfg)
 	database.AutoMigrate(&IdempotencyKey{})
 
@@ -175,12 +165,9 @@ func TestIdempotency(t *testing.T) {
 }
 
 func TestAutoMigrateAll(t *testing.T) {
-	dbFile := "migrate_test.db"
-	defer os.Remove(dbFile)
-
 	cfg := &config.Config{
 		DBDriver: "sqlite",
-		DBDSN:    dbFile,
+		DBDSN:    ":memory:",
 	}
 
 	db, err := Connect(cfg)

@@ -2,7 +2,6 @@ package finance
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
@@ -43,10 +42,7 @@ func (m *flexibleMockOrder) GetTotal() float64 {
 func (m *flexibleMockOrder) GetCustomerID() string { return "" }
 
 func TestFinanceWorkflow(t *testing.T) {
-	dbFile := "finance_test.db"
-	defer os.Remove(dbFile)
-
-	cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+	cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 	database, _ := db.Connect(cfg)
 	bus := eventbus.NewInMemBus()
 	runner := workflow.NewRunner(bus)
@@ -159,9 +155,7 @@ func TestFinanceWorkflow(t *testing.T) {
 
 		// DB failure
 		badMod := NewModule()
-		badDBFile := "finance_bad.db"
-		defer os.Remove(badDBFile)
-		badDB, _ := db.Connect(&config.Config{DBDriver: "sqlite", DBDSN: badDBFile})
+		badDB, _ := db.Connect(&config.Config{DBDriver: "sqlite", DBDSN: ":memory:"})
 		sqlDB, _ := badDB.DB.DB()
 		badMod.repo = NewRepository(badDB)
 		sqlDB.Close()
@@ -186,9 +180,7 @@ func TestFinanceWorkflow(t *testing.T) {
 }
 
 func TestFinanceRepository(t *testing.T) {
-	dbFile := "finance_repo_test.db"
-	defer os.Remove(dbFile)
-	cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+	cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 	database, _ := db.Connect(cfg)
 	
 	repo := NewRepository(database)

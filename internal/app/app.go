@@ -61,7 +61,6 @@ func RunWithConfig(cfg *config.Config) error {
 	if cfg.JWTSecret == "" {
 		return fmt.Errorf("JWT_SECRET is missing from configuration")
 	}
-	auth.SetSigningKey(cfg.JWTSecret)
 
 	// 3. Initialize Database
 	database, err := db.Connect(cfg)
@@ -122,10 +121,12 @@ func RunWithConfig(cfg *config.Config) error {
 
 	// 6. Discover and Initialize Modules (Plugins)
 	deps := &registry.Dependencies{
-		DB:       database,
-		EventBus: bus,
-		Runner:   runner,
-		Registry: registryStore,
+		Config:    cfg,
+		DB:        database,
+		EventBus:  bus,
+		Runner:    runner,
+		Registry:  registryStore,
+		Projector: ctxMod.Projector(),
 	}
 
 	for _, mod := range registry.List() {
@@ -168,6 +169,7 @@ func RunWithConfig(cfg *config.Config) error {
 			SearchModule:       searchMod,
 			AnalyticsModule:    analyticsMod,
 			IdentityModule:     identMod,
+			AuthModule:         authMod,
 
 			Runner:         runner,
 			Registry:       registryStore,
@@ -175,7 +177,7 @@ func RunWithConfig(cfg *config.Config) error {
 	}))
 
 	// Middleware chain
-	authMW := middleware.AuthMiddleware()
+	authMW := middleware.AuthMiddleware(authMod.Store())
 
 	mux := http.NewServeMux()
 	mux.Handle("/", authMW(playground.Handler("GraphQL playground", "/query")))

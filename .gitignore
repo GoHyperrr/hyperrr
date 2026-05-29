@@ -11,7 +11,9 @@ bin/
 *.out
 coverage.out
 pkg/db/*.db
+.hyperrr/
 *.db
+.hyperrr/
 
 # OS specific files
 .DS_Store

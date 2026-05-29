@@ -2,7 +2,6 @@ package cart
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
@@ -14,10 +13,7 @@ import (
 
 func TestCartWorkflow(t *testing.T) {
 	t.Run("Add Item Workflow", func(t *testing.T) {
-		dbFile := "cart_add_test.db"
-		defer os.Remove(dbFile)
-
-		cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+		cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 		database, _ := db.Connect(cfg)
 		bus := eventbus.NewInMemBus()
 		runner := workflow.NewRunner(bus)
@@ -46,10 +42,7 @@ func TestCartWorkflow(t *testing.T) {
 	})
 
 	t.Run("Remove Item Workflow", func(t *testing.T) {
-		dbFile := "cart_remove_test.db"
-		defer os.Remove(dbFile)
-
-		cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+		cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 		database, _ := db.Connect(cfg)
 		bus := eventbus.NewInMemBus()
 		runner := workflow.NewRunner(bus)
@@ -78,10 +71,7 @@ func TestCartWorkflow(t *testing.T) {
 	})
 
 	t.Run("Checkout Workflow", func(t *testing.T) {
-		dbFile := "cart_checkout_test.db"
-		defer os.Remove(dbFile)
-
-		cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+		cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 		database, _ := db.Connect(cfg)
 		bus := eventbus.NewInMemBus()
 		runner := workflow.NewRunner(bus)
@@ -107,9 +97,7 @@ func TestCartWorkflow(t *testing.T) {
 	})
 
 	t.Run("Handler Error Cases", func(t *testing.T) {
-		dbFile := "cart_err_test.db"
-		defer os.Remove(dbFile)
-		cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+		cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 		database, _ := db.Connect(cfg)
 		bus := eventbus.NewInMemBus()
 		runner := workflow.NewRunner(bus)

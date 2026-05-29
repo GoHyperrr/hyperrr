@@ -17,6 +17,12 @@ const (
 	EscalationWaitHuman = "wait_human"
 )
 
+// Action types for human intervention.
+const (
+	ActionRetry  = "retry"
+	ActionCancel = "cancel"
+)
+
 // Backoff strategies.
 const (
 	BackoffExponential = "exponential"

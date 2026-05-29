@@ -12,6 +12,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/commerce/marketing"
 	"github.com/GoHyperrr/hyperrr/commerce/search"
 	"github.com/GoHyperrr/hyperrr/commerce/analytics"
+	"github.com/GoHyperrr/hyperrr/internal/auth"
 	"github.com/GoHyperrr/hyperrr/internal/context"
 	"github.com/GoHyperrr/hyperrr/internal/identity"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
@@ -31,6 +32,7 @@ type Resolver struct {
 	SearchModule       *search.Module
 	AnalyticsModule    *analytics.Module
 	IdentityModule     *identity.Module
+	AuthModule         *auth.Module
 	Runner             *workflow.Runner
 	Registry           *workflow.Registry
 }

@@ -5,12 +5,14 @@ import (
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 )
 
 // Dependencies provides common utilities to modules.
 type Dependencies struct {
+	Config    *config.Config
 	DB        *db.DB
 	EventBus  eventbus.EventBus
 	Runner    *workflow.Runner

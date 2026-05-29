@@ -39,6 +39,7 @@ func (r *Runner) RegisterTask(name string, handler TaskHandler) {
 }
 
 // Execute runs a workflow end-to-end and returns the results map.
+// Independent steps (branches in the DAG) are executed in parallel.
 func (r *Runner) Execute(ctx context.Context, id string, wf *Workflow, input any) (map[string]any, error) {
 	logger.Info("starting workflow", "name", wf.Name, "id", id)
 	r.emit(ctx, EventWorkflowStarted, map[string]any{
@@ -47,17 +48,27 @@ func (r *Runner) Execute(ctx context.Context, id string, wf *Workflow, input any
 		"version": wf.Version,
 	})
 
-	completed := make(map[string]bool)
 	results := make(map[string]any)
 	results["input"] = input
 	results["_workflow_id"] = id
-	
+
+	completed := make(map[string]bool)
+	launched := make(map[string]bool)
 	var history []Step
+	var stateMu sync.Mutex
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	stepFinished := make(chan error, len(wf.Steps))
+	activeCount := 0
 
 	for len(completed) < len(wf.Steps) {
-		madeProgress := false
+		// 1. Identify and launch all ready steps
+		stateMu.Lock()
+		var ready []Step
 		for _, step := range wf.Steps {
-			if completed[step.ID] {
+			if launched[step.ID] {
 				continue
 			}
 
@@ -70,24 +81,69 @@ func (r *Runner) Execute(ctx context.Context, id string, wf *Workflow, input any
 			}
 
 			if canRun {
-				res, err := r.executeStepWithPolicies(ctx, id, step, results)
-				if err != nil {
-					logger.Error("workflow execution failed", "id", id, "step", step.ID, "error", err)
-					r.emit(ctx, EventWorkflowFailed, map[string]any{"id": id, "error": err.Error()})
-					
-					r.compensate(ctx, id, history, results)
-					return results, fmt.Errorf("workflow %s failed at step %s: %w", id, step.ID, err)
-				}
-
-				results[step.ID] = res
-				completed[step.ID] = true
-				history = append(history, step)
-				madeProgress = true
+				ready = append(ready, step)
+				launched[step.ID] = true
 			}
 		}
 
-		if !madeProgress {
+		if len(ready) == 0 && activeCount == 0 {
+			stateMu.Unlock()
 			return results, fmt.Errorf("deadlock detected in workflow DAG")
+		}
+
+		for _, step := range ready {
+			activeCount++
+
+			// Snapshot results for this step to prevent data races in handlers.
+			// Each step only sees results of its completed dependencies.
+			inputCopy := make(map[string]any)
+			for k, v := range results {
+				inputCopy[k] = v
+			}
+
+			go func(s Step, inp map[string]any) {
+				res, err := r.executeStepWithPolicies(ctx, id, s, inp)
+
+				if err != nil {
+					stepFinished <- fmt.Errorf("workflow %s failed at step %s: %w", id, s.ID, err)
+					return
+				}
+
+				stateMu.Lock()
+				results[s.ID] = res
+				completed[s.ID] = true
+				history = append(history, s)
+				stateMu.Unlock()
+
+				stepFinished <- nil
+			}(step, inputCopy)
+		}
+		stateMu.Unlock()
+
+		// 2. Wait for at least one step to finish or context failure
+		select {
+		case err := <-stepFinished:
+			activeCount--
+			if err != nil {
+				cancel()
+				// Drain active goroutines
+				for activeCount > 0 {
+					<-stepFinished
+					activeCount--
+				}
+
+				logger.Error("workflow execution failed", "id", id, "error", err)
+				r.emit(ctx, EventWorkflowFailed, map[string]any{"id": id, "error": err.Error()})
+				r.compensate(context.WithoutCancel(ctx), id, history, results)
+				return results, err
+			}
+		case <-ctx.Done():
+			// External cancellation
+			for activeCount > 0 {
+				<-stepFinished
+				activeCount--
+			}
+			return results, ctx.Err()
 		}
 	}
 
@@ -172,10 +228,10 @@ func (r *Runner) executeStepWithPolicies(ctx context.Context, id string, step St
 
 		select {
 		case action := <-ch:
-			if action == "retry" {
+			if action == ActionRetry {
 				return r.executeStepWithPolicies(ctx, id, step, results)
 			}
-			if action == "cancel" {
+			if action == ActionCancel {
 				return nil, fmt.Errorf("cancelled by operator")
 			}
 		case <-ctx.Done():

@@ -2,7 +2,6 @@ package graph
 
 import (
 	"context"
-	"os"
 	"strings"
 	"testing"
 
@@ -13,7 +12,9 @@ import (
 	"github.com/GoHyperrr/hyperrr/commerce/fulfillment"
 	"github.com/GoHyperrr/hyperrr/commerce/support"
 	"github.com/GoHyperrr/hyperrr/commerce/marketing"
+	"github.com/GoHyperrr/hyperrr/internal/auth"
 	domain "github.com/GoHyperrr/hyperrr/internal/context"
+
 	"github.com/GoHyperrr/hyperrr/internal/identity"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
@@ -31,12 +32,11 @@ func TestResolversExtra(t *testing.T) {
 	projector.Start(ctx)
 
 	// Setup DB
-	cfg := &config.Config{DBDriver: "sqlite", DBDSN: "api_extra_test.db"}
+	cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 	database, _ := db.Connect(cfg)
 	defer func() {
 		d, _ := database.DB.DB()
 		d.Close()
-		os.Remove("api_extra_test.db")
 	}()
 
 	// Init modules (minimal set needed)
@@ -61,6 +61,12 @@ func TestResolversExtra(t *testing.T) {
 	marketingMod := marketing.NewModule()
 	marketingMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 
+	authMod := auth.NewModule()
+	authMod.Init(ctx, &registry.Dependencies{
+		Config: &config.Config{JWTSecret: "secret", JWTExpiration: "24h"},
+		DB:     database,
+	})
+
 	db.Register(prodMod.Models()...)
 	db.Register(identMod.Models()...)
 	db.Register(custMod.Models()...)
@@ -68,6 +74,7 @@ func TestResolversExtra(t *testing.T) {
 	db.Register(fulfillMod.Models()...)
 	db.Register(supportMod.Models()...)
 	db.Register(marketingMod.Models()...)
+	db.Register(authMod.Models()...)
 	database.AutoMigrateAll()
 
 	resolver := &Resolver{
@@ -79,6 +86,7 @@ func TestResolversExtra(t *testing.T) {
 		SupportModule:      supportMod,
 		MarketingModule:    marketingMod,
 		IdentityModule:     identMod,
+		AuthModule:         authMod,
 		Runner:             runner,
 		Registry:           registryStore,
 	}

@@ -1,7 +1,6 @@
 package db
 
 import (
-	"os"
 	"testing"
 
 	"github.com/GoHyperrr/hyperrr/pkg/config"
@@ -13,22 +12,16 @@ type User struct {
 	Email string `gorm:"unique"`
 }
 
-type Order struct {
+type RepoOrder struct {
 	ID        uint `gorm:"primaryKey"`
 	UserID    uint // Soft relationship, no explicit FK
 	Total     float64
 }
 
 func TestRepositoryPattern(t *testing.T) {
-	dbFile := "repo_test_unique.db"
-	if _, err := os.Stat(dbFile); err == nil {
-		os.Remove(dbFile)
-	}
-	defer os.Remove(dbFile)
-
 	cfg := &config.Config{
 		DBDriver: "sqlite",
-		DBDSN:    dbFile,
+		DBDSN:    ":memory:",
 	}
 
 	database, err := Connect(cfg)
@@ -37,7 +30,7 @@ func TestRepositoryPattern(t *testing.T) {
 	}
 
 	// Register models from different "modules"
-	Register(&User{}, &Order{})
+	Register(&User{}, &RepoOrder{})
 
 	err = database.AutoMigrateAll()
 	if err != nil {
@@ -45,7 +38,7 @@ func TestRepositoryPattern(t *testing.T) {
 	}
 
 	t.Run("Create and Read", func(t *testing.T) {
-		user := User{Name: "Alice", Email: "alice@example.com"}
+		user := User{Name: "Alice", Email: "alice_repo@example.com"}
 		database.Create(&user)
 
 		var foundUser User
@@ -55,10 +48,10 @@ func TestRepositoryPattern(t *testing.T) {
 			t.Errorf("expected Alice, got %s", foundUser.Name)
 		}
 
-		order := Order{UserID: user.ID, Total: 100.0}
+		order := RepoOrder{UserID: user.ID, Total: 100.0}
 		database.Create(&order)
 
-		var foundOrder Order
+		var foundOrder RepoOrder
 		database.First(&foundOrder, order.ID)
 
 		if foundOrder.UserID != user.ID {

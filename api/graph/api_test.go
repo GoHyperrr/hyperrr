@@ -2,7 +2,6 @@ package graph
 
 import (
 	"context"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -37,13 +36,12 @@ func TestResolvers(t *testing.T) {
 	projector.Start(ctx)
 
 	// Setup DB for Product module
-	cfg := &config.Config{DBDriver: "sqlite", DBDSN: "api_test.db"}
+	cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 	database, _ := db.Connect(cfg)
 	defer func() {
 		// underlying sqlite close
 		d, _ := database.DB.DB()
 		d.Close()
-		os.Remove("api_test.db")
 	}()
 
 	prodMod := product.NewModule()

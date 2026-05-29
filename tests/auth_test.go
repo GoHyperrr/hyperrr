@@ -2,12 +2,12 @@ package tests
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/GoHyperrr/hyperrr/api/graph"
 	"github.com/GoHyperrr/hyperrr/api/middleware"
 	"github.com/GoHyperrr/hyperrr/commerce/customer"
+	"github.com/GoHyperrr/hyperrr/internal/auth"
 	"github.com/GoHyperrr/hyperrr/internal/identity"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
@@ -21,12 +21,11 @@ func TestAuthFlow(t *testing.T) {
 	bus := eventbus.NewInMemBus()
 	
 	// Setup DB
-	cfg := &config.Config{DBDriver: "sqlite", DBDSN: "auth_test.db"}
+	cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 	database, _ := db.Connect(cfg)
 	defer func() {
 		d, _ := database.DB.DB()
 		d.Close()
-		os.Remove("auth_test.db")
 	}()
 
 	// Setup Identity
@@ -44,16 +43,25 @@ func TestAuthFlow(t *testing.T) {
 	})
 	db.Register(custMod.Models()...)
 
+	// Setup Auth
+	authMod := auth.NewModule()
+	authMod.Init(ctx, &registry.Dependencies{
+		Config: &config.Config{JWTSecret: "secret", JWTExpiration: "24h"},
+		DB:     database,
+	})
+	db.Register(authMod.Models()...)
+
 	database.AutoMigrateAll()
 
 	resolver := &graph.Resolver{
 		IdentityModule: identMod,
 		CustomerModule: custMod,
+		AuthModule:     authMod,
 	}
 
 	t.Run("Register and Login", func(t *testing.T) {
 		// 1. Register
-		regRes, err := resolver.Mutation().Register(ctx, "test@example.com", "password123", "Test User")
+		regRes, err := resolver.Mutation().Register(ctx, "test_auth@example.com", "password123", "Test User")
 		if err != nil {
 			t.Fatalf("registration failed: %v", err)
 		}
@@ -62,7 +70,7 @@ func TestAuthFlow(t *testing.T) {
 		}
 
 		// 2. Login
-		loginRes, err := resolver.Mutation().Login(ctx, "test@example.com", "password123")
+		loginRes, err := resolver.Mutation().Login(ctx, "test_auth@example.com", "password123")
 		if err != nil {
 			t.Fatalf("login failed: %v", err)
 		}
@@ -75,8 +83,8 @@ func TestAuthFlow(t *testing.T) {
 		if err != nil {
 			t.Fatalf("customer not found: %v", err)
 		}
-		if c.Email != "test@example.com" {
-			t.Errorf("expected test@example.com, got %s", c.Email)
+		if c.Email != "test_auth@example.com" {
+			t.Errorf("expected test_auth@example.com, got %s", c.Email)
 		}
 
 		// 4. Test 'me' query
@@ -92,7 +100,7 @@ func TestAuthFlow(t *testing.T) {
 	})
 
 	t.Run("Login Failure", func(t *testing.T) {
-		_, err := resolver.Mutation().Login(ctx, "test@example.com", "wrong-password")
+		_, err := resolver.Mutation().Login(ctx, "test_auth@example.com", "wrong-password")
 		if err == nil {
 			t.Fatal("expected login failure for wrong password")
 		}

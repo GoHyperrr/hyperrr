@@ -14,7 +14,7 @@ type contextKey string
 const actorCtxKey contextKey = "actor"
 
 // AuthMiddleware extracts the JWT from the Authorization header and injects the Actor into the context.
-func AuthMiddleware() func(http.Handler) http.Handler {
+func AuthMiddleware(store *auth.AuthStore) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			header := r.Header.Get("Authorization")
@@ -30,7 +30,7 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 			}
 
 			token := parts[1]
-			actor, err := auth.ValidateToken(r.Context(), token)
+			actor, err := store.ValidateToken(r.Context(), token)
 			if err != nil {
 				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return

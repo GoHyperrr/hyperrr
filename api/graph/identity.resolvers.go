@@ -11,7 +11,6 @@ import (
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/api/middleware"
-	"github.com/GoHyperrr/hyperrr/internal/auth"
 )
 
 // Login is the resolver for the login field.
@@ -21,7 +20,7 @@ func (r *mutationResolver) Login(ctx context.Context, email string, password str
 		return nil, err
 	}
 
-	token, err := auth.GenerateToken(*actor)
+	token, err := r.AuthModule.Store().GenerateToken(*actor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
@@ -43,7 +42,7 @@ func (r *mutationResolver) Register(ctx context.Context, email string, password 
 		return nil, err
 	}
 
-	token, err := auth.GenerateToken(*actor)
+	token, err := r.AuthModule.Store().GenerateToken(*actor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}

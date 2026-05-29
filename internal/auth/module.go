@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"time"
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
@@ -21,9 +22,16 @@ func (m *Module) ID() string {
 }
 
 func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
-	m.store = NewAuthStore(deps.DB)
-	SetStore(m.store)
+	exp, err := time.ParseDuration(deps.Config.JWTExpiration)
+	if err != nil {
+		exp = 24 * time.Hour
+	}
+	m.store = NewAuthStore(deps.DB, deps.Config.JWTSecret, exp)
 	return nil
+}
+
+func (m *Module) Store() *AuthStore {
+	return m.store
 }
 
 func (m *Module) Models() []any {

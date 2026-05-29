@@ -2,10 +2,7 @@ package analytics
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"testing"
-	"time"
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
@@ -16,10 +13,7 @@ import (
 )
 
 func TestAnalyticsModule(t *testing.T) {
-	dbFile := fmt.Sprintf("analytics_test_%d.db", time.Now().UnixNano())
-	defer os.Remove(dbFile)
-
-	cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+	cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 	database, _ := db.Connect(cfg)
 	bus := eventbus.NewInMemBus()
 	runner := workflow.NewRunner(bus)

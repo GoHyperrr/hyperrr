@@ -3,7 +3,6 @@ package notification
 import (
 	"context"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -15,10 +14,7 @@ import (
 )
 
 func TestNotificationModule(t *testing.T) {
-	dbFile := "notif_test.db"
-	defer os.Remove(dbFile)
-
-	cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+	cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 	database, _ := db.Connect(cfg)
 	bus := eventbus.NewInMemBus()
 	runner := workflow.NewRunner(bus)

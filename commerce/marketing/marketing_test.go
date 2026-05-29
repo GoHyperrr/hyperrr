@@ -3,7 +3,6 @@ package marketing
 import (
 	"context"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -25,10 +24,7 @@ func (m *mockOrder) GetTotal() float64     { return m.TotalPrice }
 func (m *mockOrder) GetCustomerID() string { return m.CustomerID }
 
 func TestMarketingModule(t *testing.T) {
-	dbFile := fmt.Sprintf("marketing_mod_test_%d.db", time.Now().UnixNano())
-	defer os.Remove(dbFile)
-
-	cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+	cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 	database, _ := db.Connect(cfg)
 	bus := eventbus.NewInMemBus()
 	runner := workflow.NewRunner(bus)
@@ -137,9 +133,7 @@ func TestMarketingModule(t *testing.T) {
 }
 
 func TestMarketingRepository(t *testing.T) {
-	dbFile := fmt.Sprintf("marketing_repo_test_%d.db", time.Now().UnixNano())
-	defer os.Remove(dbFile)
-	cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
+	cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 	database, _ := db.Connect(cfg)
 	
 	repo := NewRepository(database)

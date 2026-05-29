@@ -19,14 +19,17 @@ func TestAuthStore(t *testing.T) {
 	database, _ := db.Connect(cfg)
 	database.AutoMigrate(&Blacklist{}, &RefreshToken{})
 
-	store := NewAuthStore(database)
+	store := NewAuthStore(database, "secret", 24*time.Hour)
 	ctx := context.Background()
 
 	t.Run("Blacklist", func(t *testing.T) {
 		jti := fmt.Sprintf("jti_%d", time.Now().UnixNano())
 		err := store.Blacklist(ctx, jti, time.Now().Add(time.Hour))
 		if err != nil { t.Error(err) }
-		if !store.IsBlacklisted(ctx, jti) { t.Error("failed to blacklist") }
+		
+		revoked, err := store.IsBlacklisted(ctx, jti)
+		if err != nil { t.Fatalf("IsBlacklisted failed: %v", err) }
+		if !revoked { t.Error("failed to blacklist") }
 	})
 
 	t.Run("RefreshTokens", func(t *testing.T) {
