@@ -42,3 +42,15 @@ func (r *Registry) Get(name string) (*Workflow, error) {
 	}
 	return wf, nil
 }
+
+// List returns all registered workflows.
+func (r *Registry) List() []*Workflow {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	
+	res := make([]*Workflow, 0, len(r.workflows))
+	for _, wf := range r.workflows {
+		res = append(res, wf)
+	}
+	return res
+}

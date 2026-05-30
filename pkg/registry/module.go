@@ -22,6 +22,7 @@ type WorkflowRunner interface {
 type WorkflowRegistry interface {
 	Register(wf *workflow.Workflow) error
 	Get(name string) (*workflow.Workflow, error)
+	List() []*workflow.Workflow
 }
 
 // Dependencies provides common utilities to modules.
