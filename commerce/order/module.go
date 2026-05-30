@@ -28,7 +28,26 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 
 	// Register Fulfillment Saga
 	deps.Registry.Register(&workflow.Workflow{
-		Name: "fulfillment.v1",
+		Name:        "fulfillment.v1",
+		Description: "Orchestrates the full order lifecycle including inventory reservation, payment processing, and shipment creation.",
+		ExposeToAI:  true,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"customer_id": map[string]any{"type": "string"},
+				"items": map[string]any{
+					"type": "array",
+					"items": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"product_id": map[string]any{"type": "string"},
+							"quantity":   map[string]any{"type": "integer"},
+						},
+					},
+				},
+			},
+			"required": []string{"customer_id", "items"},
+		},
 		Steps: []workflow.Step{
 			{
 				ID:   "fulfillment.reserve_inventory",

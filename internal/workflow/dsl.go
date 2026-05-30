@@ -4,9 +4,12 @@ import "time"
 
 // Workflow represents a declarative commerce workflow.
 type Workflow struct {
-	Name    string `yaml:"name" json:"name"`
-	Version string `yaml:"version" json:"version"`
-	Steps   []Step `yaml:"steps" json:"steps"`
+	Name        string         `yaml:"name" json:"name"`
+	Version     string         `yaml:"version" json:"version"`
+	Description string         `yaml:"description,omitempty" json:"description,omitempty"`
+	Steps       []Step         `yaml:"steps" json:"steps"`
+	ExposeToAI  bool           `yaml:"expose_to_ai,omitempty" json:"expose_to_ai,omitempty"`
+	InputSchema map[string]any `yaml:"input_schema,omitempty" json:"input_schema,omitempty"`
 }
 
 // Step represents a single unit of execution in a workflow.
