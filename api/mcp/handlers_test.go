@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/GoHyperrr/hyperrr/api/middleware"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	ident "github.com/GoHyperrr/hyperrr/pkg/identity"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
@@ -38,11 +39,15 @@ func (m *mockWorkflowRegistry) List() []*workflow.Workflow {
 type mockWorkflowRunner struct {
 	lastExecuted string
 	lastInput    any
+	lastActor    *ident.Actor
 }
 
 func (m *mockWorkflowRunner) Execute(ctx context.Context, id string, wf *workflow.Workflow, input any) (map[string]any, error) {
 	m.lastExecuted = wf.Name
 	m.lastInput = input
+	if a, ok := middleware.ForContext(ctx); ok {
+		m.lastActor = a
+	}
 	return map[string]any{"status": "ok"}, nil
 }
 
@@ -91,6 +96,10 @@ func TestMCP_DiscoveryAndExecution(t *testing.T) {
 
 		if runner.lastExecuted != "public-tool" {
 			t.Error("runner was not invoked with the correct tool")
+		}
+
+		if runner.lastActor == nil || runner.lastActor.ID != "agent_1" {
+			t.Errorf("expected actor ID agent_1, got %v", runner.lastActor)
 		}
 
 		// Verify result contains the expected content

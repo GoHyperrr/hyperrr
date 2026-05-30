@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
+	"github.com/GoHyperrr/hyperrr/pkg/locking"
 )
 
 type contextKey string
@@ -19,6 +20,7 @@ const (
 func WithRunner(ctx context.Context, r *Runner, id string) context.Context {
 	ctx = context.WithValue(ctx, runnerKey, r)
 	ctx = context.WithValue(ctx, workflowIDKey, id)
+	ctx = context.WithValue(ctx, locking.LockOwnerKey, id)
 	return ctx
 }
 

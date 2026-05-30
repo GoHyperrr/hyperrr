@@ -11,6 +11,10 @@ var (
 	ErrLockNotHeld           = errors.New("lock not held")
 )
 
+type contextKey string
+
+const LockOwnerKey contextKey = "lock_owner"
+
 // Locker defines the interface for distributed locking.
 type Locker interface {
 	// Acquire attempts to acquire a lock for the given key.

@@ -2,14 +2,19 @@ package context
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
+	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 	"github.com/GoHyperrr/hyperrr/pkg/utils"
+	"gorm.io/gorm"
 )
 
 // Lineage represents the execution history of a workflow.
@@ -44,11 +49,36 @@ type StepLineage struct {
 	Error     string     `json:"error,omitempty"`
 }
 
+// LineageModel GORM model for persisting lineages to database.
+type LineageModel struct {
+	ID        string    `gorm:"primaryKey"`
+	Name      string
+	Version   string
+	State     string
+	StartedAt time.Time
+	EndedAt   *time.Time
+	Error     string
+	Steps     string    `gorm:"type:text"` // Serialized JSON of []*StepLineage
+	Events    string    `gorm:"type:text"` // Serialized JSON of []eventbus.Event
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (LineageModel) TableName() string {
+	return "workflow_lineages"
+}
+
 // Projector listens to events and maintains execution lineage.
 type Projector struct {
 	mu       sync.RWMutex
 	lineages map[string]*Lineage
 	bus      eventbus.EventBus
+	db       *db.DB
+}
+
+// SetDB sets the database connection for the projector.
+func (p *Projector) SetDB(database *db.DB) {
+	p.db = database
 }
 
 // NewProjector creates a new Projector.
@@ -192,7 +222,44 @@ func (p *Projector) handleEvent(ctx context.Context, event eventbus.Event) error
 	
 	p.mu.Unlock()
 
+	// Only save to DB if it is a terminal/pause state (Completed, Failed, Waiting Human)
+	if saveLineage.State == workflow.StateCompleted || saveLineage.State == workflow.StateFailed || saveLineage.State == workflow.StateWaitingHuman {
+		p.saveToDB(ctx, saveLineage)
+	}
+
 	return nil
+}
+
+func (p *Projector) saveToDB(ctx context.Context, l *Lineage) {
+	if p.db == nil {
+		return
+	}
+	stepsJSON, err := json.Marshal(l.Steps)
+	if err != nil {
+		logger.Error("failed to marshal lineage steps", "error", err)
+		return
+	}
+	eventsJSON, err := json.Marshal(l.Events)
+	if err != nil {
+		logger.Error("failed to marshal lineage events", "error", err)
+		return
+	}
+
+	model := &LineageModel{
+		ID:        l.ID,
+		Name:      l.Name,
+		Version:   l.Version,
+		State:     l.State,
+		StartedAt: l.StartedAt,
+		EndedAt:   l.EndedAt,
+		Error:     l.Error,
+		Steps:     string(stepsJSON),
+		Events:    string(eventsJSON),
+	}
+
+	if err := p.db.WithContext(ctx).Save(model).Error; err != nil {
+		logger.Error("failed to save lineage to database", "id", l.ID, "error", err)
+	}
 }
 
 func (p *Projector) findStep(l *Lineage, stepID string) *StepLineage {
@@ -207,22 +274,88 @@ func (p *Projector) findStep(l *Lineage, stepID string) *StepLineage {
 // GetLineage returns the lineage for a workflow ID.
 func (p *Projector) GetLineage(id string) (*Lineage, error) {
 	p.mu.RLock()
-	defer p.mu.RUnlock()
-
 	lineage, ok := p.lineages[id]
-	if !ok {
-		return nil, fmt.Errorf("lineage not found for workflow: %s", id)
+	p.mu.RUnlock()
+
+	if ok {
+		return lineage, nil
 	}
-	return lineage, nil
+
+	// Fallback to database
+	if p.db != nil {
+		var model LineageModel
+		err := p.db.First(&model, "id = ?", id).Error
+		if err == nil {
+			var steps []*StepLineage
+			_ = json.Unmarshal([]byte(model.Steps), &steps)
+
+			var events []eventbus.Event
+			_ = json.Unmarshal([]byte(model.Events), &events)
+
+			l := &Lineage{
+				ID:        model.ID,
+				Name:      model.Name,
+				Version:   model.Version,
+				State:     model.State,
+				StartedAt: model.StartedAt,
+				EndedAt:   model.EndedAt,
+				Error:     model.Error,
+				Steps:     steps,
+				Events:    events,
+			}
+
+			// Cache in-memory
+			p.mu.Lock()
+			p.lineages[id] = l
+			p.mu.Unlock()
+
+			return l, nil
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("failed to query database for lineage %s: %w", id, err)
+		}
+	}
+
+	return nil, fmt.Errorf("lineage not found for workflow: %s", id)
 }
 
 // ListLineages returns all lineages as registry.LineageData.
 func (p *Projector) ListLineages() []registry.LineageData {
 	p.mu.RLock()
-	defer p.mu.RUnlock()
+	inMem := make(map[string]*Lineage)
+	for k, v := range p.lineages {
+		inMem[k] = v
+	}
+	p.mu.RUnlock()
 
-	res := make([]registry.LineageData, 0, len(p.lineages))
-	for _, l := range p.lineages {
+	if p.db != nil {
+		var models []LineageModel
+		if err := p.db.Find(&models).Error; err != nil {
+			logger.Error("failed to query lineages from database", "error", err)
+		} else {
+			for _, model := range models {
+				if _, exists := inMem[model.ID]; !exists {
+					var steps []*StepLineage
+					_ = json.Unmarshal([]byte(model.Steps), &steps)
+					var events []eventbus.Event
+					_ = json.Unmarshal([]byte(model.Events), &events)
+					inMem[model.ID] = &Lineage{
+						ID:        model.ID,
+						Name:      model.Name,
+						Version:   model.Version,
+						State:     model.State,
+						StartedAt: model.StartedAt,
+						EndedAt:   model.EndedAt,
+						Error:     model.Error,
+						Steps:     steps,
+						Events:    events,
+					}
+				}
+			}
+		}
+	}
+
+	res := make([]registry.LineageData, 0, len(inMem))
+	for _, l := range inMem {
 		res = append(res, l)
 	}
 	return res
@@ -230,11 +363,9 @@ func (p *Projector) ListLineages() []registry.LineageData {
 
 // QueryLineages returns lineages that match the given filter.
 func (p *Projector) QueryLineages(filter func(registry.LineageData) bool) []registry.LineageData {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
+	all := p.ListLineages()
 	var res []registry.LineageData
-	for _, l := range p.lineages {
+	for _, l := range all {
 		if filter(l) {
 			res = append(res, l)
 		}
@@ -244,23 +375,21 @@ func (p *Projector) QueryLineages(filter func(registry.LineageData) bool) []regi
 
 // GetRelatedLineages returns all lineages that share metadata with the given workflow ID.
 func (p *Projector) GetRelatedLineages(ctx context.Context, id string) ([]*Lineage, error) {
-	p.mu.RLock()
-	lineage, ok := p.lineages[id]
-	p.mu.RUnlock()
-
-	if !ok || lineage == nil {
-		return nil, fmt.Errorf("lineage not found for workflow: %s", id)
+	lineage, err := p.GetLineage(id)
+	if err != nil {
+		return nil, err
 	}
 
 	relatedIDsMap := make(map[string]bool)
+	allLineages := p.ListLineages()
+	allLineagesMap := make(map[string]*Lineage)
+	for _, data := range allLineages {
+		if l, ok := data.(*Lineage); ok {
+			allLineagesMap[l.ID] = l
+		}
+	}
 
-	// Since we removed SQL persistence, related lineages are only found
-	// if they are currently in the in-memory lineages map.
-
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
-	for _, other := range p.lineages {
+	for _, other := range allLineagesMap {
 		if other.ID == id {
 			continue
 		}
@@ -278,7 +407,7 @@ func (p *Projector) GetRelatedLineages(ctx context.Context, id string) ([]*Linea
 
 	res := make([]*Lineage, 0, len(relatedIDsMap))
 	for relatedID := range relatedIDsMap {
-		res = append(res, p.lineages[relatedID])
+		res = append(res, allLineagesMap[relatedID])
 	}
 
 	return res, nil

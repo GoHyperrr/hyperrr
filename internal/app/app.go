@@ -91,9 +91,16 @@ func RunWithConfig(cfg *config.Config) error {
 
 	if natsBus, ok := bus.(*eventbus.NATSBus); ok && cfg.WorkflowStoreType == "nats" {
 		natsConn := natsBus.Conn()
-		natsStore, _ := workflow.NewNATSStore(context.Background(), natsConn, cfg.NATSStateBucket)
+		natsStore, err := workflow.NewNATSStore(context.Background(), natsConn, cfg.NATSStateBucket)
+		if err != nil {
+			return fmt.Errorf("failed to initialize NATS state store: %w", err)
+		}
 		wfStore = natsStore
-		natsLocker, _ := locking.NewNATSLocker(context.Background(), natsConn, cfg.NATSLocksBucket)
+		
+		natsLocker, err := locking.NewNATSLocker(context.Background(), natsConn, cfg.NATSLocksBucket)
+		if err != nil {
+			return fmt.Errorf("failed to initialize NATS locker: %w", err)
+		}
 		wfLocker = natsLocker
 	} else {
 		wfStore = workflow.NewInMemStore()
@@ -157,6 +164,9 @@ func RunWithConfig(cfg *config.Config) error {
 				logger.Error("failed to shutdown module", "id", mod.ID(), "error", err)
 			}
 		}
+		if closer, ok := wfStore.(interface{ Close() error }); ok {
+			_ = closer.Close()
+		}
 	}()
 
 	initDone := make(chan struct{})
@@ -171,7 +181,31 @@ func RunWithConfig(cfg *config.Config) error {
 				return
 			}
 			for _, id := range stalled {
-				logger.Warn("found stalled workflow, recovery not yet automated for generic types", "id", id)
+				// Retrieve workflow name from state checkpoints
+				states, err := store.GetState(context.Background(), id)
+				if err != nil {
+					logger.Error("failed to retrieve states for stalled workflow", "id", id, "error", err)
+					continue
+				}
+				
+				wfName := states["__wf_name"]
+				if wfName == "" {
+					logger.Warn("found stalled workflow without saved workflow name, cannot auto-resume", "id", id)
+					continue
+				}
+				
+				wf, err := registryStore.Get(wfName)
+				if err != nil {
+					logger.Error("failed to find workflow definition in registry for auto-resume", "id", id, "name", wfName, "error", err)
+					continue
+				}
+				
+				logger.Info("auto-resuming stalled workflow", "id", id, "name", wfName)
+				go func(execID string, w *workflow.Workflow) {
+					if _, err := runner.ResumeExecution(context.Background(), execID, w); err != nil {
+						logger.Error("failed to auto-resume workflow", "id", execID, "error", err)
+					}
+				}(id, wf)
 			}
 		}()
 	}
@@ -194,12 +228,13 @@ func RunWithConfig(cfg *config.Config) error {
 			return fmt.Errorf("failed to initialize module %s: %w", mod.ID(), err)
 		}
 	}
-	close(initDone)
 
 	// 8. Run database migrations for all registered models
 	if err := database.AutoMigrateAll(); err != nil {
 		return fmt.Errorf("failed to run database migrations: %w", err)
 	}
+
+	close(initDone)
 
 	// 10. Setup MCP (Agent Gateway)
 	mcpServer := mcp.NewServer(deps)

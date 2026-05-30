@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
+	"github.com/GoHyperrr/hyperrr/pkg/locking"
 )
 
 func TestStateStore_Common(t *testing.T) {
@@ -74,7 +76,8 @@ func TestStateStore_Common(t *testing.T) {
 
 func TestWorkflowContext(t *testing.T) {
 	bus := eventbus.NewInMemBus()
-	runner := NewRunner(bus, nil, nil)
+	lock := locking.NewInMemLocker()
+	runner := NewRunner(bus, nil, lock)
 	ctx := context.Background()
 	
 	id := "ctx-test"
@@ -104,6 +107,47 @@ func TestWorkflowContext(t *testing.T) {
 	// Test Emit Error
 	if err := Emit(ctx, "fail", nil); err == nil {
 		t.Error("expected error for missing runner in context")
+	}
+
+	// 1. Context GetStateStore and GetEventBus with no runner
+	if GetStateStore(ctx) != nil {
+		t.Error("expected nil state store when no runner in context")
+	}
+	if GetEventBus(ctx) != nil {
+		t.Error("expected nil event bus when no runner in context")
+	}
+
+	// 2. Lock context error paths (missing runner)
+	_, err := AcquireLock(ctx, "mylock", 1*time.Second, 1*time.Second)
+	if err == nil {
+		t.Error("expected error for AcquireLock with missing runner")
+	}
+	err = ReleaseLock(ctx, "mylock")
+	if err == nil {
+		t.Error("expected error for ReleaseLock with missing runner")
+	}
+
+	// 3. Lock context error paths (missing locker)
+	runnerNoLocker := NewRunner(bus, nil, nil)
+	runnerNoLocker.locker = nil
+	wCtxNoLocker := WithRunner(ctx, runnerNoLocker, id)
+	_, err = AcquireLock(wCtxNoLocker, "mylock", 1*time.Second, 1*time.Second)
+	if err == nil {
+		t.Error("expected error for AcquireLock with missing locker")
+	}
+	err = ReleaseLock(wCtxNoLocker, "mylock")
+	if err == nil {
+		t.Error("expected error for ReleaseLock with missing locker")
+	}
+
+	// 4. Lock Context success paths
+	ok, err := AcquireLock(wCtx, "mylock", 100*time.Millisecond, 100*time.Millisecond)
+	if err != nil || !ok {
+		t.Errorf("AcquireLock failed: err=%v, ok=%v", err, ok)
+	}
+	err = ReleaseLock(wCtx, "mylock")
+	if err != nil {
+		t.Errorf("ReleaseLock failed: %v", err)
 	}
 }
 
@@ -169,4 +213,68 @@ func TestRunner_Execute_Checkpointing(t *testing.T) {
 	if string(out) != `"ok"` {
 		t.Errorf("expected \"ok\", got %s", string(out))
 	}
+}
+
+func TestInMemStore_ExtraPaths(t *testing.T) {
+	ctx := context.Background()
+	
+	t.Run("Expired state and input", func(t *testing.T) {
+		store := NewInMemStore()
+		execID := "expire-exec"
+		_ = store.InitializeExecution(ctx, execID, []byte("inp"))
+		_ = store.SaveState(ctx, execID, "s1", StateRunning)
+		
+		// Set TTL to past time or very short TTL
+		_ = store.SetTTL(ctx, execID, -1*time.Second)
+		
+		_, err := store.GetState(ctx, execID)
+		if err == nil {
+			t.Error("expected error for expired state")
+		}
+		
+		_, err = store.GetInput(ctx, execID)
+		if err == nil {
+			t.Error("expected error for expired input")
+		}
+	})
+
+	t.Run("ListExecutions", func(t *testing.T) {
+		store := NewInMemStore()
+		_ = store.InitializeExecution(ctx, "e1", []byte("inp"))
+		_ = store.InitializeExecution(ctx, "e2", []byte("inp"))
+		_ = store.SaveState(ctx, "e1", "", StateRunning)
+		_ = store.SaveState(ctx, "e2", "", StateCompleted)
+
+		running, _ := store.ListExecutions(ctx, StateRunning)
+		if len(running) != 1 || running[0] != "e1" {
+			t.Errorf("expected [e1], got %v", running)
+		}
+	})
+
+	t.Run("Close and cleanup routine", func(t *testing.T) {
+		// Set customizable cleanup interval to 10ms for this test
+		oldInterval := inMemStoreCleanupInterval
+		inMemStoreCleanupInterval = 10 * time.Millisecond
+		defer func() { inMemStoreCleanupInterval = oldInterval }()
+
+		store := NewInMemStore()
+		_ = store.InitializeExecution(ctx, "e-clean", []byte("inp"))
+		_ = store.SetTTL(ctx, "e-clean", 5 * time.Millisecond)
+
+		// Wait for cleanup routine to tick and delete expired records
+		time.Sleep(30 * time.Millisecond)
+
+		// Check if clean-up succeeded (data should be gone)
+		store.mu.Lock()
+		_, exists := store.inputs["e-clean"]
+		store.mu.Unlock()
+		if exists {
+			t.Error("expected e-clean input to be deleted by cleanup routine")
+		}
+
+		err := store.Close()
+		if err != nil {
+			t.Errorf("Close failed: %v", err)
+		}
+	})
 }

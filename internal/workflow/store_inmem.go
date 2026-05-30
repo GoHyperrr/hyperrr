@@ -16,6 +16,7 @@ type InMemStore struct {
 	outputs       map[string]map[string][]byte // execID -> stepID -> output
 	ttls          map[string]time.Time         // execID -> expiration time
 	emitted       map[string]map[string]bool   // execID -> eventType -> true
+	stop          chan struct{}
 }
 
 // NewInMemStore creates a new InMemStore.
@@ -27,6 +28,7 @@ func NewInMemStore() *InMemStore {
 		outputs:       make(map[string]map[string][]byte),
 		ttls:          make(map[string]time.Time),
 		emitted:       make(map[string]map[string]bool),
+		stop:          make(chan struct{}),
 	}
 	// Start a simple cleanup routine
 	go store.cleanupRoutine()
@@ -165,21 +167,41 @@ func (s *InMemStore) IsEventEmitted(ctx context.Context, execID string, eventTyp
 	return false, nil
 }
 
+func (s *InMemStore) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	select {
+	case <-s.stop:
+		// Already closed
+	default:
+		close(s.stop)
+	}
+	return nil
+}
+
+var inMemStoreCleanupInterval = 1 * time.Minute
+
 func (s *InMemStore) cleanupRoutine() {
-	ticker := time.NewTicker(1 * time.Minute)
-	for range ticker.C {
-		s.mu.Lock()
-		now := time.Now()
-		for execID, exp := range s.ttls {
-			if now.After(exp) {
-				delete(s.ttls, execID)
-				delete(s.states, execID)
-				delete(s.overallStates, execID)
-				delete(s.inputs, execID)
-				delete(s.outputs, execID)
-				delete(s.emitted, execID)
+	ticker := time.NewTicker(inMemStoreCleanupInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			s.mu.Lock()
+			now := time.Now()
+			for execID, exp := range s.ttls {
+				if now.After(exp) {
+					delete(s.ttls, execID)
+					delete(s.states, execID)
+					delete(s.overallStates, execID)
+					delete(s.inputs, execID)
+					delete(s.outputs, execID)
+					delete(s.emitted, execID)
+				}
 			}
+			s.mu.Unlock()
+		case <-s.stop:
+			return
 		}
-		s.mu.Unlock()
 	}
 }

@@ -69,6 +69,7 @@ func (r *Runner) Execute(ctx context.Context, id string, wf *Workflow, input any
 	if r.store != nil {
 		if inputBytes, err := json.Marshal(input); err == nil {
 			_ = r.store.InitializeExecution(ctx, id, inputBytes)
+			_ = r.store.SaveState(ctx, id, "__wf_name", wf.Name)
 		}
 	}
 
@@ -294,20 +295,21 @@ func (r *Runner) ResumeExecution(ctx context.Context, id string, wf *Workflow) (
 			}
 
 			go func(s Step, inp map[string]any) {
-				_ = r.store.SaveState(ctx, id, s.ID, StateRunning)
+				stepCtx := WithRunner(ctx, r, id)
+				_ = r.store.SaveState(stepCtx, id, s.ID, StateRunning)
 				
-				res, err := r.executeStepWithPolicies(ctx, id, s, inp)
+				res, err := r.executeStepWithPolicies(stepCtx, id, s, inp)
 
 				if err != nil {
-					_ = r.store.SaveState(ctx, id, s.ID, StateFailed)
+					_ = r.store.SaveState(stepCtx, id, s.ID, StateFailed)
 					stepFinished <- fmt.Errorf("workflow %s failed at step %s: %w", id, s.ID, err)
 					return
 				}
 
 				if resBytes, err := json.Marshal(res); err == nil {
-					_ = r.store.SaveStepOutput(ctx, id, s.ID, resBytes)
+					_ = r.store.SaveStepOutput(stepCtx, id, s.ID, resBytes)
 				}
-				_ = r.store.SaveState(ctx, id, s.ID, StateCompleted)
+				_ = r.store.SaveState(stepCtx, id, s.ID, StateCompleted)
 
 				stateMu.Lock()
 				results[s.ID] = res

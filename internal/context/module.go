@@ -21,6 +21,7 @@ func (m *Module) ID() string {
 
 func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 	m.projector = NewProjector(deps.EventBus)
+	m.projector.SetDB(deps.DB)
 	return m.projector.Start(ctx)
 }
 
@@ -29,7 +30,7 @@ func (m *Module) Shutdown(ctx context.Context) error {
 }
 
 func (m *Module) Models() []any {
-	return nil
+	return []any{&LineageModel{}}
 }
 
 func (m *Module) Handlers() map[string]workflow.TaskHandler {

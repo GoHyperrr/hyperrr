@@ -2,10 +2,13 @@ package context
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	"github.com/GoHyperrr/hyperrr/pkg/config"
+	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )
@@ -350,4 +353,141 @@ func TestProjector(t *testing.T) {
 			t.Errorf("expected %d events, got %d", len(eventTypes), len(l.Events))
 		}
 	})
+
+	t.Run("SQL Persistence & Fallback", func(t *testing.T) {
+		cfg := &config.Config{
+			DBDriver: "sqlite",
+			DBDSN:    ":memory:",
+		}
+		database, err := db.Connect(cfg)
+		if err != nil {
+			t.Fatalf("failed to connect database: %v", err)
+		}
+		sqlDB, _ := database.DB.DB()
+		defer sqlDB.Close()
+
+		// Run migration
+		err = database.AutoMigrate(&LineageModel{})
+		if err != nil {
+			t.Fatalf("failed auto-migrate: %v", err)
+		}
+
+		bus := eventbus.NewInMemBus()
+		p := NewProjector(bus)
+		p.SetDB(database)
+
+		wfID := "sql-wf-1"
+
+		// Simulate starting workflow
+		err = p.handleEvent(ctx, eventbus.Event{
+			Type:      workflow.EventWorkflowStarted,
+			Timestamp: time.Now(),
+			Payload:   map[string]any{"id": wfID, "name": "sql-flow", "version": "v1"},
+		})
+		if err != nil {
+			t.Fatalf("handleEvent failed: %v", err)
+		}
+
+		// Ensure it's not persisted yet (not a terminal state)
+		var count int64
+		database.Model(&LineageModel{}).Where("id = ?", wfID).Count(&count)
+		if count != 0 {
+			t.Error("expected 0 lineages in DB before completion")
+		}
+
+		// Simulate terminal state: completed
+		err = p.handleEvent(ctx, eventbus.Event{
+			Type:      workflow.EventWorkflowCompleted,
+			Timestamp: time.Now(),
+			Payload:   map[string]any{"id": wfID},
+		})
+		if err != nil {
+			t.Fatalf("handleEvent failed: %v", err)
+		}
+
+		// Verify it was persisted to database
+		database.Model(&LineageModel{}).Where("id = ?", wfID).Count(&count)
+		if count != 1 {
+			t.Error("expected lineage to be saved to DB")
+		}
+
+		// Clear memory map to simulate a restart/cache miss
+		p.mu.Lock()
+		delete(p.lineages, wfID)
+		p.mu.Unlock()
+
+		// Retrieve lineage - should fallback to database and cache it
+		l, err := p.GetLineage(wfID)
+		if err != nil {
+			t.Fatalf("GetLineage failed on fallback: %v", err)
+		}
+		if l.Name != "sql-flow" || l.State != workflow.StateCompleted {
+			t.Errorf("lineage data mismatch: %v", l)
+		}
+
+		// Check list matches
+		list := p.ListLineages()
+		if len(list) != 1 {
+			t.Errorf("expected 1 lineage in ListLineages, got %d", len(list))
+		}
+
+		// Check QueryLineages matches
+		qList := p.QueryLineages(func(d registry.LineageData) bool {
+			return d.GetState() == workflow.StateCompleted
+		})
+		if len(qList) != 1 {
+			t.Errorf("expected 1 in QueryLineages, got %d", len(qList))
+		}
+	})
+
+	t.Run("SQL Error Paths and Marshal failure", func(t *testing.T) {
+		cfg := &config.Config{
+			DBDriver: "sqlite",
+			DBDSN:    ":memory:",
+		}
+		database, err := db.Connect(cfg)
+		if err != nil {
+			t.Fatalf("failed to connect database: %v", err)
+		}
+		sqlDB, _ := database.DB.DB()
+
+		p := NewProjector(nil)
+		p.SetDB(database)
+
+		lBad := &Lineage{
+			ID: "bad-marshal",
+			Events: []eventbus.Event{
+				{Type: "test", Payload: make(chan int)},
+			},
+		}
+		p.saveToDB(context.Background(), lBad)
+
+		sqlDB.Close()
+
+		_, err = p.GetLineage("ghost")
+		if err == nil {
+			t.Error("expected error from GetLineage when DB connection is closed")
+		}
+
+		list := p.ListLineages()
+		if len(list) != 0 {
+			t.Errorf("expected 0 lineages on query error, got %d", len(list))
+		}
+	})
+
+	t.Run("Start subscription error", func(t *testing.T) {
+		p := NewProjector(&errorEventBus{})
+		err := p.Start(context.Background())
+		if err == nil {
+			t.Error("expected subscription error from Start")
+		}
+	})
+}
+
+type errorEventBus struct {
+	eventbus.EventBus
+}
+
+func (e *errorEventBus) Subscribe(ctx context.Context, eventType string, handler eventbus.EventHandler) (eventbus.Subscription, error) {
+	return nil, errors.New("mock subscription error")
 }

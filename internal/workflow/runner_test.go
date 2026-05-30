@@ -74,4 +74,10 @@ func TestRunner(t *testing.T) {
 		r := &Runner{}
 		r.emit(context.Background(), "test", nil) // Should not panic
 	})
+
+	t.Run("GetStateStore", func(t *testing.T) {
+		if runner.GetStateStore() == nil {
+			t.Error("expected state store to not be nil")
+		}
+	})
 }

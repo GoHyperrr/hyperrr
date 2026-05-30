@@ -27,6 +27,9 @@ type natsWorkflowState struct {
 
 // NewNATSStore creates a new NATSStore.
 func NewNATSStore(ctx context.Context, nc *nats.Conn, bucketName string) (*NATSStore, error) {
+	if nc == nil {
+		return nil, fmt.Errorf("nats connection is nil")
+	}
 	js, err := jetstream.New(nc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get jetstream context: %w", err)
@@ -89,6 +92,10 @@ func (s *NATSStore) SaveState(ctx context.Context, execID string, stepID string,
 		if err == nil {
 			return nil
 		}
+		if errors.Is(err, jetstream.ErrKeyExists) || strings.Contains(err.Error(), "revision") || strings.Contains(err.Error(), "mismatch") {
+			continue
+		}
+		return err
 	}
 }
 
@@ -152,6 +159,10 @@ func (s *NATSStore) SaveInput(ctx context.Context, execID string, input []byte) 
 		if err == nil {
 			return nil
 		}
+		if errors.Is(err, jetstream.ErrKeyExists) || strings.Contains(err.Error(), "revision") || strings.Contains(err.Error(), "mismatch") {
+			continue
+		}
+		return err
 	}
 }
 
@@ -201,6 +212,10 @@ func (s *NATSStore) SaveStepOutput(ctx context.Context, execID string, stepID st
 		if err == nil {
 			return nil
 		}
+		if errors.Is(err, jetstream.ErrKeyExists) || strings.Contains(err.Error(), "revision") || strings.Contains(err.Error(), "mismatch") {
+			continue
+		}
+		return err
 	}
 }
 
@@ -277,6 +292,10 @@ func (s *NATSStore) RecordEventEmitted(ctx context.Context, execID string, event
 		if err == nil {
 			return nil
 		}
+		if errors.Is(err, jetstream.ErrKeyExists) || strings.Contains(err.Error(), "revision") || strings.Contains(err.Error(), "mismatch") {
+			continue
+		}
+		return err
 	}
 }
 

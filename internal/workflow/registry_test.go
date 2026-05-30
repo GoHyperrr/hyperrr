@@ -38,4 +38,19 @@ func TestWorkflowRegistry(t *testing.T) {
 			t.Error("expected error for non-existent workflow")
 		}
 	})
+
+	t.Run("Register Empty Name Fail", func(t *testing.T) {
+		badWf := &Workflow{Name: ""}
+		err := r.Register(badWf)
+		if err == nil {
+			t.Error("expected error when registering workflow with empty name")
+		}
+	})
+
+	t.Run("List workflows", func(t *testing.T) {
+		list := r.List()
+		if len(list) != 1 || list[0].Name != "test" {
+			t.Errorf("expected list with 1 workflow named 'test', got %v", list)
+		}
+	})
 }

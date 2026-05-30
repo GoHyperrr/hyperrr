@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/GoHyperrr/hyperrr/api/middleware"
 	ident "github.com/GoHyperrr/hyperrr/pkg/identity"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
@@ -52,7 +54,6 @@ func (s *Server) HandleSSE(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()
 		delete(s.sessions, sessionID)
 		s.mu.Unlock()
-		close(messageChan)
 		logger.Info("MCP session closed", "session_id", sessionID)
 	}()
 
@@ -62,11 +63,18 @@ func (s *Server) HandleSSE(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "event: endpoint\ndata: %s\n\n", endpointURL)
 	flusher.Flush()
 
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
 	ctx := r.Context()
 	for {
 		select {
 		case msg := <-messageChan:
 			fmt.Fprintf(w, "data: %s\n\n", string(msg))
+			flusher.Flush()
+		case <-ticker.C:
+			// Send comment keep-alive ping
+			fmt.Fprintf(w, ":\n\n")
 			flusher.Flush()
 		case <-ctx.Done():
 			return
@@ -98,9 +106,6 @@ func (s *Server) HandleMessages(w http.ResponseWriter, r *http.Request) {
 
 	// AUTH: Requirement 4 - API Key Authentication
 	apiKey := r.Header.Get("X-API-Key")
-	if apiKey == "" {
-		apiKey = r.URL.Query().Get("api_key")
-	}
 
 	if apiKey == "" {
 		http.Error(w, "unauthorized: api key required", http.StatusUnauthorized)
@@ -129,8 +134,9 @@ func (s *Server) HandleMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Dispatch request
-	go s.dispatch(r.Context(), sessionID, actor, req)
+	// Dispatch request using a context decoupled from the POST request context
+	asyncCtx := middleware.WithActor(context.Background(), actor)
+	go s.dispatch(asyncCtx, sessionID, actor, req)
 
 	w.WriteHeader(http.StatusAccepted)
 }
@@ -190,8 +196,7 @@ func (s *Server) handleToolsCall(ctx context.Context, actor *ident.Actor, params
 	execID := "mcp_" + uuid.New().String()
 	
 	// Inject actor into context
-	// Note: We need a way to pass the actor context to Execute.
-	// Since Execute takes context, we can just use the provided context.
+	ctx = middleware.WithActor(ctx, actor)
 	
 	results, err := s.deps.Runner.Execute(ctx, execID, wf, args)
 	if err != nil {

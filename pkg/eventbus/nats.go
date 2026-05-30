@@ -46,12 +46,6 @@ func NewNATSBus(url string) (*NATSBus, error) {
 		subs:   make([]*NATSSubscription, 0),
 	}
 	
-	// Automatically clean up on context cancellation
-	go func() {
-		<-ctx.Done()
-		bus.Close()
-	}()
-	
 	return bus, nil
 }
 
@@ -64,10 +58,6 @@ func (b *NATSBus) SetContext(ctx context.Context) {
 	}
 	
 	b.ctx, b.cancel = context.WithCancel(ctx)
-	go func(c context.Context) {
-		<-c.Done()
-		b.Close()
-	}(b.ctx)
 }
 
 func (b *NATSBus) Publish(ctx context.Context, event Event) error {
