@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	ident "github.com/GoHyperrr/hyperrr/pkg/identity"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
@@ -42,7 +43,7 @@ func (m *Module) Shutdown(ctx context.Context) error {
 // Models returns the GORM models owned by this module.
 func (m *Module) Models() []any {
 	return []any{
-		&Actor{},
+		&ident.Actor{},
 		&User{},
 		&APIKey{},
 	}

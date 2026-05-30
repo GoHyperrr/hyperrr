@@ -72,13 +72,13 @@ func TestProjector(t *testing.T) {
 			t.Errorf("expected test-workflow, got %s", lineage.Name)
 		}
 		if lineage.State != workflow.StateCompleted {
-			t.Errorf("expected COMPLETED state, got %s", lineage.State)
+			t.Errorf("expected %s state, got %s", workflow.StateCompleted, lineage.State)
 		}
 		if len(lineage.Steps) != 1 {
 			t.Errorf("expected 1 step, got %d", len(lineage.Steps))
 		}
 		if lineage.Steps[0].State != workflow.StateCompleted {
-			t.Errorf("expected step COMPLETED, got %s", lineage.Steps[0].State)
+			t.Errorf("expected step %s, got %s", workflow.StateCompleted, lineage.Steps[0].State)
 		}
 	})
 
@@ -129,7 +129,7 @@ func TestProjector(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 		l, _ := projector.GetLineage(wfID)
 		if l.State != workflow.StateWaitingHuman {
-			t.Errorf("expected WAITING_HUMAN, got %s", l.State)
+			t.Errorf("expected %s, got %s", workflow.StateWaitingHuman, l.State)
 		}
 	})
 
@@ -260,15 +260,15 @@ func TestProjector(t *testing.T) {
 	t.Run("findStep multiple steps", func(t *testing.T) {
 		l := &Lineage{
 			Steps: []*StepLineage{
-				{StepID: "s1", State: "COMPLETED"},
-				{StepID: "s2", State: "RUNNING"},
-				{StepID: "s1", State: "RETRYING"}, // Newer s1
+				{StepID: "s1", State: workflow.StateCompleted},
+				{StepID: "s2", State: workflow.StateRunning},
+				{StepID: "s1", State: workflow.StateRetrying}, // Newer s1
 			},
 		}
 		p := &Projector{}
 		step := p.findStep(l, "s1")
-		if step == nil || step.State != "RETRYING" {
-			t.Errorf("expected latest s1 step with RETRYING state, got %v", step)
+		if step == nil || step.State != workflow.StateRetrying {
+			t.Errorf("expected latest s1 step with %s state, got %v", workflow.StateRetrying, step)
 		}
 	})
 

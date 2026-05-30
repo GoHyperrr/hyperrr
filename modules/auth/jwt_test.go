@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GoHyperrr/hyperrr/internal/identity"
+	"github.com/GoHyperrr/hyperrr/pkg/identity"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/golang-jwt/jwt/v5"

@@ -59,10 +59,10 @@ func (r *Runner) Execute(ctx context.Context, id string, wf *Workflow, input any
 	results["input"] = input
 	results["_workflow_id"] = id
 
-	// Checkpoint initial input
+	// Checkpoint initial input and initialize execution state
 	if r.store != nil {
 		if inputBytes, err := json.Marshal(input); err == nil {
-			r.store.SaveInput(ctx, id, inputBytes)
+			_ = r.store.InitializeExecution(ctx, id, inputBytes)
 		}
 	}
 
@@ -217,19 +217,24 @@ func (r *Runner) ResumeExecution(ctx context.Context, id string, wf *Workflow) (
 	var history []Step
 	var stateMu sync.Mutex
 
-	// Pre-fill results and completed states
+	// Pre-fill results and completed states from Store
 	for _, step := range wf.Steps {
-		if state, ok := states[step.ID]; ok && state == StateCompleted {
-			outBytes, err := r.store.GetStepOutput(ctx, id, step.ID)
-			if err == nil && len(outBytes) > 0 {
-				var out any
-				if err := json.Unmarshal(outBytes, &out); err == nil {
-					results[step.ID] = out
+		if state, ok := states[step.ID]; ok {
+			if state == StateCompleted {
+				outBytes, err := r.store.GetStepOutput(ctx, id, step.ID)
+				if err == nil && len(outBytes) > 0 {
+					var out any
+					if err := json.Unmarshal(outBytes, &out); err == nil {
+						results[step.ID] = out
+					}
 				}
+				completed[step.ID] = true
+				launched[step.ID] = true
+				history = append(history, step)
+			} else if state == StateRunning || state == StateFailed {
+				// Mark as launched but not completed, allowing the main loop to pick it up for re-execution
+				launched[step.ID] = false // Setting to false forces identification in the loop as "ready" if dependencies met
 			}
-			completed[step.ID] = true
-			launched[step.ID] = true
-			history = append(history, step)
 		}
 	}
 

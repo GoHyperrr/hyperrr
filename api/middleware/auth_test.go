@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GoHyperrr/hyperrr/internal/auth"
-	"github.com/GoHyperrr/hyperrr/internal/identity"
+	"github.com/GoHyperrr/hyperrr/modules/auth"
+	"github.com/GoHyperrr/hyperrr/pkg/identity"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 )

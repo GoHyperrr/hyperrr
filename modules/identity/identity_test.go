@@ -8,6 +8,7 @@ import (
 
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
+	"github.com/GoHyperrr/hyperrr/pkg/identity"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 	"github.com/google/uuid"
 )
@@ -43,7 +44,7 @@ func TestIdentityModule(t *testing.T) {
 	}
 
 	t.Run("Validate Actor Success", func(t *testing.T) {
-		actor := Actor{ID: "actor_1", Type: ActorHuman, Name: "Test User"}
+		actor := identity.Actor{ID: "actor_1", Type: identity.ActorHuman, Name: "Test User"}
 		database.Create(&actor)
 
 		input := map[string]any{
@@ -64,7 +65,7 @@ func TestIdentityModule(t *testing.T) {
 	})
 
 	t.Run("Get Actor by API Key", func(t *testing.T) {
-		actor := Actor{ID: "actor_2", Type: ActorAIAgent, Name: "AI Bot"}
+		actor := identity.Actor{ID: "actor_2", Type: identity.ActorAIAgent, Name: "AI Bot"}
 		database.Create(&actor)
 		database.Create(&APIKey{ID: "key_1", Key: "secret", ActorID: "actor_2"})
 

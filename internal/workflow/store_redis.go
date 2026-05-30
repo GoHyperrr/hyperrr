@@ -35,6 +35,20 @@ func (s *RedisStore) GetState(ctx context.Context, execID string) (map[string]st
 	return res, nil
 }
 
+func (s *RedisStore) InitializeExecution(ctx context.Context, execID string, input []byte) error {
+	stateKey := fmt.Sprintf("wf:%s:state", execID)
+	inputKey := fmt.Sprintf("wf:%s:input", execID)
+
+	pipe := s.client.Pipeline()
+	// Set initial status in state hash
+	pipe.HSet(ctx, stateKey, "_status", "STARTED")
+	// Save the input
+	pipe.Set(ctx, inputKey, input, 0)
+
+	_, err := pipe.Exec(ctx)
+	return err
+}
+
 func (s *RedisStore) SaveInput(ctx context.Context, execID string, input []byte) error {
 	key := fmt.Sprintf("wf:%s:input", execID)
 	return s.client.Set(ctx, key, input, 0).Err()

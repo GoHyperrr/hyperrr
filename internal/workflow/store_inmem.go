@@ -62,6 +62,15 @@ func (s *InMemStore) GetState(ctx context.Context, execID string) (map[string]st
 	return res, nil
 }
 
+func (s *InMemStore) InitializeExecution(ctx context.Context, execID string, input []byte) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.inputs[execID] = input
+	s.states[execID] = make(map[string]string)
+	return nil
+}
+
 func (s *InMemStore) SaveInput(ctx context.Context, execID string, input []byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

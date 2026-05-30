@@ -2,6 +2,8 @@ package registry
 
 import (
 	"context"
+	"net/http"
+	"sync"
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
@@ -30,6 +32,28 @@ type Dependencies struct {
 	Registry  WorkflowRegistry
 }
 
+// Middleware is a standard HTTP middleware function.
+type Middleware func(http.Handler) http.Handler
+
+var (
+	middlewareMu sync.RWMutex
+	middlewares  = make(map[string]Middleware)
+)
+
+// RegisterMiddleware adds a named middleware to the registry.
+func RegisterMiddleware(name string, mw Middleware) {
+	middlewareMu.Lock()
+	defer middlewareMu.Unlock()
+	middlewares[name] = mw
+}
+
+// GetMiddleware retrieves a middleware by name.
+func GetMiddleware(name string) (Middleware, bool) {
+	middlewareMu.RLock()
+	defer middlewareMu.RUnlock()
+	mw, ok := middlewares[name]
+	return mw, ok
+}
 
 // LineageData defines the minimal interface for accessing workflow execution data.
 type LineageData interface {

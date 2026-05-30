@@ -7,8 +7,9 @@ import (
 	"github.com/GoHyperrr/hyperrr/api/graph"
 	"github.com/GoHyperrr/hyperrr/api/middleware"
 	"github.com/GoHyperrr/hyperrr/commerce/customer"
-	"github.com/GoHyperrr/hyperrr/internal/auth"
-	"github.com/GoHyperrr/hyperrr/internal/identity"
+	"github.com/GoHyperrr/hyperrr/modules/auth"
+	"github.com/GoHyperrr/hyperrr/modules/identity"
+	ident "github.com/GoHyperrr/hyperrr/pkg/identity"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
@@ -88,7 +89,7 @@ func TestAuthFlow(t *testing.T) {
 		}
 
 		// 4. Test 'me' query
-		actor := &identity.Actor{ID: loginRes.Actor.ID, Type: identity.ActorType(loginRes.Actor.Type), Name: loginRes.Actor.Name}
+		actor := &ident.Actor{ID: loginRes.Actor.ID, Type: ident.ActorType(loginRes.Actor.Type), Name: loginRes.Actor.Name}
 		meCtx := middleware.WithActor(ctx, actor)
 		meRes, err := resolver.Query().Me(meCtx)
 		if err != nil {

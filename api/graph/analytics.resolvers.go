@@ -12,6 +12,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/commerce/order"
 	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
+	"github.com/GoHyperrr/hyperrr/internal/workflow"
 )
 
 // GetSystemStats is the resolver for the getSystemStats field.
@@ -32,9 +33,9 @@ func (r *queryResolver) GetSystemStats(ctx context.Context) (*model.SystemStats,
 	var totalDuration time.Duration
 
 	for _, l := range lineages {
-		if l.GetState() == "COMPLETED" {
+		if l.GetState() == workflow.StateCompleted {
 			success++
-		} else if l.GetState() == "FAILED" {
+		} else if l.GetState() == workflow.StateFailed {
 			failed++
 		}
 		if l.GetEndedAt() != nil && !l.GetEndedAt().IsZero() {
@@ -64,7 +65,7 @@ func (r *queryResolver) GetSalesStats(ctx context.Context) (*model.SalesStats, e
 
 	for _, l := range lineages {
 		// Look for successful fulfillment workflows
-		if l.GetName() == "fulfillment.v1" && l.GetState() == "COMPLETED" {
+		if l.GetName() == "fulfillment.v1" && l.GetState() == workflow.StateCompleted {
 			// Extract revenue from lineage events
 			conc, ok := l.(*ctxEngine.Lineage)
 			if ok {

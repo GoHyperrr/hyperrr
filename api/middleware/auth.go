@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/GoHyperrr/hyperrr/internal/auth"
-	"github.com/GoHyperrr/hyperrr/internal/identity"
+	"github.com/GoHyperrr/hyperrr/modules/auth"
+	"github.com/GoHyperrr/hyperrr/pkg/identity"
 )
 
 type contextKey string

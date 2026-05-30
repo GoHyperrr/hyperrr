@@ -12,9 +12,9 @@ import (
 	"github.com/GoHyperrr/hyperrr/commerce/marketing"
 	"github.com/GoHyperrr/hyperrr/commerce/search"
 	"github.com/GoHyperrr/hyperrr/commerce/analytics"
-	"github.com/GoHyperrr/hyperrr/internal/auth"
+	"github.com/GoHyperrr/hyperrr/modules/auth"
 	"github.com/GoHyperrr/hyperrr/internal/context"
-	"github.com/GoHyperrr/hyperrr/internal/identity"
+	"github.com/GoHyperrr/hyperrr/modules/identity"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 )
 

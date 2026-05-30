@@ -97,6 +97,24 @@ func (s *NATSStore) GetState(ctx context.Context, execID string) (map[string]str
 	return wfState.Steps, nil
 }
 
+func (s *NATSStore) InitializeExecution(ctx context.Context, execID string, input []byte) error {
+	key := fmt.Sprintf("wf.%s", execID)
+	wfState := natsWorkflowState{
+		Input: input,
+		Steps: make(map[string]string),
+	}
+	data, _ := json.Marshal(wfState)
+	_, err := s.kv.Create(ctx, key, data)
+	if err != nil && errors.Is(err, jetstream.ErrKeyExists) {
+		// If it already exists, we might want to overwrite or return error.
+		// The requirement says "initialize", so Create is appropriate to avoid accidental overwrite
+		// but let's see if we should use Put (CreateOrUpdate) or keep Create.
+		// Usually initialize implies a fresh start.
+		return fmt.Errorf("execution already initialized: %s", execID)
+	}
+	return err
+}
+
 func (s *NATSStore) SaveInput(ctx context.Context, execID string, input []byte) error {
 	key := fmt.Sprintf("wf.%s", execID)
 	for {

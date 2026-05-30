@@ -14,6 +14,9 @@ type StateStore interface {
 	// Returns a map of stepID -> state (e.g. "COMPLETED", "FAILED").
 	GetState(ctx context.Context, execID string) (map[string]string, error)
 	
+	// InitializeExecution sets up the initial state and input for a workflow.
+	InitializeExecution(ctx context.Context, execID string, input []byte) error
+	
 	// SaveInput stores the initial input payload of the workflow for resumption.
 	SaveInput(ctx context.Context, execID string, input []byte) error
 	

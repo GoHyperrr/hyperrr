@@ -43,8 +43,8 @@ func TestFullIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("lineage not found: %v", err)
 	}
-	if lineage.State != "COMPLETED" {
-		t.Errorf("expected COMPLETED, got %s", lineage.State)
+	if lineage.State != workflow.StateCompleted {
+		t.Errorf("expected %s, got %s", workflow.StateCompleted, lineage.State)
 	}
 
 	// Verify GraphQL (via Resolver)

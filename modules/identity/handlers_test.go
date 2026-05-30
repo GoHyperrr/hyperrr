@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	ident "github.com/GoHyperrr/hyperrr/pkg/identity"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
@@ -29,7 +30,7 @@ func TestIdentityHandlers(t *testing.T) {
 	database.AutoMigrateAll()
 
 	t.Run("API Key Retrieval", func(t *testing.T) {
-		actor := &Actor{ID: "act1", Type: ActorHuman, Name: "Tester"}
+		actor := &ident.Actor{ID: "act1", Type: ident.ActorHuman, Name: "Tester"}
 		database.Create(actor)
 		database.Create(&APIKey{Key: "secret", ActorID: "act1"})
 

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/GoHyperrr/hyperrr/internal/identity"
+	"github.com/GoHyperrr/hyperrr/pkg/identity"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )

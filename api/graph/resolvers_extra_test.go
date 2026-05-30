@@ -12,10 +12,10 @@ import (
 	"github.com/GoHyperrr/hyperrr/commerce/fulfillment"
 	"github.com/GoHyperrr/hyperrr/commerce/support"
 	"github.com/GoHyperrr/hyperrr/commerce/marketing"
-	"github.com/GoHyperrr/hyperrr/internal/auth"
+	"github.com/GoHyperrr/hyperrr/modules/auth"
 	domain "github.com/GoHyperrr/hyperrr/internal/context"
 
-	"github.com/GoHyperrr/hyperrr/internal/identity"
+	"github.com/GoHyperrr/hyperrr/modules/identity"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
