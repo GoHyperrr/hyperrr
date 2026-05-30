@@ -3,8 +3,10 @@ package auth
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
+	"github.com/GoHyperrr/hyperrr/api/middleware"
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )
@@ -28,6 +30,13 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 		return fmt.Errorf("invalid JWT_EXPIRATION format: %w", err)
 	}
 	m.store = NewAuthStore(deps.DB, deps.Config.JWTSecret, exp)
+
+	// Register Auth Middleware
+	registry.RegisterMiddleware("auth", func(next http.Handler) http.Handler {
+		// Module provides its store as a TokenValidator interface to the agnostic middleware
+		return middleware.AuthMiddleware(m.store)(next)
+	})
+
 	return nil
 }
 

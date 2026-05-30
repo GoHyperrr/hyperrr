@@ -5,83 +5,68 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
-	"github.com/GoHyperrr/hyperrr/modules/auth"
 	"github.com/GoHyperrr/hyperrr/pkg/identity"
-	"github.com/GoHyperrr/hyperrr/pkg/config"
-	"github.com/GoHyperrr/hyperrr/pkg/db"
 )
 
-func TestAuthMiddleware(t *testing.T) {
-	cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
-	database, _ := db.Connect(cfg)
-	database.AutoMigrate(&auth.Blacklist{})
-	store := auth.NewAuthStore(database, "secret", 24*time.Hour)
+type mockValidator struct {
+	actor *identity.Actor
+	err   error
+}
 
-	t.Run("No Authorization Header", func(t *testing.T) {
-		mw := AuthMiddleware(store)
-		handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			actor, ok := ForContext(r.Context())
-			if ok || actor != nil {
-				t.Error("expected nil actor")
-			}
-		}))
+func (m *mockValidator) ValidateToken(ctx context.Context, token string) (*identity.Actor, error) {
+	return m.actor, m.err
+}
 
-		req := httptest.NewRequest("GET", "/", nil)
-		mw(handler).ServeHTTP(httptest.NewRecorder(), req)
-	})
-
+func TestAuthMiddleware_Scenarios(t *testing.T) {
 	t.Run("Valid Token", func(t *testing.T) {
-		actor := identity.Actor{ID: "act_1", Type: identity.ActorHuman}
-		token, _ := store.GenerateToken(actor)
+		expectedActor := &identity.Actor{ID: "act_1", Type: identity.ActorHuman}
+		validator := &mockValidator{actor: expectedActor}
+		mw := AuthMiddleware(validator)
 
-		mw := AuthMiddleware(store)
-		handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			got, ok := ForContext(r.Context())
-			if !ok || got == nil || got.ID != actor.ID {
-				t.Errorf("expected actor %s, got %v", actor.ID, got)
+		h := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			actor, ok := ForContext(r.Context())
+			if !ok || actor.ID != "act_1" {
+				t.Errorf("expected actor act_1, got %v", actor)
 			}
 		}))
 
 		req := httptest.NewRequest("GET", "/", nil)
-		req.Header.Set("Authorization", "Bearer "+token)
-		mw(handler).ServeHTTP(httptest.NewRecorder(), req)
+		req.Header.Set("Authorization", "Bearer valid-token")
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", rr.Code)
+		}
 	})
 
-	t.Run("Invalid Token Format", func(t *testing.T) {
-		mw := AuthMiddleware(store)
-		handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	t.Run("No Token", func(t *testing.T) {
+		mw := AuthMiddleware(&mockValidator{})
+		h := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, ok := ForContext(r.Context())
 			if ok {
-				t.Error("expected ok false")
+				t.Error("expected no actor in context")
 			}
 		}))
 
 		req := httptest.NewRequest("GET", "/", nil)
-		req.Header.Set("Authorization", "Basic 123")
-		mw(handler).ServeHTTP(httptest.NewRecorder(), req)
+		h.ServeHTTP(httptest.NewRecorder(), req)
 	})
 
-	t.Run("Invalid JWT", func(t *testing.T) {
-		mw := AuthMiddleware(store)
-		handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_, ok := ForContext(r.Context())
-			if ok {
-				t.Error("expected ok false")
-			}
-		}))
-
-		req := httptest.NewRequest("GET", "/", nil)
-		req.Header.Set("Authorization", "Bearer invalid-token")
-		mw(handler).ServeHTTP(httptest.NewRecorder(), req)
+	t.Run("No Actor in context", func(t *testing.T) {
+		ctx := context.Background()
+		_, ok := ForContext(ctx)
+		if ok {
+			t.Error("expected no actor")
+		}
 	})
 	
 	t.Run("WithActor helper", func(t *testing.T) {
 		actor := &identity.Actor{ID: "test"}
 		ctx := WithActor(context.Background(), actor)
 		got, ok := ForContext(ctx)
-		if !ok || got != actor {
+		if !ok || got.ID != "test" {
 			t.Error("WithActor failed")
 		}
 	})

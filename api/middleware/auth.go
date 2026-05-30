@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/GoHyperrr/hyperrr/modules/auth"
 	"github.com/GoHyperrr/hyperrr/pkg/identity"
 )
 
@@ -13,8 +12,13 @@ type contextKey string
 
 const actorCtxKey contextKey = "actor"
 
+// TokenValidator defines an interface for validating authentication tokens.
+type TokenValidator interface {
+	ValidateToken(ctx context.Context, token string) (*identity.Actor, error)
+}
+
 // AuthMiddleware extracts the JWT from the Authorization header and injects the Actor into the context.
-func AuthMiddleware(store *auth.AuthStore) func(http.Handler) http.Handler {
+func AuthMiddleware(validator TokenValidator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			header := r.Header.Get("Authorization")
@@ -30,7 +34,7 @@ func AuthMiddleware(store *auth.AuthStore) func(http.Handler) http.Handler {
 			}
 
 			token := parts[1]
-			actor, err := store.ValidateToken(r.Context(), token)
+			actor, err := validator.ValidateToken(r.Context(), token)
 			if err != nil {
 				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return

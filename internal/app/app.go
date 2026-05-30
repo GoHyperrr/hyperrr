@@ -28,7 +28,6 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
-	"github.com/GoHyperrr/hyperrr/api/middleware"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
 )
@@ -94,7 +93,7 @@ func RunWithConfig(cfg *config.Config) error {
 	authMod := auth.NewModule()
 	registry.Register(authMod)
 	registry.Register(storage.NewModule())
-	
+
 	// Register Commerce Modules
 	prodMod := product.NewModule()
 	registry.Register(prodMod)
@@ -130,7 +129,7 @@ func RunWithConfig(cfg *config.Config) error {
 	}
 
 	modules := registry.List()
-	
+
 	// Ensure cleanup on error or exit
 	defer func() {
 		for _, mod := range modules {
@@ -187,12 +186,18 @@ func RunWithConfig(cfg *config.Config) error {
 		},
 	}))
 
-	// Middleware chain
-	authMW := middleware.AuthMiddleware(authMod.Store())
+	// Dynamic Middleware chain
+	var h http.Handler = srv
+	var playH http.Handler = playground.Handler("GraphQL playground", "/query")
+	
+	if authMW, ok := registry.GetMiddleware("auth"); ok {
+		h = authMW(h)
+		playH = authMW(playH)
+	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/", authMW(playground.Handler("GraphQL playground", "/query")))
-	mux.Handle("/query", authMW(srv))
+	mux.Handle("/", playH)
+	mux.Handle("/query", h)
 
 	addr := fmt.Sprintf(":%d", cfg.ServerPort)
 	logger.Info("Server is ready", "addr", addr, "playground", "http://localhost"+addr)
