@@ -16,6 +16,8 @@ type Config struct {
 	ServerPort        int    `mapstructure:"SERVER_PORT"`
 	EventBusProvider  string `mapstructure:"EVENT_BUS_PROVIDER"`
 	WorkflowStoreType string `mapstructure:"WORKFLOW_STORE_TYPE"`
+	NATSStateBucket   string `mapstructure:"NATS_STATE_BUCKET"`
+	NATSLocksBucket   string `mapstructure:"NATS_LOCKS_BUCKET"`
 	DBDriver          string `mapstructure:"DB_DRIVER"`
 	DBDSN             string `mapstructure:"DB_DSN"`
 	JWTSecret         string `mapstructure:"JWT_SECRET"`
@@ -41,6 +43,8 @@ func LoadWithFile(filename string) (*Config, error) {
 	v.SetDefault("SERVER_PORT", 8080)
 	v.SetDefault("EVENT_BUS_PROVIDER", "inmem")
 	v.SetDefault("WORKFLOW_STORE_TYPE", "mem")
+	v.SetDefault("NATS_STATE_BUCKET", "hyperrr_state")
+	v.SetDefault("NATS_LOCKS_BUCKET", "hyperrr_locks")
 	v.SetDefault("DB_DRIVER", "sqlite")
 	v.SetDefault("DB_DSN", "hyperrr.db")
 	v.SetDefault("JWT_SECRET", "hyperrr-secret-key")

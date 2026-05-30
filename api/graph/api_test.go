@@ -270,7 +270,7 @@ func TestResolvers(t *testing.T) {
 		}
 
 		final, _ := resolver.Query().GetCart(ctx, c.ID)
-		if final.Status != "COMPLETED" {
+		if final.Status != workflow.StateCompleted {
 			t.Errorf("expected COMPLETED status, got %s", final.Status)
 		}
 

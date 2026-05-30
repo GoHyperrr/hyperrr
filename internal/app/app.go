@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/GoHyperrr/hyperrr/commerce/product"
 	"github.com/GoHyperrr/hyperrr/commerce/customer"
@@ -92,9 +91,9 @@ func RunWithConfig(cfg *config.Config) error {
 
 	if natsBus, ok := bus.(*eventbus.NATSBus); ok && cfg.WorkflowStoreType == "nats" {
 		natsConn := natsBus.Conn()
-		natsStore, _ := workflow.NewNATSStore(context.Background(), natsConn, "hyperrr_state")
+		natsStore, _ := workflow.NewNATSStore(context.Background(), natsConn, cfg.NATSStateBucket)
 		wfStore = natsStore
-		natsLocker, _ := locking.NewNATSLocker(context.Background(), natsConn, "hyperrr_locks")
+		natsLocker, _ := locking.NewNATSLocker(context.Background(), natsConn, cfg.NATSLocksBucket)
 		wfLocker = natsLocker
 	} else {
 		wfStore = workflow.NewInMemStore()
@@ -146,6 +145,7 @@ func RunWithConfig(cfg *config.Config) error {
 		Runner:    runner,
 		Registry:  registryStore,
 		Locker:    wfLocker,
+		Resolver:  identMod,
 	}
 
 	modules := registry.List()
@@ -158,6 +158,23 @@ func RunWithConfig(cfg *config.Config) error {
 			}
 		}
 	}()
+
+	initDone := make(chan struct{})
+
+	// Auto-Recovery Goroutine
+	if store := runner.GetStateStore(); store != nil {
+		go func() {
+			<-initDone
+			stalled, err := store.ListExecutions(context.Background(), workflow.StateRunning)
+			if err != nil {
+				logger.Error("failed to list stalled workflows", "error", err)
+				return
+			}
+			for _, id := range stalled {
+				logger.Warn("found stalled workflow, recovery not yet automated for generic types", "id", id)
+			}
+		}()
+	}
 
 	for _, mod := range modules {
 		logger.Info("Initializing module", "id", mod.ID())
@@ -177,26 +194,11 @@ func RunWithConfig(cfg *config.Config) error {
 			return fmt.Errorf("failed to initialize module %s: %w", mod.ID(), err)
 		}
 	}
+	close(initDone)
 
 	// 8. Run database migrations for all registered models
 	if err := database.AutoMigrateAll(); err != nil {
 		return fmt.Errorf("failed to run database migrations: %w", err)
-	}
-
-	// 9. Auto-Recovery: Resume stalled workflows
-	if store := runner.GetStateStore(); store != nil {
-		go func() {
-			// Give modules a moment to fully register all handlers before resuming
-			time.Sleep(2 * time.Second)
-			stalled, err := store.ListExecutions(context.Background(), workflow.StateRunning)
-			if err != nil {
-				logger.Error("failed to list stalled workflows", "error", err)
-				return
-			}
-			for _, id := range stalled {
-				logger.Warn("found stalled workflow, recovery not yet automated for generic types", "id", id)
-			}
-		}()
 	}
 
 	// 10. Setup MCP (Agent Gateway)

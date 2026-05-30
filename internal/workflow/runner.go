@@ -231,11 +231,15 @@ func (r *Runner) ResumeExecution(ctx context.Context, id string, wf *Workflow) (
 		if state, ok := states[step.ID]; ok {
 			if state == StateCompleted {
 				outBytes, err := r.store.GetStepOutput(ctx, id, step.ID)
-				if err == nil && len(outBytes) > 0 {
+				if err != nil {
+					return nil, fmt.Errorf("failed to retrieve output for completed step %s: %w", step.ID, err)
+				}
+				if len(outBytes) > 0 {
 					var out any
-					if err := json.Unmarshal(outBytes, &out); err == nil {
-						results[step.ID] = out
+					if err := json.Unmarshal(outBytes, &out); err != nil {
+						return nil, fmt.Errorf("failed to unmarshal output for step %s: %w", step.ID, err)
 					}
+					results[step.ID] = out
 				}
 				completed[step.ID] = true
 				launched[step.ID] = true

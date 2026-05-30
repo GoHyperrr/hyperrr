@@ -10,8 +10,14 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
+	"github.com/GoHyperrr/hyperrr/pkg/identity"
 	"github.com/GoHyperrr/hyperrr/pkg/locking"
 )
+
+// ActorResolver defines the interface for resolving identities.
+type ActorResolver interface {
+	GetActorByAPIKey(ctx context.Context, key string) (*identity.Actor, error)
+}
 
 // WorkflowRunner defines the interface for executing workflows.
 type WorkflowRunner interface {
@@ -33,6 +39,7 @@ type Dependencies struct {
 	Runner    WorkflowRunner
 	Registry  WorkflowRegistry
 	Locker    locking.Locker
+	Resolver  ActorResolver
 }
 
 // Middleware is a standard HTTP middleware function.

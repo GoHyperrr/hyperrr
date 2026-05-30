@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	"github.com/GoHyperrr/hyperrr/modules/identity"
 	ident "github.com/GoHyperrr/hyperrr/pkg/identity"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
@@ -108,22 +107,12 @@ func (s *Server) HandleMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Resolve Actor (Assuming Identity Module is registered and accessible)
-	// For simplicity in the gateway, we'll try to get the identity module from the registry.
-	var identMod *identity.Module
-	for _, mod := range registry.List() {
-		if m, ok := mod.(*identity.Module); ok {
-			identMod = m
-			break
-		}
-	}
-
-	if identMod == nil {
-		http.Error(w, "identity module not found", http.StatusInternalServerError)
+	if s.deps.Resolver == nil {
+		http.Error(w, "identity resolver not configured", http.StatusInternalServerError)
 		return
 	}
 
-	actor, err := identMod.GetActorByAPIKey(r.Context(), apiKey)
+	actor, err := s.deps.Resolver.GetActorByAPIKey(r.Context(), apiKey)
 	if err != nil {
 		http.Error(w, "unauthorized: invalid api key", http.StatusUnauthorized)
 		return
