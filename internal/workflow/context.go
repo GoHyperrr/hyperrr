@@ -22,7 +22,7 @@ func WithRunner(ctx context.Context, r *Runner, id string) context.Context {
 }
 
 // Emit sends an event to the EventBus attached to the current workflow runner.
-// It requires the context to have been populated by the Runner (which happens automatically during TaskHandler execution).
+// It is idempotent: it tracks emitted events in the StateStore to prevent duplicates during resumption.
 func Emit(ctx context.Context, eventType string, payload any) error {
 	r, ok := ctx.Value(runnerKey).(*Runner)
 	if !ok || r == nil {
@@ -30,6 +30,14 @@ func Emit(ctx context.Context, eventType string, payload any) error {
 	}
 
 	wfID, _ := ctx.Value(workflowIDKey).(string)
+
+	// Idempotency check: don't double-emit during resumption
+	if r.store != nil && wfID != "" {
+		emitted, err := r.store.IsEventEmitted(ctx, wfID, eventType)
+		if err == nil && emitted {
+			return nil // Already sent
+		}
+	}
 	
 	// If payload is a map, automatically inject the workflow ID for traceability
 	if pMap, ok := payload.(map[string]any); ok {
@@ -39,6 +47,12 @@ func Emit(ctx context.Context, eventType string, payload any) error {
 	}
 
 	r.emit(ctx, eventType, payload)
+
+	// Persist emission record
+	if r.store != nil && wfID != "" {
+		_ = r.store.RecordEventEmitted(ctx, wfID, eventType)
+	}
+
 	return nil
 }
 

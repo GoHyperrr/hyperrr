@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/GoHyperrr/hyperrr/commerce/product"
 	"github.com/GoHyperrr/hyperrr/commerce/customer"
@@ -163,7 +164,27 @@ func RunWithConfig(cfg *config.Config) error {
 		return fmt.Errorf("failed to run database migrations: %w", err)
 	}
 
-	// 8. Setup GraphQL
+	// 8. Auto-Recovery: Resume stalled workflows
+	if store := runner.GetStateStore(); store != nil {
+		go func() {
+			// Give modules a moment to fully register all handlers before resuming
+			time.Sleep(2 * time.Second)
+			stalled, err := store.ListExecutions(context.Background(), workflow.StateRunning)
+			if err != nil {
+				logger.Error("failed to list stalled workflows", "error", err)
+				return
+			}
+			for _, id := range stalled {
+				// To resume, we need the workflow definition. 
+				// This is a limitation: we don't know which workflow name it was just from the ID.
+				// However, if we store the name in the StateStore too, we can look it up in the Registry.
+				// For now, we log it. A production system would store the workflow name in the metadata.
+				logger.Warn("found stalled workflow, recovery not yet automated for generic types", "id", id)
+			}
+		}()
+	}
+
+	// 9. Setup GraphQL
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{
 		Resolvers: &graph.Resolver{
 			Projector:      ctxMod.Projector(),

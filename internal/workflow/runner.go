@@ -178,6 +178,9 @@ func (r *Runner) Execute(ctx context.Context, id string, wf *Workflow, input any
 	}
 
 	logger.Info("workflow completed", "id", id)
+	if r.store != nil {
+		_ = r.store.SaveState(ctx, id, "", StateCompleted)
+	}
 	r.emit(ctx, EventWorkflowCompleted, map[string]any{"id": id, "name": wf.Name})
 
 	return results, nil
@@ -334,6 +337,11 @@ func (r *Runner) ResumeExecution(ctx context.Context, id string, wf *Workflow) (
 	r.emit(ctx, EventWorkflowCompleted, map[string]any{"id": id, "name": wf.Name})
 
 	return results, nil
+}
+
+// GetStateStore returns the StateStore attached to the runner.
+func (r *Runner) GetStateStore() StateStore {
+	return r.store
 }
 
 func (r *Runner) executeStepWithPolicies(ctx context.Context, id string, step Step, results map[string]any) (any, error) {

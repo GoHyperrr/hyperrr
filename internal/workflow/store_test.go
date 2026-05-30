@@ -107,6 +107,35 @@ func TestWorkflowContext(t *testing.T) {
 	}
 }
 
+func TestWorkflow_IdempotentEmit(t *testing.T) {
+	bus := eventbus.NewInMemBus()
+	store := NewInMemStore()
+	runner := NewRunner(bus, store)
+	ctx := context.Background()
+	
+	id := "idempotent-exec"
+	wCtx := WithRunner(ctx, runner, id)
+	
+	// Mock a handler that emits an event
+	count := 0
+	bus.Subscribe(ctx, "test.idempotent", func(ctx context.Context, event eventbus.Event) error {
+		count++
+		return nil
+	})
+	
+	// First emit
+	Emit(wCtx, "test.idempotent", map[string]any{"data": 1})
+	if count != 1 {
+		t.Errorf("expected 1 emission, got %d", count)
+	}
+	
+	// Second emit (same type)
+	Emit(wCtx, "test.idempotent", map[string]any{"data": 1})
+	if count != 1 {
+		t.Errorf("expected still 1 emission (idempotency), got %d", count)
+	}
+}
+
 func TestRunner_Execute_Checkpointing(t *testing.T) {
 	bus := eventbus.NewInMemBus()
 	store := NewInMemStore()

@@ -31,4 +31,13 @@ type StateStore interface {
 	
 	// GetStepOutput retrieves the successful result payload of a step.
 	GetStepOutput(ctx context.Context, execID string, stepID string) ([]byte, error)
+
+	// ListExecutions returns a list of execution IDs that match a given overall workflow state (e.g. "RUNNING").
+	ListExecutions(ctx context.Context, state string) ([]string, error)
+
+	// RecordEventEmitted tracks that a specific domain event has been sent to prevent duplicates during resumption.
+	RecordEventEmitted(ctx context.Context, execID string, eventType string) error
+
+	// IsEventEmitted checks if a domain event has already been sent for this execution.
+	IsEventEmitted(ctx context.Context, execID string, eventType string) (bool, error)
 }

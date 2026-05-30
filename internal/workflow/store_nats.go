@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -17,9 +18,11 @@ type NATSStore struct {
 }
 
 type natsWorkflowState struct {
-	Input   []byte            `json:"input,omitempty"`
-	Steps   map[string]string `json:"steps,omitempty"`
-	Outputs map[string][]byte `json:"outputs,omitempty"`
+	Input         []byte            `json:"input,omitempty"`
+	Steps         map[string]string `json:"steps,omitempty"`
+	Outputs       map[string][]byte `json:"outputs,omitempty"`
+	OverallState  string            `json:"overall_state,omitempty"`
+	EmittedEvents map[string]bool   `json:"emitted_events,omitempty"`
 }
 
 // NewNATSStore creates a new NATSStore.
@@ -48,14 +51,19 @@ func (s *NATSStore) SaveState(ctx context.Context, execID string, stepID string,
 		entry, err := s.kv.Get(ctx, key)
 		if err != nil {
 			if errors.Is(err, jetstream.ErrKeyNotFound) {
-				wfState := natsWorkflowState{Steps: map[string]string{stepID: state}}
+				wfState := natsWorkflowState{Steps: make(map[string]string)}
+				if stepID == "" {
+					wfState.OverallState = state
+				} else {
+					wfState.Steps[stepID] = state
+				}
 				data, _ := json.Marshal(wfState)
 				_, err = s.kv.Create(ctx, key, data)
 				if err == nil || errors.Is(err, jetstream.ErrKeyExists) {
 					if err == nil {
 						return nil
 					}
-					continue // Key was created between Get and Create, retry
+					continue
 				}
 				return err
 			}
@@ -66,17 +74,21 @@ func (s *NATSStore) SaveState(ctx context.Context, execID string, stepID string,
 		if err := json.Unmarshal(entry.Value(), &wfState); err != nil {
 			return err
 		}
-		if wfState.Steps == nil {
-			wfState.Steps = make(map[string]string)
+		
+		if stepID == "" {
+			wfState.OverallState = state
+		} else {
+			if wfState.Steps == nil {
+				wfState.Steps = make(map[string]string)
+			}
+			wfState.Steps[stepID] = state
 		}
-		wfState.Steps[stepID] = state
+		
 		data, _ := json.Marshal(wfState)
-
 		_, err = s.kv.Update(ctx, key, data, entry.Revision())
 		if err == nil {
 			return nil
 		}
-		// If revision mismatch, loop and retry
 	}
 }
 
@@ -100,18 +112,12 @@ func (s *NATSStore) GetState(ctx context.Context, execID string) (map[string]str
 func (s *NATSStore) InitializeExecution(ctx context.Context, execID string, input []byte) error {
 	key := fmt.Sprintf("wf.%s", execID)
 	wfState := natsWorkflowState{
-		Input: input,
-		Steps: make(map[string]string),
+		Input:        input,
+		Steps:        make(map[string]string),
+		OverallState: StateRunning,
 	}
 	data, _ := json.Marshal(wfState)
 	_, err := s.kv.Create(ctx, key, data)
-	if err != nil && errors.Is(err, jetstream.ErrKeyExists) {
-		// If it already exists, we might want to overwrite or return error.
-		// The requirement says "initialize", so Create is appropriate to avoid accidental overwrite
-		// but let's see if we should use Put (CreateOrUpdate) or keep Create.
-		// Usually initialize implies a fresh start.
-		return fmt.Errorf("execution already initialized: %s", execID)
-	}
 	return err
 }
 
@@ -170,8 +176,6 @@ func (s *NATSStore) GetInput(ctx context.Context, execID string) ([]byte, error)
 }
 
 func (s *NATSStore) SetTTL(ctx context.Context, execID string, ttl time.Duration) error {
-	// NATS JetStream KV typically relies on the bucket-level TTL.
-	// We can ignore per-key TTL for now as the bucket handles it.
 	return nil
 }
 
@@ -180,18 +184,6 @@ func (s *NATSStore) SaveStepOutput(ctx context.Context, execID string, stepID st
 	for {
 		entry, err := s.kv.Get(ctx, key)
 		if err != nil {
-			if errors.Is(err, jetstream.ErrKeyNotFound) {
-				wfState := natsWorkflowState{Outputs: map[string][]byte{stepID: output}}
-				data, _ := json.Marshal(wfState)
-				_, err = s.kv.Create(ctx, key, data)
-				if err == nil || errors.Is(err, jetstream.ErrKeyExists) {
-					if err == nil {
-						return nil
-					}
-					continue
-				}
-				return err
-			}
 			return err
 		}
 
@@ -203,8 +195,8 @@ func (s *NATSStore) SaveStepOutput(ctx context.Context, execID string, stepID st
 			wfState.Outputs = make(map[string][]byte)
 		}
 		wfState.Outputs[stepID] = output
+		
 		data, _ := json.Marshal(wfState)
-
 		_, err = s.kv.Update(ctx, key, data, entry.Revision())
 		if err == nil {
 			return nil
@@ -216,9 +208,6 @@ func (s *NATSStore) GetStepOutput(ctx context.Context, execID string, stepID str
 	key := fmt.Sprintf("wf.%s", execID)
 	entry, err := s.kv.Get(ctx, key)
 	if err != nil {
-		if errors.Is(err, jetstream.ErrKeyNotFound) {
-			return nil, fmt.Errorf("step output not found for execution: %s", execID)
-		}
 		return nil, err
 	}
 
@@ -234,4 +223,79 @@ func (s *NATSStore) GetStepOutput(ctx context.Context, execID string, stepID str
 		return nil, fmt.Errorf("step output not found for step: %s in execution: %s", stepID, execID)
 	}
 	return output, nil
+}
+
+func (s *NATSStore) ListExecutions(ctx context.Context, state string) ([]string, error) {
+	keys, err := s.kv.Keys(ctx)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrNoKeysFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var ids []string
+	for _, key := range keys {
+		if !strings.HasPrefix(key, "wf.") {
+			continue
+		}
+		
+		entry, err := s.kv.Get(ctx, key)
+		if err != nil {
+			continue
+		}
+		
+		var wfState natsWorkflowState
+		if err := json.Unmarshal(entry.Value(), &wfState); err == nil {
+			if wfState.OverallState == state {
+				ids = append(ids, strings.TrimPrefix(key, "wf."))
+			}
+		}
+	}
+	return ids, nil
+}
+
+func (s *NATSStore) RecordEventEmitted(ctx context.Context, execID string, eventType string) error {
+	key := fmt.Sprintf("wf.%s", execID)
+	for {
+		entry, err := s.kv.Get(ctx, key)
+		if err != nil {
+			return err
+		}
+
+		var wfState natsWorkflowState
+		if err := json.Unmarshal(entry.Value(), &wfState); err != nil {
+			return err
+		}
+		if wfState.EmittedEvents == nil {
+			wfState.EmittedEvents = make(map[string]bool)
+		}
+		wfState.EmittedEvents[eventType] = true
+		
+		data, _ := json.Marshal(wfState)
+		_, err = s.kv.Update(ctx, key, data, entry.Revision())
+		if err == nil {
+			return nil
+		}
+	}
+}
+
+func (s *NATSStore) IsEventEmitted(ctx context.Context, execID string, eventType string) (bool, error) {
+	key := fmt.Sprintf("wf.%s", execID)
+	entry, err := s.kv.Get(ctx, key)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrKeyNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	var wfState natsWorkflowState
+	if err := json.Unmarshal(entry.Value(), &wfState); err != nil {
+		return false, err
+	}
+	if wfState.EmittedEvents == nil {
+		return false, nil
+	}
+	return wfState.EmittedEvents[eventType], nil
 }

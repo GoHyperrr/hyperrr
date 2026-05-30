@@ -19,6 +19,10 @@ func NewRedisStore(client *redis.Client) *RedisStore {
 }
 
 func (s *RedisStore) SaveState(ctx context.Context, execID string, stepID string, state string) error {
+	if stepID == "" {
+		key := fmt.Sprintf("wf:%s:overall", execID)
+		return s.client.Set(ctx, key, state, 0).Err()
+	}
 	key := fmt.Sprintf("wf:%s:state", execID)
 	return s.client.HSet(ctx, key, stepID, state).Err()
 }
@@ -36,15 +40,9 @@ func (s *RedisStore) GetState(ctx context.Context, execID string) (map[string]st
 }
 
 func (s *RedisStore) InitializeExecution(ctx context.Context, execID string, input []byte) error {
-	stateKey := fmt.Sprintf("wf:%s:state", execID)
-	inputKey := fmt.Sprintf("wf:%s:input", execID)
-
 	pipe := s.client.Pipeline()
-	// Set initial status in state hash
-	pipe.HSet(ctx, stateKey, "_status", "STARTED")
-	// Save the input
-	pipe.Set(ctx, inputKey, input, 0)
-
+	pipe.Set(ctx, fmt.Sprintf("wf:%s:input", execID), input, 0)
+	pipe.Set(ctx, fmt.Sprintf("wf:%s:overall", execID), StateRunning, 0)
 	_, err := pipe.Exec(ctx)
 	return err
 }
@@ -67,17 +65,20 @@ func (s *RedisStore) GetInput(ctx context.Context, execID string) ([]byte, error
 }
 
 func (s *RedisStore) SetTTL(ctx context.Context, execID string, ttl time.Duration) error {
-	stateKey := fmt.Sprintf("wf:%s:state", execID)
-	inputKey := fmt.Sprintf("wf:%s:input", execID)
-	outputsKey := fmt.Sprintf("wf:%s:outputs", execID)
+	keys := []string{
+		fmt.Sprintf("wf:%s:state", execID),
+		fmt.Sprintf("wf:%s:input", execID),
+		fmt.Sprintf("wf:%s:outputs", execID),
+		fmt.Sprintf("wf:%s:overall", execID),
+		fmt.Sprintf("wf:%s:emitted", execID),
+	}
 	
-	if err := s.client.Expire(ctx, stateKey, ttl).Err(); err != nil {
-		return err
+	pipe := s.client.Pipeline()
+	for _, k := range keys {
+		pipe.Expire(ctx, k, ttl)
 	}
-	if err := s.client.Expire(ctx, outputsKey, ttl).Err(); err != nil {
-		return err
-	}
-	return s.client.Expire(ctx, inputKey, ttl).Err()
+	_, err := pipe.Exec(ctx)
+	return err
 }
 
 func (s *RedisStore) SaveStepOutput(ctx context.Context, execID string, stepID string, output []byte) error {
@@ -95,4 +96,41 @@ func (s *RedisStore) GetStepOutput(ctx context.Context, execID string, stepID st
 		return nil, err
 	}
 	return res, nil
+}
+
+func (s *RedisStore) ListExecutions(ctx context.Context, state string) ([]string, error) {
+	// Scan for keys with pattern wf:*:overall and check value
+	var ids []string
+	var cursor uint64
+	for {
+		keys, nextCursor, err := s.client.Scan(ctx, cursor, "wf:*:overall", 100).Result()
+		if err != nil {
+			return nil, err
+		}
+		
+		for _, k := range keys {
+			val, err := s.client.Get(ctx, k).Result()
+			if err == nil && val == state {
+				id := k[3 : len(k)-8] // Extract ID from wf:{id}:overall
+				ids = append(ids, id)
+			}
+		}
+		
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
+	}
+	return ids, nil
+}
+
+func (s *RedisStore) RecordEventEmitted(ctx context.Context, execID string, eventType string) error {
+	key := fmt.Sprintf("wf:%s:emitted", execID)
+	return s.client.HSet(ctx, key, eventType, "true").Err()
+}
+
+func (s *RedisStore) IsEventEmitted(ctx context.Context, execID string, eventType string) (bool, error) {
+	key := fmt.Sprintf("wf:%s:emitted", execID)
+	exists, err := s.client.HExists(ctx, key, eventType).Result()
+	return exists, err
 }
