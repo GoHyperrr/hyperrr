@@ -139,3 +139,8 @@ func (b *NATSBus) Close() error {
 	}
 	return nil
 }
+
+// Conn returns the underlying NATS connection.
+func (b *NATSBus) Conn() *nats.Conn {
+	return b.conn
+}

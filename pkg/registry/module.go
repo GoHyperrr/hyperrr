@@ -10,6 +10,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
+	"github.com/GoHyperrr/hyperrr/pkg/locking"
 )
 
 // WorkflowRunner defines the interface for executing workflows.
@@ -30,6 +31,7 @@ type Dependencies struct {
 	EventBus  eventbus.EventBus
 	Runner    WorkflowRunner
 	Registry  WorkflowRegistry
+	Locker    locking.Locker
 }
 
 // Middleware is a standard HTTP middleware function.

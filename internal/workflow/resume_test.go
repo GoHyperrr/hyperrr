@@ -14,7 +14,7 @@ func TestRunner_ResumeExecution(t *testing.T) {
 	store := NewInMemStore()
 
 	// Use an injected store
-	runner := NewRunner(bus, store)
+	runner := NewRunner(bus, store, nil)
 
 	var step1Count, step2Count int
 

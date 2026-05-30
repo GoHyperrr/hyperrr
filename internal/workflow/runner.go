@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
+	"github.com/GoHyperrr/hyperrr/pkg/locking"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/google/uuid"
 )
@@ -20,19 +21,24 @@ type TaskHandler func(ctx context.Context, input any) (any, error)
 type Runner struct {
 	bus      eventbus.EventBus
 	store    StateStore
+	locker   locking.Locker
 	handlers map[string]TaskHandler
 	mu       sync.RWMutex
 	waiting  map[string]chan string // workflowID -> signal channel
 }
 
 // NewRunner creates a new Runner.
-func NewRunner(bus eventbus.EventBus, store StateStore) *Runner {
+func NewRunner(bus eventbus.EventBus, store StateStore, locker locking.Locker) *Runner {
 	if store == nil {
 		store = NewInMemStore() // Fallback for tests not explicitly providing one
+	}
+	if locker == nil {
+		locker = locking.NewInMemLocker()
 	}
 	return &Runner{
 		bus:      bus,
 		store:    store,
+		locker:   locker,
 		handlers: make(map[string]TaskHandler),
 		waiting:  make(map[string]chan string),
 	}

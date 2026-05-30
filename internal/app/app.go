@@ -27,6 +27,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
+	"github.com/GoHyperrr/hyperrr/pkg/locking"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 	"github.com/99designs/gqlgen/graphql/handler"
@@ -83,10 +84,26 @@ func RunWithConfig(cfg *config.Config) error {
 		bus = eventbus.NewInMemBus()
 	}
 	defer bus.Close()
-	runner := workflow.NewRunner(bus, nil)
+
+	// 5. Initialize Workflow Engine & Locking
+	var wfStore workflow.StateStore
+	var wfLocker locking.Locker
+
+	if natsBus, ok := bus.(*eventbus.NATSBus); ok && cfg.WorkflowStoreType == "nats" {
+		natsConn := natsBus.Conn()
+		natsStore, _ := workflow.NewNATSStore(context.Background(), natsConn, "hyperrr_state")
+		wfStore = natsStore
+		natsLocker, _ := locking.NewNATSLocker(context.Background(), natsConn, "hyperrr_locks")
+		wfLocker = natsLocker
+	} else {
+		wfStore = workflow.NewInMemStore()
+		wfLocker = locking.NewInMemLocker()
+	}
+
+	runner := workflow.NewRunner(bus, wfStore, wfLocker)
 	registryStore := workflow.NewRegistry()
 
-	// 5. Register Core Modules
+	// 6. Register Core Modules
 	ctxMod := ctxEngine.NewModule()
 	registry.Register(ctxMod)
 	identMod := identity.NewModule()
@@ -120,13 +137,14 @@ func RunWithConfig(cfg *config.Config) error {
 	analyticsMod := analytics.NewModule()
 	registry.Register(analyticsMod)
 
-	// 6. Discover and Initialize Modules (Plugins)
+	// 7. Discover and Initialize Modules (Plugins)
 	deps := &registry.Dependencies{
 		Config:    cfg,
 		DB:        database,
 		EventBus:  bus,
 		Runner:    runner,
 		Registry:  registryStore,
+		Locker:    wfLocker,
 	}
 
 	modules := registry.List()
@@ -159,12 +177,12 @@ func RunWithConfig(cfg *config.Config) error {
 		}
 	}
 
-	// 7. Run database migrations for all registered models
+	// 8. Run database migrations for all registered models
 	if err := database.AutoMigrateAll(); err != nil {
 		return fmt.Errorf("failed to run database migrations: %w", err)
 	}
 
-	// 8. Auto-Recovery: Resume stalled workflows
+	// 9. Auto-Recovery: Resume stalled workflows
 	if store := runner.GetStateStore(); store != nil {
 		go func() {
 			// Give modules a moment to fully register all handlers before resuming
@@ -175,16 +193,12 @@ func RunWithConfig(cfg *config.Config) error {
 				return
 			}
 			for _, id := range stalled {
-				// To resume, we need the workflow definition. 
-				// This is a limitation: we don't know which workflow name it was just from the ID.
-				// However, if we store the name in the StateStore too, we can look it up in the Registry.
-				// For now, we log it. A production system would store the workflow name in the metadata.
 				logger.Warn("found stalled workflow, recovery not yet automated for generic types", "id", id)
 			}
 		}()
 	}
 
-	// 9. Setup GraphQL
+	// 10. Setup GraphQL
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{
 		Resolvers: &graph.Resolver{
 			Projector:      ctxMod.Projector(),

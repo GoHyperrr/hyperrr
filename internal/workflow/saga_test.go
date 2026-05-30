@@ -10,7 +10,7 @@ import (
 
 func TestSagas(t *testing.T) {
 	bus := eventbus.NewInMemBus()
-	runner := NewRunner(bus, nil)
+	runner := NewRunner(bus, nil, nil)
 
 	t.Run("Full Rollback", func(t *testing.T) {
 		s1Done := false

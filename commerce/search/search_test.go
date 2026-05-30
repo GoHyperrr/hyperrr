@@ -20,7 +20,7 @@ func TestSearchModule(t *testing.T) {
 	cfg := &config.Config{DBDriver: "sqlite", DBDSN: dbFile}
 	database, _ := db.Connect(cfg)
 	bus := eventbus.NewInMemBus()
-	runner := workflow.NewRunner(bus, nil)
+	runner := workflow.NewRunner(bus, nil, nil)
 	registryStore := workflow.NewRegistry()
 
 	// Mock Product module

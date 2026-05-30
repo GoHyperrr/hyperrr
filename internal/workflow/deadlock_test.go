@@ -9,7 +9,7 @@ import (
 
 func TestDeadlock(t *testing.T) {
 	bus := eventbus.NewInMemBus()
-	runner := NewRunner(bus, nil)
+	runner := NewRunner(bus, nil, nil)
 
 	t.Run("Deadlock", func(t *testing.T) {
 		wf := &Workflow{

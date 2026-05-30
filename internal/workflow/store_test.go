@@ -74,7 +74,7 @@ func TestStateStore_Common(t *testing.T) {
 
 func TestWorkflowContext(t *testing.T) {
 	bus := eventbus.NewInMemBus()
-	runner := NewRunner(bus, nil)
+	runner := NewRunner(bus, nil, nil)
 	ctx := context.Background()
 	
 	id := "ctx-test"
@@ -110,7 +110,7 @@ func TestWorkflowContext(t *testing.T) {
 func TestWorkflow_IdempotentEmit(t *testing.T) {
 	bus := eventbus.NewInMemBus()
 	store := NewInMemStore()
-	runner := NewRunner(bus, store)
+	runner := NewRunner(bus, store, nil)
 	ctx := context.Background()
 	
 	id := "idempotent-exec"
@@ -139,7 +139,7 @@ func TestWorkflow_IdempotentEmit(t *testing.T) {
 func TestRunner_Execute_Checkpointing(t *testing.T) {
 	bus := eventbus.NewInMemBus()
 	store := NewInMemStore()
-	runner := NewRunner(bus, store)
+	runner := NewRunner(bus, store, nil)
 	ctx := context.Background()
 	
 	runner.RegisterTask("t1", func(ctx context.Context, input any) (any, error) {

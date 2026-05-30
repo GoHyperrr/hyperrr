@@ -19,7 +19,7 @@ func TestFullIntegration(t *testing.T) {
 	projector.Start(ctx)
 
 	// Setup Runner
-	runner := workflow.NewRunner(bus, nil)
+	runner := workflow.NewRunner(bus, nil, nil)
 	runner.RegisterTask("step1", func(ctx context.Context, input any) (any, error) {
 		return "done", nil
 	})

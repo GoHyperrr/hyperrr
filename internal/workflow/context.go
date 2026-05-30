@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 )
@@ -54,6 +55,30 @@ func Emit(ctx context.Context, eventType string, payload any) error {
 	}
 
 	return nil
+}
+
+// AcquireLock attempts to acquire a lock for the current workflow.
+func AcquireLock(ctx context.Context, key string, ttl time.Duration, timeout time.Duration) (bool, error) {
+	r, ok := ctx.Value(runnerKey).(*Runner)
+	if !ok || r == nil {
+		return false, fmt.Errorf("no workflow runner found in context")
+	}
+	if r.locker == nil {
+		return false, fmt.Errorf("no locker configured in workflow runner")
+	}
+	return r.locker.Acquire(ctx, key, ttl, timeout)
+}
+
+// ReleaseLock releases a lock for the current workflow.
+func ReleaseLock(ctx context.Context, key string) error {
+	r, ok := ctx.Value(runnerKey).(*Runner)
+	if !ok || r == nil {
+		return fmt.Errorf("no workflow runner found in context")
+	}
+	if r.locker == nil {
+		return fmt.Errorf("no locker configured in workflow runner")
+	}
+	return r.locker.Release(ctx, key)
 }
 
 // GetWorkflowID retrieves the current executing Workflow ID from the context.

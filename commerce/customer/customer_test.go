@@ -23,7 +23,7 @@ func TestCustomerWorkflow(t *testing.T) {
 
 	database, _ := db.Connect(cfg)
 	bus := eventbus.NewInMemBus()
-	runner := workflow.NewRunner(bus, nil)
+	runner := workflow.NewRunner(bus, nil, nil)
 	registryStore := workflow.NewRegistry()
 	projector := ctxEngine.NewProjector(bus)
 	projector.Start(context.Background())
@@ -120,7 +120,7 @@ func TestCustomerWorkflow(t *testing.T) {
 		cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 		database, _ := db.Connect(cfg)
 		bus := eventbus.NewInMemBus()
-		runner := workflow.NewRunner(bus, nil)
+		runner := workflow.NewRunner(bus, nil, nil)
 		registryStore := workflow.NewRegistry()
 
 		mod := NewModule()

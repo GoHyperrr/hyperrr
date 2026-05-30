@@ -26,7 +26,7 @@ import (
 func TestResolversExtra(t *testing.T) {
 	ctx := context.Background()
 	bus := eventbus.NewInMemBus()
-	runner := workflow.NewRunner(bus, nil)
+	runner := workflow.NewRunner(bus, nil, nil)
 	registryStore := workflow.NewRegistry()
 	projector := domain.NewProjector(bus)
 	projector.Start(ctx)
