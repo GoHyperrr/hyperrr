@@ -20,6 +20,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/modules/auth"
 	"github.com/GoHyperrr/hyperrr/internal"
 	"github.com/GoHyperrr/hyperrr/api/graph"
+	"github.com/GoHyperrr/hyperrr/api/mcp"
 	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
 	"github.com/GoHyperrr/hyperrr/modules/identity"
 	"github.com/GoHyperrr/hyperrr/internal/storage"
@@ -198,7 +199,10 @@ func RunWithConfig(cfg *config.Config) error {
 		}()
 	}
 
-	// 10. Setup GraphQL
+	// 10. Setup MCP (Agent Gateway)
+	mcpServer := mcp.NewServer(deps)
+
+	// 11. Setup GraphQL
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{
 		Resolvers: &graph.Resolver{
 			Projector:      ctxMod.Projector(),
@@ -233,6 +237,8 @@ func RunWithConfig(cfg *config.Config) error {
 	mux := http.NewServeMux()
 	mux.Handle("/", playH)
 	mux.Handle("/query", h)
+	mux.HandleFunc("/mcp/sse", mcpServer.HandleSSE)
+	mux.HandleFunc("/mcp/messages", mcpServer.HandleMessages)
 
 	addr := fmt.Sprintf(":%d", cfg.ServerPort)
 	logger.Info("Server is ready", "addr", addr, "playground", "http://localhost"+addr)
