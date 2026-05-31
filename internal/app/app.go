@@ -32,6 +32,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/locking"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	ident "github.com/GoHyperrr/hyperrr/pkg/identity"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
 )
@@ -252,6 +253,28 @@ func RunWithConfig(cfg *config.Config) error {
 	// 8. Run database migrations for all registered models
 	if err := database.AutoMigrateAll(); err != nil {
 		return fmt.Errorf("failed to run database migrations: %w", err)
+	}
+
+	// Seed default MCP Developer API Key if not already present (for local/dev settings)
+	if cfg.AppEnv == "local" || cfg.AppEnv == "" || cfg.AppEnv == "dev" || cfg.AppEnv == "test" {
+		var actorCount int64
+		database.Model(&ident.Actor{}).Where("id = ?", "act_mcp_developer").Count(&actorCount)
+		if actorCount == 0 {
+			logger.Info("Seeding default MCP Developer Actor and API Key...")
+			devActor := ident.Actor{
+				ID:   "act_mcp_developer",
+				Type: ident.ActorAIAgent,
+				Name: "Developer Agent",
+			}
+			if err := database.Create(&devActor).Error; err == nil {
+				devKey := identity.APIKey{
+					ID:      "key_mcp_developer",
+					Key:     "hyperrr-mcp-developer-key",
+					ActorID: "act_mcp_developer",
+				}
+				_ = database.Create(&devKey)
+			}
+		}
 	}
 
 	// 9. Register system.about tool & workflow for AI agent context
