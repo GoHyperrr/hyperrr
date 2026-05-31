@@ -49,20 +49,6 @@ Hyperrr is a modern, event-native commerce operating system designed as a modula
 
 ---
 
-## ⚡ Locked Theme & Brand Layout
-
-The terminal console utilizes a locked, vibrant Off White and Acid Lime palette vertically aligned with the custom asterisk branding mark:
-
-| Role | Color | Hex Code |
-| :--- | :--- | :--- |
-| **Primary Blue** | Electric Blue | `#1557FF` |
-| **Accent Lime** | Acid Lime | `#D7FF00` |
-| **Secondary Purple** | Soft Lavender | `#D7A8FF` |
-| **Background Black** | Rich Black | `#0B0B0D` |
-| **Foreground White** | Off White | `#F8F8F6` |
-
----
-
 ## 🚥 Getting Started
 
 ### 1. Compile the Unified Executable
