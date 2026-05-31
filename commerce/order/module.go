@@ -155,3 +155,14 @@ func (m *Module) ReadResource(ctx context.Context, uri string) (string, error) {
 
 	return string(jsonBytes), nil
 }
+
+// Ensure Module implements registry.TUIProvider at compile-time.
+var _ registry.TUIProvider = (*Module)(nil)
+
+// TUIPages registers the order administration dashboard page.
+func (m *Module) TUIPages() []registry.TUIPage {
+	return []registry.TUIPage{
+		&ordersPage{},
+	}
+}
+

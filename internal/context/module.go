@@ -40,3 +40,14 @@ func (m *Module) Handlers() map[string]workflow.TaskHandler {
 func (m *Module) Projector() *Projector {
 	return m.projector
 }
+
+// Ensure Module implements registry.TUIProvider at compile-time.
+var _ registry.TUIProvider = (*Module)(nil)
+
+// TUIPages registers the workflow monitor dashboard page.
+func (m *Module) TUIPages() []registry.TUIPage {
+	return []registry.TUIPage{
+		&workflowsPage{},
+	}
+}
+

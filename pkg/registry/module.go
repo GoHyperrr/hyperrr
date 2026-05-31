@@ -120,3 +120,26 @@ type Module interface {
 	// Shutdown allows the module to release resources cleanly.
 	Shutdown(ctx context.Context) error
 }
+
+// TUIPage represents a self-contained view or tab in the admin panel.
+type TUIPage interface {
+	// Title returns the display name for the navigation tab.
+	Title() string
+
+	// Init initializes the page state with runtime dependencies.
+	// Returns a Bubble Tea command (cast to any).
+	Init(ctx context.Context, deps *Dependencies) any
+
+	// Update processes input keystrokes or system events for the page.
+	// Returns the updated page and an optional Bubble Tea command.
+	Update(msg any) (TUIPage, any)
+
+	// View renders the layout screen of the page.
+	View() string
+}
+
+// TUIProvider is implemented by modules that want to expose custom admin views.
+type TUIProvider interface {
+	TUIPages() []TUIPage
+}
+

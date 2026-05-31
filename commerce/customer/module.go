@@ -28,6 +28,16 @@ func (m *Module) ID() string {
 func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 	m.repo = NewRepository(deps.DB)
 
+	// Try to resolve Projector from registry if not explicitly set
+	if m.projector == nil {
+		if ctxModVal, ok := registry.Get("core.context"); ok {
+			if ctxMod, ok := ctxModVal.(*ctxEngine.Module); ok {
+				m.projector = ctxMod.Projector()
+				m.brain = NewMLBrainV2(m.projector)
+			}
+		}
+	}
+
 	// Register Workflows
 	deps.Registry.Register(&workflow.Workflow{
 		Name: "customer.segmentation",
@@ -125,3 +135,14 @@ func (m *Module) SetProjector(p *ctxEngine.Projector) {
 	m.projector = p
 	m.brain = NewMLBrainV2(p)
 }
+
+// Ensure Module implements registry.TUIProvider at compile-time.
+var _ registry.TUIProvider = (*Module)(nil)
+
+// TUIPages registers the customer administration dashboard page.
+func (m *Module) TUIPages() []registry.TUIPage {
+	return []registry.TUIPage{
+		&customerPage{},
+	}
+}
+

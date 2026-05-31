@@ -61,3 +61,14 @@ func (m *Module) Handlers() map[string]workflow.TaskHandler {
 func (m *Module) Repo() *Repository {
 	return m.repo
 }
+
+// Ensure Module implements registry.TUIProvider at compile-time.
+var _ registry.TUIProvider = (*Module)(nil)
+
+// TUIPages registers the product administration dashboard page.
+func (m *Module) TUIPages() []registry.TUIPage {
+	return []registry.TUIPage{
+		&productPage{},
+	}
+}
+
