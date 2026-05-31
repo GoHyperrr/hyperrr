@@ -41,8 +41,8 @@ type InitializeResult struct {
 
 // ServerCapabilities represents capabilities of the server.
 type ServerCapabilities struct {
-	Tools     map[string]any `json:"tools,omitempty"`
-	Resources map[string]any `json:"resources,omitempty"`
+	Tools     map[string]any `json:"tools"`
+	Resources map[string]any `json:"resources"`
 }
 
 // ServerInfo represents basic info about this server.
