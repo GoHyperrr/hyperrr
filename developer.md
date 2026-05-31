@@ -53,6 +53,8 @@ For in-depth explanations, code structures, and implementation philosophies of e
 5.  **[Database Architecture & Schema Auto-Migrations](file:///D:/hyperrr-commerce-ai/docs/database_and_migrations.md)**: Outlines GORM dialect setups, dynamic module database registration, idempotency checking, and table isolation patterns.
 6.  **[GraphQL API Gateway & Security Middleware](file:///D:/hyperrr-commerce-ai/docs/graphql_api_gateway.md)**: Explains modular schema aggregation, token parsing interceptors, RBAC actor context injection, and entity type mappers.
 7.  **[Distributed Locking & Coordination Kernel](file:///D:/hyperrr-commerce-ai/docs/distributed_locking_coordination.md)**: Describes pluggable lock interfaces, compare-and-swap (CAS) lock mechanics, and lock ownership validations.
+8.  **[Composable TUI Admin Dashboard](file:///D:/hyperrr-commerce-ai/docs/tui.md)**: Explains the decoupled standalone compilation, Bubble Tea v2 architecture, and dynamic layout composition of the terminal control center.
+
 
 ---
 
