@@ -1,6 +1,6 @@
 # Composable TUI Admin Dashboard (Decoupled client mode)
 
-The **Composable TUI Admin Dashboard** (`mission-control`) serves as the terminal-based command center for managing catalog products, tracking orders, listing customer profiles, and monitoring live workflows.
+The **Composable TUI Admin Dashboard** (launched via `hyperrr admin`) serves as the terminal-based command center for managing catalog products, tracking orders, listing customer profiles, and monitoring live workflows.
 
 Unlike typical monolithic CLI tools, the TUI is designed to be **completely decoupled from the database** and run as a **standalone client** on developer/operator workstations, communicating with the Hyperrr server exclusively via the network.
 
@@ -24,10 +24,10 @@ The TUI architecture employs a modular composition pattern where individual doma
        |            (API Gateway & Module Resolvers)            |
        +---------------------------+----------------------------+
                                    |
-                             GORM / DB Queries
+                              GORM / DB Queries
                                    |
                                    v
-                       [ SQLite / Postgres DB ]
+                        [ SQLite / Postgres DB ]
 ```
 
 ### Key Architectural Concepts
@@ -111,12 +111,13 @@ func QueryGraphQL(serverURL string, query string, variables map[string]any, out 
 
 ## 5. Standalone Execution
 
-The CLI utility compiles into a single binary and can be run without source files or config databases:
+The CLI utility compiles into a single unified binary and can be run without local databases by pointing to the remote server:
 
 ```bash
-# Compile standalone command center
-go build -o bin/mission-control ./cmd/tui
+# Compile the consolidated CLI binary
+go build -o bin/hyperrr ./cmd/hyperrr
 
-# Execute pointing to the remote server URL
-./bin/mission-control --server http://api.hyperrr-commerce.com:8080
+# Run in admin mode targeting the remote server
+./bin/hyperrr admin --server http://api.hyperrr-commerce.com:8080
+```
 ```
