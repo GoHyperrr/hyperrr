@@ -19,7 +19,6 @@ coverage: test
 
 build:
 	$(GO) build -o bin/hyperrr ./cmd/hyperrr
-	$(GO) build -o bin/mission-control ./cmd/tui
 
 clean:
 	rm -rf bin/
