@@ -107,3 +107,38 @@ func (r *queryResolver) GetCustomer(ctx context.Context, id string) (*model.Cust
 
 	return res, nil
 }
+
+// ListCustomers is the resolver for the listCustomers field.
+func (r *queryResolver) ListCustomers(ctx context.Context) ([]*model.Customer, error) {
+	list, err := r.CustomerModule.Repo().List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var res []*model.Customer
+	for _, c := range list {
+		cust := &model.Customer{
+			ID:      c.ID,
+			UserID:  c.UserID,
+			Name:    c.Name,
+			Email:   c.Email,
+			Persona: &c.Persona,
+		}
+		for _, a := range c.Addresses {
+			addr := a
+			cust.Addresses = append(cust.Addresses, &model.Address{
+				ID:      addr.ID,
+				Line1:   addr.Line1,
+				Line2:   &addr.Line2,
+				City:    addr.City,
+				State:   addr.State,
+				Zip:     addr.Zip,
+				Country: addr.Country,
+			})
+		}
+		res = append(res, cust)
+	}
+
+	return res, nil
+}
+

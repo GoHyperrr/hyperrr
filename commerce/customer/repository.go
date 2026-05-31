@@ -39,3 +39,11 @@ func (r *Repository) GetByUserID(ctx context.Context, userID string) (*Customer,
 	}
 	return &c, nil
 }
+
+// List retrieves all customers.
+func (r *Repository) List(ctx context.Context) ([]*Customer, error) {
+	var list []*Customer
+	err := r.db.WithContext(ctx).Preload("Addresses").Find(&list).Error
+	return list, err
+}
+

@@ -40,6 +40,7 @@ type Dependencies struct {
 	Registry  WorkflowRegistry
 	Locker    locking.Locker
 	Resolver  ActorResolver
+	ServerURL string
 }
 
 // Middleware is a standard HTTP middleware function.

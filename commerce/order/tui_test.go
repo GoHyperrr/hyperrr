@@ -2,57 +2,54 @@ package order
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/config"
-	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestOrderTUI(t *testing.T) {
-	// Initialize in-memory database
-	cfg := &config.Config{
-		DBDriver: "sqlite",
-		DBDSN:    ":memory:",
-	}
-	database, err := db.Connect(cfg)
-	if err != nil {
-		t.Fatalf("failed to connect to memory db: %v", err)
-	}
-
-	// Auto-migrate Order schema
-	err = database.AutoMigrate(&Order{}, &OrderItem{})
-	if err != nil {
-		t.Fatalf("failed to auto-migrate order: %v", err)
-	}
-
-	// Pre-populate test order
-	testOrder := &Order{
+	// Pre-populate test order data
+	testOrder := &tuiOrder{
 		ID:         "ord_1",
 		CustomerID: "cust_123",
-		Status:     OrderPaid,
+		Status:     "PAID",
 		TotalPrice: 99.90,
-		Items: []OrderItem{
+		Items: []tuiOrderItem{
 			{
-				ID:        "item_1",
-				OrderID:   "ord_1",
 				ProductID: "prod_1",
 				Quantity:  2,
 				UnitPrice: 49.95,
 			},
 		},
-		CreatedAt: time.Now(),
-	}
-	err = database.Save(testOrder).Error
-	if err != nil {
-		t.Fatalf("failed to save test order: %v", err)
 	}
 
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Query string `json:"query"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(req.Query, "listOrders") {
+			resp := map[string]any{
+				"data": map[string]any{
+					"listOrders": []*tuiOrder{testOrder},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+		}
+	}))
+	defer ts.Close()
+
 	deps := &registry.Dependencies{
-		DB: database,
+		Config:    &config.Config{},
+		ServerURL: ts.URL,
 	}
 
 	ctx := context.Background()
@@ -77,7 +74,7 @@ func TestOrderTUI(t *testing.T) {
 	}
 
 	// Test navigation keypresses
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	p.Update(tea.KeyPressMsg{Text: "j", Code: 'j'})
 	if p.activeRow != 0 { // wrapping scroll on 1 item
 		t.Errorf("expected active row index 0, got %d", p.activeRow)
 	}
@@ -89,7 +86,7 @@ func TestOrderTUI(t *testing.T) {
 	}
 
 	// Test enter to open details
-	p.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	p.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if !p.detailMode {
 		t.Error("expected detail mode to be true after hitting Enter")
 	}
@@ -104,7 +101,7 @@ func TestOrderTUI(t *testing.T) {
 	}
 
 	// Test esc to return to list
-	p.Update(tea.KeyMsg{Type: tea.KeyEscape})
+	p.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	if p.detailMode {
 		t.Error("expected detail mode to be false after hitting ESC")
 	}

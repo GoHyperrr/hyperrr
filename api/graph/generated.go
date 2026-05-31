@@ -188,6 +188,7 @@ type ComplexityRoot struct {
 		Health              func(childComplexity int) int
 		ListCustomerOrders  func(childComplexity int, customerID string) int
 		ListCustomerTickets func(childComplexity int, customerID string) int
+		ListCustomers       func(childComplexity int) int
 		ListLineages        func(childComplexity int) int
 		ListNotifications   func(childComplexity int, recipient *string) int
 		ListOrderPayments   func(childComplexity int, orderID string) int
@@ -252,8 +253,6 @@ type ComplexityRoot struct {
 
 type MutationResolver interface {
 	Health(ctx context.Context) (string, error)
-	Login(ctx context.Context, email string, password string) (*model.AuthResponse, error)
-	Register(ctx context.Context, email string, password string, name string) (*model.AuthResponse, error)
 	AddItemToCart(ctx context.Context, cartID string, input model.AddItemInput) (*model.Cart, error)
 	RemoveItemFromCart(ctx context.Context, cartID string, itemID string) (*model.Cart, error)
 	CheckoutCart(ctx context.Context, cartID string) (bool, error)
@@ -266,17 +265,19 @@ type MutationResolver interface {
 	DeleteProduct(ctx context.Context, id string) (bool, error)
 	CreateTicket(ctx context.Context, customerID string, subject string, message string) (*model.Ticket, error)
 	AddTicketMessage(ctx context.Context, ticketID string, sender string, content string) (*model.Message, error)
+	Login(ctx context.Context, email string, password string) (*model.AuthResponse, error)
+	Register(ctx context.Context, email string, password string, name string) (*model.AuthResponse, error)
 }
 type QueryResolver interface {
 	Health(ctx context.Context) (string, error)
 	GetWorkflowLineage(ctx context.Context, id string) (*model.WorkflowLineage, error)
 	ListLineages(ctx context.Context) ([]*model.WorkflowLineage, error)
-	Me(ctx context.Context) (*model.Actor, error)
 	GetSystemStats(ctx context.Context) (*model.SystemStats, error)
 	GetSalesStats(ctx context.Context) (*model.SalesStats, error)
 	GetCart(ctx context.Context, id string) (*model.Cart, error)
 	GetActiveCart(ctx context.Context, customerID string) (*model.Cart, error)
 	GetCustomer(ctx context.Context, id string) (*model.Customer, error)
+	ListCustomers(ctx context.Context) ([]*model.Customer, error)
 	GetPayment(ctx context.Context, id string) (*model.Payment, error)
 	ListOrderPayments(ctx context.Context, orderID string) ([]*model.Payment, error)
 	GetInventory(ctx context.Context, productID string) (*model.Inventory, error)
@@ -293,6 +294,7 @@ type QueryResolver interface {
 	SearchProducts(ctx context.Context, query string, limit *int) ([]*model.Product, error)
 	GetTicket(ctx context.Context, id string) (*model.Ticket, error)
 	ListCustomerTickets(ctx context.Context, customerID string) ([]*model.Ticket, error)
+	Me(ctx context.Context) (*model.Actor, error)
 }
 type WorkflowLineageResolver interface {
 	Events(ctx context.Context, obj *model.WorkflowLineage) ([]*model.Event, error)
@@ -1076,6 +1078,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.ListCustomerTickets(childComplexity, args["customerId"].(string)), true
+	case "Query.listCustomers":
+		if e.ComplexityRoot.Query.ListCustomers == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Query.ListCustomers(childComplexity), true
 	case "Query.listLineages":
 		if e.ComplexityRoot.Query.ListLineages == nil {
 			break
@@ -1477,26 +1485,6 @@ type Event {
   payload: String # JSON string
 }
 `, BuiltIn: false},
-	{Name: "../../internal/identity/identity.graphqls", Input: `extend type Query {
-  me: Actor
-}
-
-extend type Mutation {
-  login(email: String!, password: String!): AuthResponse!
-  register(email: String!, password: String!, name: String!): AuthResponse!
-}
-
-type Actor {
-  id: ID!
-  type: String!
-  name: String!
-}
-
-type AuthResponse {
-  token: String!
-  actor: Actor!
-}
-`, BuiltIn: false},
 	{Name: "../../commerce/analytics/analytics.graphqls", Input: `extend type Query {
   getSystemStats: SystemStats!
   getSalesStats: SalesStats!
@@ -1548,6 +1536,7 @@ input AddItemInput {
 `, BuiltIn: false},
 	{Name: "../../commerce/customer/customer.graphqls", Input: `extend type Query {
   getCustomer(id: ID!): Customer
+  listCustomers: [Customer!]!
 }
 
 extend type Mutation {
@@ -1732,6 +1721,26 @@ type Message {
   sender: String!
   content: String!
   createdAt: Time!
+}
+`, BuiltIn: false},
+	{Name: "../../modules/identity/identity.graphqls", Input: `extend type Query {
+  me: Actor
+}
+
+extend type Mutation {
+  login(email: String!, password: String!): AuthResponse!
+  register(email: String!, password: String!, name: String!): AuthResponse!
+}
+
+type Actor {
+  id: ID!
+  type: String!
+  name: String!
+}
+
+type AuthResponse {
+  token: String!
+  actor: Actor!
 }
 `, BuiltIn: false},
 }
@@ -3847,94 +3856,6 @@ func (ec *executionContext) fieldContext_Mutation__health(_ context.Context, fie
 	return graphql.NewScalarFieldContext("Mutation", field, true, true, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _Mutation_login(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Mutation_login(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Mutation().Login(ctx, fc.Args["email"].(string), fc.Args["password"].(string))
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *model.AuthResponse) graphql.Marshaler {
-			return ec.marshalNAuthResponse2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐAuthResponse(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Mutation_login(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_AuthResponse(ctx, field)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_login_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_register(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Mutation_register(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Mutation().Register(ctx, fc.Args["email"].(string), fc.Args["password"].(string), fc.Args["name"].(string))
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *model.AuthResponse) graphql.Marshaler {
-			return ec.marshalNAuthResponse2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐAuthResponse(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Mutation_register(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_AuthResponse(ctx, field)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_register_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _Mutation_addItemToCart(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4457,6 +4378,94 @@ func (ec *executionContext) fieldContext_Mutation_addTicketMessage(ctx context.C
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_addTicketMessage_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_login(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_login(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().Login(ctx, fc.Args["email"].(string), fc.Args["password"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.AuthResponse) graphql.Marshaler {
+			return ec.marshalNAuthResponse2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐAuthResponse(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_login(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_AuthResponse(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_login_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_register(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_register(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().Register(ctx, fc.Args["email"].(string), fc.Args["password"].(string), fc.Args["name"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.AuthResponse) graphql.Marshaler {
+			return ec.marshalNAuthResponse2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐAuthResponse(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_register(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_AuthResponse(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_register_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -5146,38 +5155,6 @@ func (ec *executionContext) fieldContext_Query_listLineages(_ context.Context, f
 	return fc, nil
 }
 
-func (ec *executionContext) _Query_me(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Query_me(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return ec.Resolvers.Query().Me(ctx)
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *model.Actor) graphql.Marshaler {
-			return ec.marshalOActor2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐActor(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Query_me(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Actor(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _Query_getSystemStats(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5370,6 +5347,38 @@ func (ec *executionContext) fieldContext_Query_getCustomer(ctx context.Context, 
 	if fc.Args, err = ec.field_Query_getCustomer_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_listCustomers(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_listCustomers(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Query().ListCustomers(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.Customer) graphql.Marshaler {
+			return ec.marshalNCustomer2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐCustomerᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_listCustomers(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Customer(ctx, field)
+		},
 	}
 	return fc, nil
 }
@@ -6050,6 +6059,38 @@ func (ec *executionContext) fieldContext_Query_listCustomerTickets(ctx context.C
 	if fc.Args, err = ec.field_Query_listCustomerTickets_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_me(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_me(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Query().Me(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.Actor) graphql.Marshaler {
+			return ec.marshalOActor2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐActor(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Query_me(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Actor(ctx, field)
+		},
 	}
 	return fc, nil
 }
@@ -8772,20 +8813,6 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "login":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_login(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "register":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_register(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "addItemToCart":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_addItemToCart(ctx, field)
@@ -8866,6 +8893,20 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "addTicketMessage":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_addTicketMessage(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "login":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_login(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "register":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_register(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -9267,25 +9308,6 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "me":
-			field := field
-
-			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_me(ctx, field)
-				return res
-			}
-
-			rrm := func(ctx context.Context) graphql.Marshaler {
-				return ec.OperationContext.RootResolverMiddleware(ctx,
-					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "getSystemStats":
 			field := field
 
@@ -9378,6 +9400,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_getCustomer(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "listCustomers":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_listCustomers(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
 				return res
 			}
 
@@ -9706,6 +9750,25 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "me":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_me(ctx, field)
 				return res
 			}
 
@@ -10617,6 +10680,22 @@ func (ec *executionContext) unmarshalNCreateProductInput2githubᚗcomᚋGoHyperr
 
 func (ec *executionContext) marshalNCustomer2githubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐCustomer(ctx context.Context, sel ast.SelectionSet, v model.Customer) graphql.Marshaler {
 	return ec._Customer(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNCustomer2ᚕᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐCustomerᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Customer) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNCustomer2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐCustomer(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) marshalNCustomer2ᚖgithubᚗcomᚋGoHyperrrᚋhyperrrᚋapiᚋgraphᚋmodelᚐCustomer(ctx context.Context, sel ast.SelectionSet, v *model.Customer) graphql.Marshaler {

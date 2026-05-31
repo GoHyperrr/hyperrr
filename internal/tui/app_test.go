@@ -7,7 +7,7 @@ import (
 
 	"github.com/GoHyperrr/hyperrr/internal/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 type mockPage struct {
@@ -76,7 +76,8 @@ func TestTUI(t *testing.T) {
 			t.Fatalf("expected at least 2 pages loaded, got %d", len(m.pages))
 		}
 
-		view := m.View()
+		viewVal := m.View()
+		view := viewVal.Content
 		if !strings.Contains(view, "HYPERRR CORE ADMIN COMMAND CENTER") {
 			t.Errorf("unexpected initial view header")
 		}
@@ -86,7 +87,7 @@ func TestTUI(t *testing.T) {
 		}
 
 		// Verify Tab Key navigation switches tabs
-		nextModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+		nextModel, cmd := m.Update(tea.KeyPressMsg{Text: "tab", Code: tea.KeyTab})
 		m = nextModel.(*Model)
 		if cmd != nil {
 			t.Error("expected nil cmd for tab navigation")
@@ -96,18 +97,18 @@ func TestTUI(t *testing.T) {
 		}
 
 		// Verify number key navigation switches tabs
-		nextModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("1")})
+		nextModel, _ = m.Update(tea.KeyPressMsg{Text: "1", Code: '1'})
 		m = nextModel.(*Model)
 		if m.activeTab != 0 {
 			t.Errorf("expected active tab index to be 0 after '1' keypress, got %d", m.activeTab)
 		}
 
 		// Verify keystroke delegation to active sub-page
-		testMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x")}
+		testMsg := tea.KeyPressMsg{Text: "x", Code: 'x'}
 		_, _ = m.Update(testMsg)
 
 		activePage := m.pages[0].(*mockPage)
-		keyMsg, ok := activePage.msgReceived.(tea.KeyMsg)
+		keyMsg, ok := activePage.msgReceived.(tea.KeyPressMsg)
 		if !ok || keyMsg.String() != "x" {
 			t.Errorf("expected active page to receive 'x' keystroke, got %v", activePage.msgReceived)
 		}
@@ -115,7 +116,7 @@ func TestTUI(t *testing.T) {
 
 	t.Run("Quit command", func(t *testing.T) {
 		m := NewModel(context.Background(), nil)
-		_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+		_, cmd := m.Update(tea.KeyPressMsg{Text: "q", Code: 'q'})
 		if cmd() != tea.Quit() {
 			t.Error("expected Quit command on q keypress")
 		}

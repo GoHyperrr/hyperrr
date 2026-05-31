@@ -3,6 +3,7 @@ schema:
   - graph/*.graphqls
   - ../internal/**/*.graphqls
   - ../commerce/**/*.graphqls
+  - ../modules/**/*.graphqls
 exec:
   filename: graph/generated.go
   package: graph

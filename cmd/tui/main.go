@@ -5,16 +5,18 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/GoHyperrr/hyperrr/internal/app"
+	"github.com/GoHyperrr/hyperrr/commerce/customer"
+	"github.com/GoHyperrr/hyperrr/commerce/order"
+	"github.com/GoHyperrr/hyperrr/commerce/product"
+	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
 	"github.com/GoHyperrr/hyperrr/internal/tui"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
-	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 var teaRun = func(m tea.Model) error {
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m)
 	_, err := p.Run()
 	return err
 }
@@ -29,32 +31,28 @@ func main() {
 }
 
 func run() error {
-	// 1. Load active configurations
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("failed to load configuration: %w", err)
+	// 1. Detect server URL from flag or environment variable
+	serverURL := os.Getenv("HYPERRR_SERVER")
+	for i, arg := range os.Args {
+		if (arg == "--server" || arg == "-s") && i+1 < len(os.Args) {
+			serverURL = os.Args[i+1]
+		}
+	}
+	if serverURL == "" {
+		serverURL = "http://localhost:8080" // Default fallback URL
 	}
 
-	// 2. Set AppEnv to "test" to boot and register all modules
-	// without launching the HTTP server.
-	cfg.AppEnv = "test"
-	cfg.DBDriver = "sqlite"
-	cfg.DBDSN = "hyperrr.db"
+	// 2. Register modules statically in the global registry
+	// This enables scanning TUI pages from registry without GORM connections
+	registry.Register(product.NewModule())
+	registry.Register(customer.NewModule())
+	registry.Register(order.NewModule())
+	registry.Register(ctxEngine.NewModule())
 
-	err = app.RunWithConfig(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to initialize modules: %w", err)
-	}
-
-	// 3. Re-connect to database to build dependencies wrapper
-	database, err := db.Connect(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to connect to database: %w", err)
-	}
-
+	// 3. Setup stateless dependencies adapter
 	deps := &registry.Dependencies{
-		Config: cfg,
-		DB:     database,
+		Config:    &config.Config{},
+		ServerURL: serverURL,
 	}
 
 	// 4. Create and run the master TUI

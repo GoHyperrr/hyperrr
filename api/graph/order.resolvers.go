@@ -73,7 +73,6 @@ func (r *mutationResolver) CreateOrderFromCart(ctx context.Context, cartID strin
 	return mapOrderToModel(&o), nil
 }
 
-
 // GetOrder is the resolver for the getOrder field.
 func (r *queryResolver) GetOrder(ctx context.Context, id string) (*model.Order, error) {
 	o, err := r.OrderModule.Repo().GetByID(ctx, id)

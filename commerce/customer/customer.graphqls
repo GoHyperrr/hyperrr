@@ -1,5 +1,6 @@
 extend type Query {
   getCustomer(id: ID!): Customer
+  listCustomers: [Customer!]!
 }
 
 extend type Mutation {

@@ -2,33 +2,19 @@ package customer
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/GoHyperrr/hyperrr/pkg/config"
-	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestCustomerTUI(t *testing.T) {
-	// Initialize in-memory database
-	cfg := &config.Config{
-		DBDriver: "sqlite",
-		DBDSN:    ":memory:",
-	}
-	database, err := db.Connect(cfg)
-	if err != nil {
-		t.Fatalf("failed to connect to memory db: %v", err)
-	}
-
-	// Auto-migrate Customer schema
-	err = database.AutoMigrate(&Customer{})
-	if err != nil {
-		t.Fatalf("failed to auto-migrate customer: %v", err)
-	}
-
-	// Pre-populate test customer
+	// Pre-populate test customer data
 	testCust := &Customer{
 		ID:      "cust_1",
 		UserID:  "usr_1",
@@ -36,13 +22,28 @@ func TestCustomerTUI(t *testing.T) {
 		Email:   "alice@example.com",
 		Persona: "Sargasso",
 	}
-	err = database.Save(testCust).Error
-	if err != nil {
-		t.Fatalf("failed to save test customer: %v", err)
-	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Query string `json:"query"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(req.Query, "listCustomers") {
+			resp := map[string]any{
+				"data": map[string]any{
+					"listCustomers": []*Customer{testCust},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+		}
+	}))
+	defer ts.Close()
 
 	deps := &registry.Dependencies{
-		DB: database,
+		Config:    &config.Config{},
+		ServerURL: ts.URL,
 	}
 
 	ctx := context.Background()
@@ -66,8 +67,8 @@ func TestCustomerTUI(t *testing.T) {
 		t.Errorf("incorrect customer loaded: %+v", loaded)
 	}
 
-	// Test navigation keypresses
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	// Test navigation keypresses in v2
+	p.Update(tea.KeyPressMsg{Text: "j", Code: 'j'})
 	if p.activeRow != 0 { // wrapping scroll on 1 item
 		t.Errorf("expected active row index 0, got %d", p.activeRow)
 	}

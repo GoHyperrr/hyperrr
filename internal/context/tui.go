@@ -6,18 +6,35 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
-	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/GoHyperrr/hyperrr/pkg/theme"
+	tea "charm.land/bubbletea/v2"
 )
 
+type tuiLineage struct {
+	ID        string             `json:"id"`
+	Name      string             `json:"name"`
+	Version   string             `json:"version"`
+	State     string             `json:"state"`
+	StartedAt time.Time          `json:"startedAt"`
+	EndedAt   *time.Time         `json:"endedAt,omitempty"`
+	Steps     []*tuiStepLineage  `json:"steps"`
+	Error     string             `json:"error,omitempty"`
+}
+
+type tuiStepLineage struct {
+	StepID    string     `json:"stepId"`
+	State     string     `json:"state"`
+	StartedAt time.Time  `json:"startedAt"`
+	EndedAt   *time.Time `json:"endedAt,omitempty"`
+	Attempts  int        `json:"attempts"`
+	Error     *string    `json:"error,omitempty"`
+}
+
 type workflowsPage struct {
-	projector  *Projector
-	lineages   []registry.LineageData
+	serverURL  string
+	lineages   []*tuiLineage
 	activeRow  int
-	eventCh    chan eventbus.Event
 	detailMode bool
 	selectedID string
 }
@@ -26,63 +43,60 @@ func (p *workflowsPage) Title() string {
 	return "Workflows"
 }
 
-func (p *workflowsPage) Init(ctx context.Context, deps *registry.Dependencies) any {
-	// 1. Resolve Projector
-	if ctxModVal, ok := registry.Get("core.context"); ok {
-		if ctxMod, ok := ctxModVal.(*Module); ok {
-			p.projector = ctxMod.Projector()
-		}
-	}
+type tickMsg time.Time
 
+func tick() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
+
+func (p *workflowsPage) Init(ctx context.Context, deps *registry.Dependencies) any {
+	p.serverURL = deps.ServerURL
 	p.loadLineages()
 
-	// 2. Setup subscription channel and register event handlers
-	p.eventCh = make(chan eventbus.Event, 100)
-	eventTypes := []string{
-		workflow.EventWorkflowStarted,
-		workflow.EventStepStarted,
-		workflow.EventStepCompleted,
-		workflow.EventStepFailed,
-		workflow.EventStepRetrying,
-		workflow.EventStepFallback,
-		workflow.EventWaitingHuman,
-		workflow.EventWorkflowCompleted,
-		workflow.EventWorkflowFailed,
-	}
-
-	for _, t := range eventTypes {
-		_, _ = deps.EventBus.Subscribe(ctx, t, func(ctx context.Context, ev eventbus.Event) error {
-			select {
-			case p.eventCh <- ev:
-			default:
-			}
-			return nil
-		})
-	}
-
-	// 3. Return the listening command
-	return p.waitForEvent()
+	// Return a tick command to trigger periodic polling in decoupled mode
+	return tick()
 }
 
 func (p *workflowsPage) loadLineages() {
-	if p.projector != nil {
-		p.lineages = p.projector.ListLineages()
-	}
-}
-
-func (p *workflowsPage) waitForEvent() tea.Cmd {
-	return func() tea.Msg {
-		return <-p.eventCh
+	if p.serverURL != "" {
+		var result struct {
+			ListLineages []*tuiLineage `json:"listLineages"`
+		}
+		query := `
+			query {
+				listLineages {
+					id
+					name
+					version
+					state
+					startedAt
+					endedAt
+					steps {
+						stepId
+						state
+						startedAt
+						endedAt
+						attempts
+						error
+					}
+				}
+			}
+		`
+		if err := registry.QueryGraphQL(p.serverURL, query, nil, &result); err == nil {
+			p.lineages = result.ListLineages
+		}
 	}
 }
 
 func (p *workflowsPage) Update(msg any) (registry.TUIPage, any) {
 	switch msg := msg.(type) {
-	case eventbus.Event:
+	case tickMsg:
 		p.loadLineages()
-		return p, p.waitForEvent()
+		return p, tick()
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "j", "down":
 			if !p.detailMode && len(p.lineages) > 0 {
@@ -94,7 +108,7 @@ func (p *workflowsPage) Update(msg any) (registry.TUIPage, any) {
 			}
 		case "enter":
 			if !p.detailMode && len(p.lineages) > 0 && p.activeRow < len(p.lineages) {
-				p.selectedID = p.lineages[p.activeRow].GetID()
+				p.selectedID = p.lineages[p.activeRow].ID
 				p.detailMode = true
 			}
 		case "esc", "backspace":
@@ -110,16 +124,15 @@ func (p *workflowsPage) View() string {
 	var s strings.Builder
 
 	if p.detailMode {
-		s.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFD700")).Render(fmt.Sprintf("WORKFLOW RUN DETAILS: %s", p.selectedID)))
+		s.WriteString(theme.TitleStyle.Render(fmt.Sprintf("WORKFLOW RUN DETAILS: %s", p.selectedID)))
 		s.WriteString("\n\n")
 
-		var selectedLineage *Lineage
-		if p.projector != nil {
-			p.projector.mu.RLock()
-			if l, ok := p.projector.lineages[p.selectedID]; ok {
+		var selectedLineage *tuiLineage
+		for _, l := range p.lineages {
+			if l.ID == p.selectedID {
 				selectedLineage = l
+				break
 			}
-			p.projector.mu.RUnlock()
 		}
 
 		if selectedLineage == nil {
@@ -136,18 +149,18 @@ func (p *workflowsPage) View() string {
 				s.WriteString(fmt.Sprintf("Duration:    Running for %s\n", time.Since(selectedLineage.StartedAt).Round(time.Second)))
 			}
 			if selectedLineage.Error != "" {
-				s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5F5F")).Render(fmt.Sprintf("Error:       %s\n", selectedLineage.Error)))
+				s.WriteString(theme.ErrorStyle.Render(fmt.Sprintf("Error:       %s\n", selectedLineage.Error)))
 			}
 			s.WriteString("\n")
-			s.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#5FAF87")).Render("EXECUTION STEPS"))
+			s.WriteString(theme.TitleStyle.Render("EXECUTION STEPS"))
 			s.WriteString("\n")
-			headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#5FAF87"))
+			headerStyle := theme.TableHeaderStyle
 			s.WriteString(fmt.Sprintf("%-30s  %-15s  %-10s  %-15s\n",
 				headerStyle.Render("STEP ID"),
 				headerStyle.Render("STATUS"),
 				headerStyle.Render("ATTEMPTS"),
 				headerStyle.Render("DURATION")))
-			s.WriteString(strings.Repeat("─", 80) + "\n")
+			s.WriteString(theme.SeparatorStyle.Render(strings.Repeat("─", 80)) + "\n")
 
 			for _, step := range selectedLineage.Steps {
 				duration := "N/A"
@@ -161,48 +174,45 @@ func (p *workflowsPage) View() string {
 					step.State,
 					step.Attempts,
 					duration))
-				if step.Error != "" {
-					s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#FF8787")).Render(fmt.Sprintf("  ↳ Error: %s\n", step.Error)))
+				if step.Error != nil && *step.Error != "" {
+					s.WriteString(theme.ErrorStyle.Render(fmt.Sprintf("  ↳ Error: %s\n", *step.Error)))
 				}
 			}
 		}
 		s.WriteString("\n")
-		s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#8A8A8A")).Render("ESC / Backspace: Back to Workflows List"))
+		s.WriteString(theme.MutedStyle.Render("ESC / Backspace: Back to Workflows List"))
 	} else {
-		s.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFD700")).Render("WORKFLOW MONITOR (LIVE)"))
+		s.WriteString(theme.TitleStyle.Render("WORKFLOW MONITOR (LIVE)"))
 		s.WriteString("\n\n")
 
 		if len(p.lineages) == 0 {
-			s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#8A8A8A")).Render("No workflow executions recorded yet."))
+			s.WriteString(theme.MutedStyle.Render("No workflow executions recorded yet."))
 			s.WriteString("\n")
 		} else {
-			headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#5FAF87"))
+			headerStyle := theme.TableHeaderStyle
 			s.WriteString(fmt.Sprintf("%-24s  %-24s  %-12s  %-20s\n",
 				headerStyle.Render("RUN ID"),
 				headerStyle.Render("WORKFLOW NAME"),
 				headerStyle.Render("STATUS"),
 				headerStyle.Render("STARTED AT")))
-			s.WriteString(strings.Repeat("─", 86) + "\n")
+			s.WriteString(theme.SeparatorStyle.Render(strings.Repeat("─", 86)) + "\n")
 
 			for i, lineage := range p.lineages {
 				rowText := fmt.Sprintf("%-24s  %-24s  %-12s  %-20s",
-					lineage.GetID(),
-					lineage.GetName(),
-					lineage.GetState(),
-					lineage.GetStartedAt().Format("2006-01-02 15:04:05"))
+					lineage.ID,
+					lineage.Name,
+					lineage.State,
+					lineage.StartedAt.Format("2006-01-02 15:04:05"))
 
 				if i == p.activeRow {
-					selectedStyle := lipgloss.NewStyle().
-						Foreground(lipgloss.Color("#121212")).
-						Background(lipgloss.Color("#5FAF87"))
-					s.WriteString(selectedStyle.Render(rowText) + "\n")
+					s.WriteString(theme.SelectedRowStyle.Render(rowText) + "\n")
 				} else {
 					s.WriteString(rowText + "\n")
 				}
 			}
 		}
 		s.WriteString("\n")
-		s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#8A8A8A")).Render("Enter: View Workflow Steps & Details"))
+		s.WriteString(theme.MutedStyle.Render("Enter: View Workflow Steps & Details"))
 	}
 
 	return s.String()

@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/GoHyperrr/hyperrr/pkg/theme"
+	tea "charm.land/bubbletea/v2"
 )
 
 type customerPage struct {
-	db        *db.DB
-	repo      *Repository
+	serverURL string
 	customers []*Customer
 	activeRow int
 }
@@ -22,25 +21,36 @@ func (p *customerPage) Title() string {
 }
 
 func (p *customerPage) Init(ctx context.Context, deps *registry.Dependencies) any {
-	p.db = deps.DB
-	p.repo = NewRepository(deps.DB)
+	p.serverURL = deps.ServerURL
 	p.loadCustomers()
 	return nil
 }
 
 func (p *customerPage) loadCustomers() {
-	if p.db != nil {
-		var list []*Customer
-		err := p.db.WithContext(context.Background()).Find(&list).Error
-		if err == nil {
-			p.customers = list
+	if p.serverURL != "" {
+		var result struct {
+			ListCustomers []*Customer `json:"listCustomers"`
+		}
+		query := `
+			query {
+				listCustomers {
+					id
+					userId
+					name
+					email
+					persona
+				}
+			}
+		`
+		if err := registry.QueryGraphQL(p.serverURL, query, nil, &result); err == nil {
+			p.customers = result.ListCustomers
 		}
 	}
 }
 
 func (p *customerPage) Update(msg any) (registry.TUIPage, any) {
-	// Scroll controls
-	if msgKey, ok := msg.(interface{ String() string }); ok {
+	// Scroll controls in Bubble Tea v2
+	if msgKey, ok := msg.(tea.KeyPressMsg); ok {
 		switch msgKey.String() {
 		case "j", "down":
 			if len(p.customers) > 0 {
@@ -58,21 +68,21 @@ func (p *customerPage) Update(msg any) (registry.TUIPage, any) {
 func (p *customerPage) View() string {
 	var s strings.Builder
 
-	s.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFD700")).Render("CUSTOMER REGISTRATION LOGS"))
+	s.WriteString(theme.TitleStyle.Render("CUSTOMER REGISTRATION LOGS"))
 	s.WriteString("\n\n")
 
 	if len(p.customers) == 0 {
-		s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#8A8A8A")).Render("No customer accounts registered in database."))
+		s.WriteString(theme.MutedStyle.Render("No customer accounts registered in database."))
 		s.WriteString("\n")
 	} else {
-		headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#5FAF87"))
+		headerStyle := theme.TableHeaderStyle
 		s.WriteString(fmt.Sprintf("%-12s  %-12s  %-20s  %-25s  %-12s\n",
 			headerStyle.Render("ID"),
 			headerStyle.Render("USER ID"),
 			headerStyle.Render("NAME"),
 			headerStyle.Render("EMAIL"),
 			headerStyle.Render("PERSONA")))
-		s.WriteString(strings.Repeat("─", 89) + "\n")
+		s.WriteString(theme.SeparatorStyle.Render(strings.Repeat("─", 89)) + "\n")
 
 		for i, cust := range p.customers {
 			rowText := fmt.Sprintf("%-12s  %-12s  %-20s  %-25s  %-12s",
@@ -83,10 +93,7 @@ func (p *customerPage) View() string {
 				cust.Persona)
 
 			if i == p.activeRow {
-				selectedStyle := lipgloss.NewStyle().
-					Foreground(lipgloss.Color("#121212")).
-					Background(lipgloss.Color("#5FAF87"))
-				s.WriteString(selectedStyle.Render(rowText) + "\n")
+				s.WriteString(theme.SelectedRowStyle.Render(rowText) + "\n")
 			} else {
 				s.WriteString(rowText + "\n")
 			}

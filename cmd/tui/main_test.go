@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestRun(t *testing.T) {
