@@ -49,12 +49,12 @@ func (r *mutationResolver) CreateProduct(ctx context.Context, input model.Create
 		return nil, fmt.Errorf("invalid result format from persist step")
 	}
 
-	domainRes, ok := resMap["product"].(*product.Product)
-	if !ok {
-		return nil, fmt.Errorf("invalid product type in results")
+	var domainRes product.Product
+	if err := decodeResult(resMap["product"], &domainRes); err != nil {
+		return nil, fmt.Errorf("invalid product type in results: %w", err)
 	}
 
-	return mapProductToModel(domainRes), nil
+	return mapProductToModel(&domainRes), nil
 }
 
 // UpdateProduct is the resolver for the updateProduct field.
@@ -93,12 +93,12 @@ func (r *mutationResolver) UpdateProduct(ctx context.Context, id string, input m
 		return nil, fmt.Errorf("invalid result format from update step")
 	}
 
-	domainRes, ok := resMap["product"].(*product.Product)
-	if !ok {
-		return nil, fmt.Errorf("invalid product type in results")
+	var domainRes product.Product
+	if err := decodeResult(resMap["product"], &domainRes); err != nil {
+		return nil, fmt.Errorf("invalid product type in results: %w", err)
 	}
 
-	return mapProductToModel(domainRes), nil
+	return mapProductToModel(&domainRes), nil
 }
 
 // DeleteProduct is the resolver for the deleteProduct field.

@@ -44,12 +44,12 @@ func (r *mutationResolver) AddItemToCart(ctx context.Context, cartID string, inp
 		return nil, fmt.Errorf("invalid result format from add step")
 	}
 
-	domainRes, ok := resMap["cart"].(*cart.Cart)
-	if !ok {
-		return nil, fmt.Errorf("invalid cart type in results")
+	var domainRes cart.Cart
+	if err := decodeResult(resMap["cart"], &domainRes); err != nil {
+		return nil, fmt.Errorf("invalid cart type in results: %w", err)
 	}
 
-	return mapCartToModel(domainRes), nil
+	return mapCartToModel(&domainRes), nil
 }
 
 // RemoveItemFromCart is the resolver for the removeItemFromCart field.
@@ -80,12 +80,12 @@ func (r *mutationResolver) RemoveItemFromCart(ctx context.Context, cartID string
 		return nil, fmt.Errorf("invalid result format from remove step")
 	}
 
-	domainRes, ok := resMap["cart"].(*cart.Cart)
-	if !ok {
-		return nil, fmt.Errorf("invalid cart type in results")
+	var domainRes cart.Cart
+	if err := decodeResult(resMap["cart"], &domainRes); err != nil {
+		return nil, fmt.Errorf("invalid cart type in results: %w", err)
 	}
 
-	return mapCartToModel(domainRes), nil
+	return mapCartToModel(&domainRes), nil
 }
 
 // CheckoutCart is the resolver for the checkoutCart field.

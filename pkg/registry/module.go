@@ -88,6 +88,20 @@ type OrderResult interface {
 	GetCustomerID() string
 }
 
+// MCPResource represents a discoverable data resource exposed to AI agents.
+type MCPResource struct {
+	URI         string
+	Name        string
+	Description string
+	MimeType    string
+}
+
+// ResourceProvider is implemented by modules that want to expose resources to MCP.
+type ResourceProvider interface {
+	ListResources(ctx context.Context) ([]MCPResource, error)
+	ReadResource(ctx context.Context, uri string) (string, error)
+}
+
 
 // Module is the standard interface for all hyperrr plugins.
 type Module interface {

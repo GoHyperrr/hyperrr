@@ -1,9 +1,11 @@
+//go:generate go run ../../scripts/gen_imports.go
 package app
 
 import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/GoHyperrr/hyperrr/commerce/product"
 	"github.com/GoHyperrr/hyperrr/commerce/customer"
@@ -48,6 +50,9 @@ func RunWithConfig(cfg *config.Config) error {
 			return fmt.Errorf("failed to load config: %w", err)
 		}
 	}
+
+	// Resolve environment variables in module options
+	cfg.ResolveEnvOptions()
 
 	// 1. Initialize Logger
 	l := logger.New(&logger.Config{
@@ -119,30 +124,45 @@ func RunWithConfig(cfg *config.Config) error {
 	registry.Register(authMod)
 	registry.Register(storage.NewModule())
 
-	// Register Commerce Modules
-	prodMod := product.NewModule()
-	registry.Register(prodMod)
-	custMod := customer.NewModule()
-	registry.Register(custMod)
-	cartMod := cart.NewModule()
-	registry.Register(cartMod)
-	orderMod := order.NewModule()
-	registry.Register(orderMod)
-	financeMod := finance.NewModule()
-	registry.Register(financeMod)
-	notifMod := notification.NewModule(nil)
-	registry.Register(notifMod)
-	fulfillMod := fulfillment.NewModule()
-	registry.Register(fulfillMod)
-	supportMod := support.NewModule()
-	registry.Register(supportMod)
-	marketingMod := marketing.NewModule()
-	registry.Register(marketingMod)
-	searchMod := search.NewModule()
-	registry.Register(searchMod)
-	searchMod.SetProductModule(prodMod)
-	analyticsMod := analytics.NewModule()
-	registry.Register(analyticsMod)
+	// Register built-in factories
+	registerBuiltInFactories()
+
+	// If no modules are configured, default to loading all built-in commerce modules
+	modulesToLoad := cfg.Modules
+	if len(modulesToLoad) == 0 {
+		modulesToLoad = []config.ModuleConfig{
+			{Resolve: "commerce.product"},
+			{Resolve: "commerce.customer"},
+			{Resolve: "commerce.cart"},
+			{Resolve: "commerce.order"},
+			{Resolve: "commerce.finance"},
+			{Resolve: "commerce.notification"},
+			{Resolve: "commerce.fulfillment"},
+			{Resolve: "commerce.support"},
+			{Resolve: "commerce.marketing"},
+			{Resolve: "commerce.search"},
+			{Resolve: "commerce.analytics"},
+		}
+	}
+
+	// Dynamic Module Registration
+	for _, mCfg := range modulesToLoad {
+		lookupID := mCfg.ID
+		if lookupID == "" {
+			lookupID = mCfg.Resolve
+		}
+		factory, ok := registry.GetFactory(lookupID)
+		if !ok {
+			return fmt.Errorf("module factory not found for resolve path or ID: %s (resolve: %s)", lookupID, mCfg.Resolve)
+		}
+
+		mod, err := factory(mCfg.Options)
+		if err != nil {
+			return fmt.Errorf("failed to instantiate module %s: %w", mCfg.Resolve, err)
+		}
+
+		registry.Register(mod)
+	}
 
 	// 7. Discover and Initialize Modules (Plugins)
 	deps := &registry.Dependencies{
@@ -234,26 +254,99 @@ func RunWithConfig(cfg *config.Config) error {
 		return fmt.Errorf("failed to run database migrations: %w", err)
 	}
 
+	// 9. Register system.about tool & workflow for AI agent context
+	runner.RegisterTask("system.about", func(ctx context.Context, input any) (any, error) {
+		var activeModules []string
+		for _, m := range registry.List() {
+			activeModules = append(activeModules, m.ID())
+		}
+
+		info := map[string]any{
+			"version":        internal.Version,
+			"environment":    cfg.AppEnv,
+			"current_time":   time.Now().Format(time.RFC3339),
+			"active_modules": activeModules,
+			"event_bus":      cfg.EventBusProvider,
+			"state_store":    cfg.WorkflowStoreType,
+		}
+		return info, nil
+	})
+
+	_ = registryStore.Register(&workflow.Workflow{
+		Name:        "system.about",
+		Description: "Returns metadata about the running system, including active modules, version, current server time, and environment configurations.",
+		ExposeToAI:  true,
+		InputSchema: map[string]any{
+			"type": "object",
+		},
+		Steps: []workflow.Step{
+			{
+				ID:   "about",
+				Uses: "system.about",
+			},
+		},
+	})
+
 	close(initDone)
 
 	// 10. Setup MCP (Agent Gateway)
 	mcpServer := mcp.NewServer(deps)
 
+	// Resolve module dependencies dynamically from registry for GraphQL resolvers
+	var prodModRef *product.Module
+	var custModRef *customer.Module
+	var cartModRef *cart.Module
+	var orderModRef *order.Module
+	var financeModRef *finance.Module
+	var notifModRef *notification.Module
+	var fulfillModRef *fulfillment.Module
+	var supportModRef *support.Module
+	var marketingModRef *marketing.Module
+	var searchModRef *search.Module
+	var analyticsModRef *analytics.Module
+
+	for _, m := range registry.List() {
+		switch m.ID() {
+		case "commerce.product":
+			prodModRef, _ = m.(*product.Module)
+		case "commerce.customer":
+			custModRef, _ = m.(*customer.Module)
+		case "commerce.cart":
+			cartModRef, _ = m.(*cart.Module)
+		case "commerce.order":
+			orderModRef, _ = m.(*order.Module)
+		case "commerce.finance":
+			financeModRef, _ = m.(*finance.Module)
+		case "commerce.notification":
+			notifModRef, _ = m.(*notification.Module)
+		case "commerce.fulfillment":
+			fulfillModRef, _ = m.(*fulfillment.Module)
+		case "commerce.support":
+			supportModRef, _ = m.(*support.Module)
+		case "commerce.marketing":
+			marketingModRef, _ = m.(*marketing.Module)
+		case "commerce.search":
+			searchModRef, _ = m.(*search.Module)
+		case "commerce.analytics":
+			analyticsModRef, _ = m.(*analytics.Module)
+		}
+	}
+
 	// 11. Setup GraphQL
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{
 		Resolvers: &graph.Resolver{
 			Projector:      ctxMod.Projector(),
-			ProductModule:  prodMod,
-			CustomerModule: custMod,
-			CartModule:     cartMod,
-			OrderModule:    orderMod,
-			FinanceModule:  financeMod,
-			NotificationModule: notifMod,
-			FulfillmentModule:  fulfillMod,
-			SupportModule:      supportMod,
-			MarketingModule:    marketingMod,
-			SearchModule:       searchMod,
-			AnalyticsModule:    analyticsMod,
+			ProductModule:  prodModRef,
+			CustomerModule: custModRef,
+			CartModule:     cartModRef,
+			OrderModule:    orderModRef,
+			FinanceModule:  financeModRef,
+			NotificationModule: notifModRef,
+			FulfillmentModule:  fulfillModRef,
+			SupportModule:      supportModRef,
+			MarketingModule:    marketingModRef,
+			SearchModule:       searchModRef,
+			AnalyticsModule:    analyticsModRef,
 			IdentityModule:     identMod,
 			AuthModule:         authMod,
 
@@ -285,4 +378,40 @@ func RunWithConfig(cfg *config.Config) error {
 	}
 
 	return http.ListenAndServe(addr, mux)
+}
+
+func registerBuiltInFactories() {
+	registry.RegisterFactory("commerce.product", func(opts map[string]any) (registry.Module, error) {
+		return product.NewModule(), nil
+	})
+	registry.RegisterFactory("commerce.customer", func(opts map[string]any) (registry.Module, error) {
+		return customer.NewModule(), nil
+	})
+	registry.RegisterFactory("commerce.cart", func(opts map[string]any) (registry.Module, error) {
+		return cart.NewModule(), nil
+	})
+	registry.RegisterFactory("commerce.order", func(opts map[string]any) (registry.Module, error) {
+		return order.NewModule(), nil
+	})
+	registry.RegisterFactory("commerce.finance", func(opts map[string]any) (registry.Module, error) {
+		return finance.NewModule(), nil
+	})
+	registry.RegisterFactory("commerce.notification", func(opts map[string]any) (registry.Module, error) {
+		return notification.NewModule(nil), nil
+	})
+	registry.RegisterFactory("commerce.fulfillment", func(opts map[string]any) (registry.Module, error) {
+		return fulfillment.NewModule(), nil
+	})
+	registry.RegisterFactory("commerce.support", func(opts map[string]any) (registry.Module, error) {
+		return support.NewModule(), nil
+	})
+	registry.RegisterFactory("commerce.marketing", func(opts map[string]any) (registry.Module, error) {
+		return marketing.NewModule(), nil
+	})
+	registry.RegisterFactory("commerce.search", func(opts map[string]any) (registry.Module, error) {
+		return search.NewModule(), nil
+	})
+	registry.RegisterFactory("commerce.analytics", func(opts map[string]any) (registry.Module, error) {
+		return analytics.NewModule(), nil
+	})
 }

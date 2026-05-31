@@ -3,6 +3,8 @@ package config
 import (
 	"os"
 	"testing"
+
+	"github.com/spf13/viper"
 )
 
 func TestLoad(t *testing.T) {
@@ -70,6 +72,34 @@ func TestLoad(t *testing.T) {
 
 		if cfg.AppName != "env-hyperrr" {
 			t.Errorf("expected AppName env-hyperrr, got %s", cfg.AppName)
+		}
+	})
+
+	t.Run("Resolve env options", func(t *testing.T) {
+		os.Setenv("TEST_HOTEL_API_KEY", "env-resolved-key-123")
+		defer os.Unsetenv("TEST_HOTEL_API_KEY")
+
+		modules := []ModuleConfig{
+			{
+				Resolve: "commerce.hotel",
+				Options: map[string]any{
+					"apiKey": "env.TEST_HOTEL_API_KEY",
+					"port":   8080,
+				},
+			},
+		}
+
+		v := viper.New()
+		resolveEnvOptions(v, modules)
+
+		resKey, ok := modules[0].Options["apiKey"].(string)
+		if !ok || resKey != "env-resolved-key-123" {
+			t.Errorf("expected apiKey env-resolved-key-123, got %v", modules[0].Options["apiKey"])
+		}
+
+		resPort, ok := modules[0].Options["port"].(int)
+		if !ok || resPort != 8080 {
+			t.Errorf("expected port 8080, got %v", modules[0].Options["port"])
 		}
 	})
 }

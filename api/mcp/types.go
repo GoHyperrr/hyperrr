@@ -55,3 +55,29 @@ type Content struct {
 	Type string `json:"type"`
 	Text string `json:"text,omitempty"`
 }
+
+// Resource represents an MCP Resource definition.
+type Resource struct {
+	URI         string `json:"uri"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	MimeType    string `json:"mimeType,omitempty"`
+}
+
+// ListResourcesResult is the result for resources/list.
+type ListResourcesResult struct {
+	Resources []Resource `json:"resources"`
+}
+
+// ResourceContent represents the content of a read resource.
+type ResourceContent struct {
+	URI      string `json:"uri"`
+	MimeType string `json:"mimeType,omitempty"`
+	Text     string `json:"text,omitempty"`
+	Blob     string `json:"blob,omitempty"`
+}
+
+// ReadResourceResult is the result for resources/read.
+type ReadResourceResult struct {
+	Contents []ResourceContent `json:"contents"`
+}

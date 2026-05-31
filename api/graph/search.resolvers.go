@@ -37,9 +37,9 @@ func (r *queryResolver) SearchProducts(ctx context.Context, query string, limit 
 		return nil, err
 	}
 
-	prodsRaw, ok := results["search"].([]*product.Product)
-	if !ok {
-		return nil, fmt.Errorf("failed to retrieve search results from workflow")
+	var prodsRaw []*product.Product
+	if err := decodeResult(results["search"], &prodsRaw); err != nil {
+		return nil, fmt.Errorf("failed to retrieve search results from workflow: %w", err)
 	}
 
 	res := make([]*model.Product, 0, len(prodsRaw))

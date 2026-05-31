@@ -50,9 +50,9 @@ func (r *mutationResolver) UpdateCustomer(ctx context.Context, id string, input 
 		return nil, fmt.Errorf("invalid result format from update step")
 	}
 
-	domainRes, ok := resMap["customer"].(*customer.Customer)
-	if !ok {
-		return nil, fmt.Errorf("invalid customer type in results")
+	var domainRes customer.Customer
+	if err := decodeResult(resMap["customer"], &domainRes); err != nil {
+		return nil, fmt.Errorf("invalid customer type in results: %w", err)
 	}
 
 	res := &model.Customer{

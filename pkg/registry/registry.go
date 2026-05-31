@@ -2,6 +2,7 @@ package registry
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -39,10 +40,11 @@ func Get(id string) (Module, bool) {
 func (r *Registry) Register(m Module) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if _, exists := r.modules[m.ID()]; exists {
-		fmt.Printf("WARNING: overwriting module registration for ID: %s\n", m.ID())
+	normalizedID := NormalizeModuleID(m.ID())
+	if _, exists := r.modules[normalizedID]; exists {
+		fmt.Printf("WARNING: overwriting module registration for ID: %s\n", normalizedID)
 	}
-	r.modules[m.ID()] = m
+	r.modules[normalizedID] = m
 }
 
 // List returns all registered modules.
@@ -62,6 +64,39 @@ func (r *Registry) Get(id string) (Module, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	
-	m, ok := r.modules[id]
+	m, ok := r.modules[NormalizeModuleID(id)]
 	return m, ok
+}
+
+// ModuleFactory is a constructor function that instantiates a module with options.
+// A module factory can also be auto-implemented or registered in package init().
+type ModuleFactory func(options map[string]any) (Module, error)
+
+var (
+	factoryMu sync.RWMutex
+	factories = make(map[string]ModuleFactory)
+)
+
+// NormalizeModuleID standardizes module IDs by removing common repo prefixes and replacing slashes with dots.
+// E.g., "github.com/GoHyperrr/commerce/hotel" -> "commerce.hotel"
+func NormalizeModuleID(id string) string {
+	id = strings.TrimPrefix(id, "github.com/GoHyperrr/hyperrr/")
+	id = strings.TrimPrefix(id, "github.com/GoHyperrr/")
+	id = strings.ReplaceAll(id, "/", ".")
+	return id
+}
+
+// RegisterFactory registers a module constructor in the global factory registry.
+func RegisterFactory(id string, factory ModuleFactory) {
+	factoryMu.Lock()
+	defer factoryMu.Unlock()
+	factories[NormalizeModuleID(id)] = factory
+}
+
+// GetFactory retrieves a registered module constructor by its ID.
+func GetFactory(id string) (ModuleFactory, bool) {
+	factoryMu.RLock()
+	defer factoryMu.RUnlock()
+	f, ok := factories[NormalizeModuleID(id)]
+	return f, ok
 }

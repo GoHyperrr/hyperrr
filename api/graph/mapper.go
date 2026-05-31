@@ -180,3 +180,11 @@ func mapProductToModel(p *product.Product) *model.Product {
 		Currency:    p.Currency,
 	}
 }
+
+func decodeResult(src any, dest any) error {
+	dataBytes, err := json.Marshal(src)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(dataBytes, dest)
+}

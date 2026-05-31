@@ -65,12 +65,12 @@ func (r *mutationResolver) CreateOrderFromCart(ctx context.Context, cartID strin
 		return nil, fmt.Errorf("invalid result format from order step")
 	}
 
-	o, ok := resMap["order"].(*order.Order)
-	if !ok {
-		return nil, fmt.Errorf("invalid order type in results")
+	var o order.Order
+	if err := decodeResult(resMap["order"], &o); err != nil {
+		return nil, fmt.Errorf("invalid order type in results: %w", err)
 	}
 
-	return mapOrderToModel(o), nil
+	return mapOrderToModel(&o), nil
 }
 
 

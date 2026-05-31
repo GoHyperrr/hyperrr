@@ -26,6 +26,13 @@ func (m *Module) ID() string {
 func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 	m.db = deps.DB
 
+	// Resolve product module dependency dynamically from the registry
+	if prodModVal, ok := registry.Get("commerce.product"); ok {
+		if pm, ok := prodModVal.(*product.Module); ok {
+			m.prodMod = pm
+		}
+	}
+
 	// Register Workflows
 	deps.Registry.Register(&workflow.Workflow{
 		Name: "search.products",
