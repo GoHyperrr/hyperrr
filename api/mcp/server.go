@@ -176,6 +176,11 @@ func (s *Server) dispatch(ctx context.Context, sessionID string, actor *ident.Ac
 	resp.ID = req.ID
 
 	switch req.Method {
+	case "initialize":
+		resp.Result = s.handleInitialize(ctx)
+	case "notifications/initialized":
+		// Initialization notification does not expect a response
+		return
 	case "tools/list":
 		resp.Result = s.handleToolsList(ctx)
 	case "tools/call":
@@ -193,6 +198,20 @@ func (s *Server) dispatch(ctx context.Context, sessionID string, actor *ident.Ac
 	}
 
 	s.SendMessage(sessionID, resp)
+}
+
+func (s *Server) handleInitialize(ctx context.Context) InitializeResult {
+	return InitializeResult{
+		ProtocolVersion: "2024-11-05",
+		Capabilities: ServerCapabilities{
+			Tools:     map[string]any{},
+			Resources: map[string]any{},
+		},
+		ServerInfo: ServerInfo{
+			Name:    "hyperrr",
+			Version: "1.0.0",
+		},
+	}
 }
 
 func (s *Server) handleToolsList(ctx context.Context) *ListToolsResult {

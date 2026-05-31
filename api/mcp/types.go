@@ -32,6 +32,25 @@ const (
 	CodeInternalError  = -32603
 )
 
+// InitializeResult is the result for the initialize method.
+type InitializeResult struct {
+	ProtocolVersion string             `json:"protocolVersion"`
+	Capabilities    ServerCapabilities `json:"capabilities"`
+	ServerInfo      ServerInfo         `json:"serverInfo"`
+}
+
+// ServerCapabilities represents capabilities of the server.
+type ServerCapabilities struct {
+	Tools     map[string]any `json:"tools,omitempty"`
+	Resources map[string]any `json:"resources,omitempty"`
+}
+
+// ServerInfo represents basic info about this server.
+type ServerInfo struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+}
+
 // Tool represents an MCP Tool definition.
 type Tool struct {
 	Name        string         `json:"name"`
