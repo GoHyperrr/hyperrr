@@ -85,11 +85,19 @@ func (p *productPage) loadProducts() {
 }
 
 func (p *productPage) Update(msg any) (registry.TUIPage, any) {
+	if _, ok := msg.(registry.PageFocusMsg); ok {
+		p.loadProducts()
+		return p, nil
+	}
+
 	switch p.mode {
 	case modeList:
 		switch msg := msg.(type) {
 		case tea.KeyPressMsg:
 			switch msg.String() {
+			case "r":
+				p.loadProducts()
+				p.statusMessage = "Refreshed list"
 			case "j", "down":
 				if len(p.products) > 0 {
 					p.activeRow = (p.activeRow + 1) % len(p.products)
@@ -320,7 +328,7 @@ func (p *productPage) View() string {
 			}
 		}
 		s.WriteString("\n")
-		s.WriteString(theme.MutedStyle.Render("a: Add Product | Enter / u: Edit Product | d: Delete Product"))
+		s.WriteString(theme.MutedStyle.Render("a: Add Product | Enter / u: Edit Product | d: Delete Product | r: Refresh"))
 
 	case modeAdd:
 		s.WriteString(theme.TitleStyle.Render("ADD NEW PRODUCT"))

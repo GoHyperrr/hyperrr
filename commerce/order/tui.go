@@ -69,8 +69,18 @@ func (p *ordersPage) loadOrders() {
 }
 
 func (p *ordersPage) Update(msg any) (registry.TUIPage, any) {
+	if _, ok := msg.(registry.PageFocusMsg); ok {
+		p.loadOrders()
+		return p, nil
+	}
+
 	if msgKey, ok := msg.(tea.KeyPressMsg); ok {
 		switch msgKey.String() {
+		case "r":
+			if !p.detailMode {
+				p.loadOrders()
+				return p, nil
+			}
 		case "j", "down":
 			if !p.detailMode && len(p.orders) > 0 {
 				p.activeRow = (p.activeRow + 1) % len(p.orders)
@@ -167,7 +177,7 @@ func (p *ordersPage) View() string {
 			}
 		}
 		s.WriteString("\n")
-		s.WriteString(theme.MutedStyle.Render("Enter: View Order Details"))
+		s.WriteString(theme.MutedStyle.Render("Enter: View Order Details | r: Refresh List"))
 	}
 
 	return s.String()

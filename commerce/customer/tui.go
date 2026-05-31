@@ -49,9 +49,17 @@ func (p *customerPage) loadCustomers() {
 }
 
 func (p *customerPage) Update(msg any) (registry.TUIPage, any) {
+	if _, ok := msg.(registry.PageFocusMsg); ok {
+		p.loadCustomers()
+		return p, nil
+	}
+
 	// Scroll controls in Bubble Tea v2
 	if msgKey, ok := msg.(tea.KeyPressMsg); ok {
 		switch msgKey.String() {
+		case "r":
+			p.loadCustomers()
+			return p, nil
 		case "j", "down":
 			if len(p.customers) > 0 {
 				p.activeRow = (p.activeRow + 1) % len(p.customers)
@@ -100,5 +108,7 @@ func (p *customerPage) View() string {
 		}
 	}
 
+	s.WriteString("\n")
+	s.WriteString(theme.MutedStyle.Render("r: Refresh List"))
 	return s.String()
 }

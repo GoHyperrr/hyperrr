@@ -139,8 +139,12 @@ type TUIPage interface {
 	View() string
 }
 
+// PageFocusMsg is sent to a TUIPage when it is selected/focused in the master layout.
+type PageFocusMsg struct{}
+
 // TUIProvider is implemented by modules that want to expose custom admin views.
 type TUIProvider interface {
 	TUIPages() []TUIPage
 }
+
 

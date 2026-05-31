@@ -106,6 +106,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			idx := int(keyStr[0] - '1')
 			if idx < len(m.pages) {
 				m.activeTab = idx
+				updatedPage, cmdVal := m.pages[idx].Update(registry.PageFocusMsg{})
+				m.pages[idx] = updatedPage
+				if cmd, ok := cmdVal.(tea.Cmd); ok && cmd != nil {
+					return m, cmd
+				}
 				return m, nil
 			}
 		}
@@ -114,12 +119,22 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if keyStr == "tab" || keyStr == "right" {
 			if len(m.pages) > 0 {
 				m.activeTab = (m.activeTab + 1) % len(m.pages)
+				updatedPage, cmdVal := m.pages[m.activeTab].Update(registry.PageFocusMsg{})
+				m.pages[m.activeTab] = updatedPage
+				if cmd, ok := cmdVal.(tea.Cmd); ok && cmd != nil {
+					return m, cmd
+				}
 				return m, nil
 			}
 		}
 		if keyStr == "shift+tab" || keyStr == "left" {
 			if len(m.pages) > 0 {
 				m.activeTab = (m.activeTab - 1 + len(m.pages)) % len(m.pages)
+				updatedPage, cmdVal := m.pages[m.activeTab].Update(registry.PageFocusMsg{})
+				m.pages[m.activeTab] = updatedPage
+				if cmd, ok := cmdVal.(tea.Cmd); ok && cmd != nil {
+					return m, cmd
+				}
 				return m, nil
 			}
 		}
