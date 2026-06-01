@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/GoHyperrr/hyperrr/api/graph"
-	domain "github.com/GoHyperrr/hyperrr/internal/context"
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	domain "github.com/GoHyperrr/hyperrr/pkg/ctxengine"
+	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 )
 

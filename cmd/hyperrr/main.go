@@ -6,11 +6,11 @@ import (
 	"log"
 	"os"
 
-	"github.com/GoHyperrr/hyperrr/commerce/customer"
-	"github.com/GoHyperrr/hyperrr/commerce/order"
-	"github.com/GoHyperrr/hyperrr/commerce/product"
+	_ "github.com/GoHyperrr/commerce/customer"
+	_ "github.com/GoHyperrr/commerce/order"
+	_ "github.com/GoHyperrr/commerce/product"
 	"github.com/GoHyperrr/hyperrr/internal/app"
-	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
+	_ "github.com/GoHyperrr/hyperrr/pkg/ctxengine"
 	"github.com/GoHyperrr/hyperrr/internal/tui"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
@@ -48,6 +48,14 @@ func run() error {
 		return runTUI(args[1:])
 	case "server", "start":
 		return appRun()
+	case "list":
+		return runList()
+	case "create":
+		return runCreate(args[1:])
+	case "install":
+		return runInstall(args[1:])
+	case "uninstall":
+		return runUninstall(args[1:])
 	case "help", "-h", "--help":
 		printUsage()
 		return nil
@@ -69,13 +77,6 @@ func runTUI(args []string) error {
 		serverURL = "http://localhost:8080" // Default fallback URL
 	}
 
-	// Register modules statically in the global registry
-	// This enables scanning TUI pages from registry without GORM connections
-	registry.Register(product.NewModule())
-	registry.Register(customer.NewModule())
-	registry.Register(order.NewModule())
-	registry.Register(ctxEngine.NewModule())
-
 	deps := &registry.Dependencies{
 		Config:    &config.Config{},
 		ServerURL: serverURL,
@@ -86,15 +87,19 @@ func runTUI(args []string) error {
 }
 
 func printUsage() {
-	fmt.Print(`Hyperrr Commerce AI CLI
+	fmt.Print(`Hyperrr Core Engine & AI Gateway CLI
 
 Usage:
   hyperrr <command> [arguments]
 
 Commands:
-  admin         Launch the Mission Control TUI dashboard
-  server        Start the backend GraphQL commerce server
-  help          Display help information
+  admin                  Launch the Mission Control TUI dashboard
+  server                 Start the backend GraphQL commerce server
+  list                   List all loaded plug-in modules in the binary
+  create module <name>   Scaffold a new standalone plugin project
+  install <package>      Download a plugin and compile it into the binary
+  uninstall <package>    Remove a plugin and rebuild the binary
+  help                   Display help information
 
 Options:
   -s, --server  Specify the target GraphQL server URL (used with 'admin')

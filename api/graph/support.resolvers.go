@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
-	"github.com/GoHyperrr/hyperrr/commerce/support"
+	"github.com/GoHyperrr/commerce/support"
 	"github.com/google/uuid"
 )
 

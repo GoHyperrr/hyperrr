@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )
@@ -19,6 +19,10 @@ type Module struct {
 
 func NewModule() *Module {
 	return &Module{}
+}
+
+func init() {
+	registry.Register(NewModule())
 }
 
 func (m *Module) ID() string {
@@ -111,6 +115,9 @@ func (m *Module) Repo() *Repository {
 }
 
 func (m *Module) ListResources(ctx context.Context) ([]registry.MCPResource, error) {
+	if m.repo == nil {
+		return nil, nil
+	}
 	orders, err := m.repo.List(ctx)
 	if err != nil {
 		return nil, err
@@ -129,6 +136,9 @@ func (m *Module) ListResources(ctx context.Context) ([]registry.MCPResource, err
 }
 
 func (m *Module) ReadResource(ctx context.Context, uri string) (string, error) {
+	if m.repo == nil {
+		return "", fmt.Errorf("order repository not initialized")
+	}
 	var orderID string
 	n, err := fmt.Sscanf(uri, "order://%s", &orderID)
 	if err != nil || n != 1 {

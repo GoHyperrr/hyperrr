@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 )
 
 type mockModule struct {

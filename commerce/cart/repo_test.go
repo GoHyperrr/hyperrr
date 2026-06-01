@@ -9,7 +9,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 )
 
 func TestCartRepository(t *testing.T) {

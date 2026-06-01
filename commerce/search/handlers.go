@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/GoHyperrr/hyperrr/commerce/product"
+	"github.com/GoHyperrr/commerce/product"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/google/uuid"
 )
@@ -36,8 +36,8 @@ func (m *Module) SearchProducts(ctx context.Context, input any) (any, error) {
 
 	actorID, _ := workflowInput["actor_id"].(string)
 
-	if m.prodMod == nil {
-		return nil, fmt.Errorf("product module not linked to search")
+	if m.prodMod == nil || m.prodMod.Repo() == nil {
+		return nil, fmt.Errorf("product module not linked to search or not initialized")
 	}
 
 	// Fetch all products (simplified mock for large catalog)

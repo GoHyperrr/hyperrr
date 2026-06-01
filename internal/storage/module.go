@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )
 

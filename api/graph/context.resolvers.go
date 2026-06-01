@@ -9,7 +9,7 @@ import (
 	"context"
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
-	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
+	ctxEngine "github.com/GoHyperrr/hyperrr/pkg/ctxengine"
 )
 
 // GetWorkflowLineage is the resolver for the getWorkflowLineage field.

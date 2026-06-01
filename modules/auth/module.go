@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/api/middleware"
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )
 

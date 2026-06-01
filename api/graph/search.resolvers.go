@@ -10,7 +10,7 @@ import (
 	"fmt"
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
-	"github.com/GoHyperrr/hyperrr/commerce/product"
+	"github.com/GoHyperrr/commerce/product"
 	"github.com/google/uuid"
 )
 

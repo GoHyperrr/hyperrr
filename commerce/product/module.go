@@ -3,7 +3,7 @@ package product
 import (
 	"context"
 
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )
 
@@ -14,6 +14,10 @@ type Module struct {
 
 func NewModule() *Module {
 	return &Module{}
+}
+
+func init() {
+	registry.Register(NewModule())
 }
 
 func (m *Module) ID() string {

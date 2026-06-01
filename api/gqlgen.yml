@@ -2,6 +2,7 @@
 schema:
   - graph/*.graphqls
   - ../internal/**/*.graphqls
+  - ../pkg/**/*.graphqls
   - ../commerce/**/*.graphqls
   - ../modules/**/*.graphqls
 exec:

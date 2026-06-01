@@ -5,7 +5,7 @@ import (
 	"time"
 
 	ident "github.com/GoHyperrr/hyperrr/pkg/identity"
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"

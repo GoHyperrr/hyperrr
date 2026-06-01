@@ -3,7 +3,7 @@ package fulfillment
 import (
 	"context"
 
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )
 

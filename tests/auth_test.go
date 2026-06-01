@@ -6,11 +6,11 @@ import (
 
 	"github.com/GoHyperrr/hyperrr/api/graph"
 	"github.com/GoHyperrr/hyperrr/api/middleware"
-	"github.com/GoHyperrr/hyperrr/commerce/customer"
+	"github.com/GoHyperrr/commerce/customer"
 	"github.com/GoHyperrr/hyperrr/modules/auth"
 	"github.com/GoHyperrr/hyperrr/modules/identity"
 	ident "github.com/GoHyperrr/hyperrr/pkg/identity"
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"

@@ -2,8 +2,8 @@ package customer
 import (
 	"context"
 
-	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	ctxEngine "github.com/GoHyperrr/hyperrr/pkg/ctxengine"
+	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
@@ -19,6 +19,10 @@ type Module struct {
 
 func NewModule() *Module {
 	return &Module{}
+}
+
+func init() {
+	registry.Register(NewModule())
 }
 
 func (m *Module) ID() string {

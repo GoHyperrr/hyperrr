@@ -2,20 +2,20 @@ package graph
 
 import (
 	"testing"
-	"github.com/GoHyperrr/hyperrr/internal/context"
-	"github.com/GoHyperrr/hyperrr/commerce/product"
-	"github.com/GoHyperrr/hyperrr/commerce/cart"
-	"github.com/GoHyperrr/hyperrr/commerce/order"
-	"github.com/GoHyperrr/hyperrr/commerce/finance"
-	"github.com/GoHyperrr/hyperrr/commerce/notification"
-	"github.com/GoHyperrr/hyperrr/commerce/fulfillment"
-	"github.com/GoHyperrr/hyperrr/commerce/support"
-	"github.com/GoHyperrr/hyperrr/commerce/marketing"
+	"github.com/GoHyperrr/hyperrr/pkg/ctxengine"
+	"github.com/GoHyperrr/commerce/product"
+	"github.com/GoHyperrr/commerce/cart"
+	"github.com/GoHyperrr/commerce/order"
+	"github.com/GoHyperrr/commerce/finance"
+	"github.com/GoHyperrr/commerce/notification"
+	"github.com/GoHyperrr/commerce/fulfillment"
+	"github.com/GoHyperrr/commerce/support"
+	"github.com/GoHyperrr/commerce/marketing"
 )
 
 func TestMappers(t *testing.T) {
 	t.Run("Lineage", func(t *testing.T) {
-		l := &context.Lineage{ID: "l1"}
+		l := &ctxengine.Lineage{ID: "l1"}
 		mapToModel(l)
 	})
 

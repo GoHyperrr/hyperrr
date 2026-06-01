@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "build-mcp-server": {
+      "source": "anthropics/claude-plugins-official",
+      "sourceType": "github",
+      "skillPath": "plugins/mcp-server-dev/skills/build-mcp-server/SKILL.md",
+      "computedHash": "9bf9f8ce713a3fc26f4bb3af09321626638b91f379bb3a15d5e809cc771e8a12"
+    },
     "code-review": {
       "source": "maiobarbero/my-ai-workflow",
       "sourceType": "github",

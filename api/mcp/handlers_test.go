@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/GoHyperrr/hyperrr/api/middleware"
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	ident "github.com/GoHyperrr/hyperrr/pkg/identity"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
@@ -71,11 +71,18 @@ func TestMCP_DiscoveryAndExecution(t *testing.T) {
 
 	t.Run("Tools List Discovery", func(t *testing.T) {
 		result := server.handleToolsList(context.Background())
-		if len(result.Tools) != 1 {
-			t.Errorf("expected 1 tool, got %d", len(result.Tools))
+		if len(result.Tools) != 12 {
+			t.Errorf("expected 12 tools, got %d", len(result.Tools))
 		}
-		if result.Tools[0].Name != "public-tool" {
-			t.Errorf("expected public-tool, got %s", result.Tools[0].Name)
+		foundPublic := false
+		for _, tool := range result.Tools {
+			if tool.Name == "public-tool" {
+				foundPublic = true
+				break
+			}
+		}
+		if !foundPublic {
+			t.Errorf("expected public-tool in the list of tools")
 		}
 	})
 

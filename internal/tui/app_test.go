@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 	tea "charm.land/bubbletea/v2"
 )

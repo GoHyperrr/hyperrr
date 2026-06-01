@@ -3,8 +3,8 @@ package search
 import (
 	"context"
 
-	"github.com/GoHyperrr/hyperrr/commerce/product"
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	"github.com/GoHyperrr/commerce/product"
+	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )

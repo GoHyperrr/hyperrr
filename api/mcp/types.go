@@ -41,8 +41,29 @@ type InitializeResult struct {
 
 // ServerCapabilities represents capabilities of the server.
 type ServerCapabilities struct {
-	Tools     map[string]any `json:"tools"`
-	Resources map[string]any `json:"resources"`
+	Logging   *LoggingCapability   `json:"logging,omitempty"`
+	Prompts   *PromptsCapability   `json:"prompts,omitempty"`
+	Resources *ResourcesCapability `json:"resources,omitempty"`
+	Tools     *ToolsCapability     `json:"tools,omitempty"`
+}
+
+// LoggingCapability represents logging support.
+type LoggingCapability struct{}
+
+// PromptsCapability represents prompts support.
+type PromptsCapability struct {
+	ListChanged bool `json:"listChanged,omitempty"`
+}
+
+// ResourcesCapability represents resources support.
+type ResourcesCapability struct {
+	Subscribe   bool `json:"subscribe,omitempty"`
+	ListChanged bool `json:"listChanged,omitempty"`
+}
+
+// ToolsCapability represents tools support.
+type ToolsCapability struct {
+	ListChanged bool `json:"listChanged,omitempty"`
 }
 
 // ServerInfo represents basic info about this server.
@@ -51,16 +72,40 @@ type ServerInfo struct {
 	Version string `json:"version"`
 }
 
+// ToolMetaUI represents the UI metadata for a tool.
+type ToolMetaUI struct {
+	ResourceURI string `json:"resourceUri"`
+}
+
+// ToolMeta represents the metadata wrapper for a tool.
+type ToolMeta struct {
+	UI *ToolMetaUI `json:"ui,omitempty"`
+}
+
 // Tool represents an MCP Tool definition.
 type Tool struct {
 	Name        string         `json:"name"`
 	Description string         `json:"description,omitempty"`
 	InputSchema map[string]any `json:"inputSchema"`
+	Meta        *ToolMeta      `json:"_meta,omitempty"`
 }
 
 // ListToolsResult is the result for tools/list.
 type ListToolsResult struct {
 	Tools []Tool `json:"tools"`
+}
+
+// ResourceTemplate represents an MCP Resource Template definition.
+type ResourceTemplate struct {
+	URITemplate string `json:"uriTemplate"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	MimeType    string `json:"mimeType,omitempty"`
+}
+
+// ListResourceTemplatesResult is the result for resources/templates/list.
+type ListResourceTemplatesResult struct {
+	ResourceTemplates []ResourceTemplate `json:"resourceTemplates"`
 }
 
 // CallToolResult is the result for tools/call.

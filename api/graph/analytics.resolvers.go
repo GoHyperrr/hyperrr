@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
-	"github.com/GoHyperrr/hyperrr/commerce/order"
-	ctxEngine "github.com/GoHyperrr/hyperrr/internal/context"
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
+	"github.com/GoHyperrr/commerce/order"
+	ctxEngine "github.com/GoHyperrr/hyperrr/pkg/ctxengine"
+	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 )
 
 // GetSystemStats is the resolver for the getSystemStats field.
