@@ -2,7 +2,7 @@ module github.com/GoHyperrr/hyperrr
 
 go 1.25.5
 
-replace github.com/GoHyperrr/commerce => ./commerce
+replace github.com/GoHyperrr/commerce => ../commerce
 
 require (
 	charm.land/bubbletea/v2 v2.0.6
