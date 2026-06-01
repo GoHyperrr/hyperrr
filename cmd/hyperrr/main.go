@@ -48,6 +48,8 @@ func run() error {
 		return runTUI(args[1:])
 	case "server", "start":
 		return appRun()
+	case "build":
+		return runBuild()
 	case "list":
 		return runList()
 	case "create":
@@ -95,6 +97,7 @@ Usage:
 Commands:
   admin                  Launch the Mission Control TUI dashboard
   server                 Start the backend GraphQL commerce server
+  build                  Aggregate schemas, run gqlgen, and compile binary
   list                   List all loaded plug-in modules in the binary
   create module <name>   Scaffold a new standalone plugin project
   install <package>      Download a plugin and compile it into the binary
