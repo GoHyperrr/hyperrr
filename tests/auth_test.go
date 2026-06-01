@@ -7,8 +7,8 @@ import (
 	"github.com/GoHyperrr/hyperrr/api/graph"
 	"github.com/GoHyperrr/hyperrr/api/middleware"
 	"github.com/GoHyperrr/commerce/customer"
-	"github.com/GoHyperrr/hyperrr/modules/auth"
-	"github.com/GoHyperrr/hyperrr/modules/identity"
+	"github.com/GoHyperrr/auth/emailpass"
+	"github.com/GoHyperrr/auth/apikey"
 	ident "github.com/GoHyperrr/hyperrr/pkg/identity"
 	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
@@ -29,10 +29,14 @@ func TestAuthFlow(t *testing.T) {
 		d.Close()
 	}()
 
-	// Setup Identity
-	identMod := identity.NewModule()
-	identMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus})
-	db.Register(identMod.Models()...)
+	// Setup EmailPass Auth
+	emailpassMod := emailpass.NewModule()
+	emailpassMod.Init(ctx, &registry.Dependencies{
+		Config:   &config.Config{JWTSecret: "secret", JWTExpiration: "24h"},
+		DB:       database,
+		EventBus: bus,
+	})
+	db.Register(emailpassMod.Models()...)
 
 	// Setup Customer
 	custMod := customer.NewModule()
@@ -44,20 +48,12 @@ func TestAuthFlow(t *testing.T) {
 	})
 	db.Register(custMod.Models()...)
 
-	// Setup Auth
-	authMod := auth.NewModule()
-	authMod.Init(ctx, &registry.Dependencies{
-		Config: &config.Config{JWTSecret: "secret", JWTExpiration: "24h"},
-		DB:     database,
-	})
-	db.Register(authMod.Models()...)
-
 	database.AutoMigrateAll()
 
 	resolver := &graph.Resolver{
-		IdentityModule: identMod,
-		CustomerModule: custMod,
-		AuthModule:     authMod,
+		EmailPassModule: emailpassMod,
+		CustomerModule:  custMod,
+		APIKeyModule:     apikey.NewModule(),
 	}
 
 	t.Run("Register and Login", func(t *testing.T) {

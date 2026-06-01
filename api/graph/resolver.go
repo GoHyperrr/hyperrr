@@ -12,9 +12,9 @@ import (
 	"github.com/GoHyperrr/commerce/marketing"
 	"github.com/GoHyperrr/commerce/search"
 	"github.com/GoHyperrr/commerce/analytics"
-	"github.com/GoHyperrr/hyperrr/modules/auth"
+	"github.com/GoHyperrr/auth/emailpass"
+	"github.com/GoHyperrr/auth/apikey"
 	"github.com/GoHyperrr/hyperrr/pkg/ctxengine"
-	"github.com/GoHyperrr/hyperrr/modules/identity"
 	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 )
 
@@ -31,8 +31,8 @@ type Resolver struct {
 	MarketingModule    *marketing.Module
 	SearchModule       *search.Module
 	AnalyticsModule    *analytics.Module
-	IdentityModule     *identity.Module
-	AuthModule         *auth.Module
+	EmailPassModule    *emailpass.Module
+	APIKeyModule       *apikey.Module
 	Runner             *workflow.Runner
 	Registry           *workflow.Registry
 }

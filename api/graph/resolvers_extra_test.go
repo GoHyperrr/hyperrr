@@ -12,10 +12,9 @@ import (
 	"github.com/GoHyperrr/commerce/fulfillment"
 	"github.com/GoHyperrr/commerce/support"
 	"github.com/GoHyperrr/commerce/marketing"
-	"github.com/GoHyperrr/hyperrr/modules/auth"
+	"github.com/GoHyperrr/auth/emailpass"
+	"github.com/GoHyperrr/auth/apikey"
 	domain "github.com/GoHyperrr/hyperrr/pkg/ctxengine"
-
-	"github.com/GoHyperrr/hyperrr/modules/identity"
 	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
@@ -43,9 +42,18 @@ func TestResolversExtra(t *testing.T) {
 	prodMod := product.NewModule()
 	prodMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 	
-	identMod := identity.NewModule()
-	identMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
-	
+	emailpassMod := emailpass.NewModule()
+	emailpassMod.Init(ctx, &registry.Dependencies{
+		Config:   &config.Config{JWTSecret: "secret", JWTExpiration: "24h"},
+		DB:       database,
+		EventBus: bus,
+		Runner:   runner,
+		Registry: registryStore,
+	})
+
+	apikeyMod := apikey.NewModule()
+	apikeyMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus})
+
 	custMod := customer.NewModule()
 	custMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 	
@@ -61,20 +69,14 @@ func TestResolversExtra(t *testing.T) {
 	marketingMod := marketing.NewModule()
 	marketingMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 
-	authMod := auth.NewModule()
-	authMod.Init(ctx, &registry.Dependencies{
-		Config: &config.Config{JWTSecret: "secret", JWTExpiration: "24h"},
-		DB:     database,
-	})
-
 	db.Register(prodMod.Models()...)
-	db.Register(identMod.Models()...)
+	db.Register(emailpassMod.Models()...)
+	db.Register(apikeyMod.Models()...)
 	db.Register(custMod.Models()...)
 	db.Register(cartMod.Models()...)
 	db.Register(fulfillMod.Models()...)
 	db.Register(supportMod.Models()...)
 	db.Register(marketingMod.Models()...)
-	db.Register(authMod.Models()...)
 	database.AutoMigrateAll()
 
 	resolver := &Resolver{
@@ -85,8 +87,8 @@ func TestResolversExtra(t *testing.T) {
 		FulfillmentModule:  fulfillMod,
 		SupportModule:      supportMod,
 		MarketingModule:    marketingMod,
-		IdentityModule:     identMod,
-		AuthModule:         authMod,
+		EmailPassModule:    emailpassMod,
+		APIKeyModule:       apikeyMod,
 		Runner:             runner,
 		Registry:           registryStore,
 	}

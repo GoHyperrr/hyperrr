@@ -18,12 +18,12 @@ import (
 	"github.com/GoHyperrr/commerce/marketing"
 	"github.com/GoHyperrr/commerce/search"
 	"github.com/GoHyperrr/commerce/analytics"
-	"github.com/GoHyperrr/hyperrr/modules/auth"
+	"github.com/GoHyperrr/auth/emailpass"
+	"github.com/GoHyperrr/auth/apikey"
 	"github.com/GoHyperrr/hyperrr/internal"
 	"github.com/GoHyperrr/hyperrr/api/graph"
 	"github.com/GoHyperrr/hyperrr/api/mcp"
 	ctxEngine "github.com/GoHyperrr/hyperrr/pkg/ctxengine"
-	"github.com/GoHyperrr/hyperrr/modules/identity"
 	"github.com/GoHyperrr/hyperrr/internal/storage"
 	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
@@ -119,10 +119,6 @@ func RunWithConfig(cfg *config.Config) error {
 	// 6. Register Core Modules
 	ctxMod := ctxEngine.NewModule()
 	registry.Register(ctxMod)
-	identMod := identity.NewModule()
-	registry.Register(identMod)
-	authMod := auth.NewModule()
-	registry.Register(authMod)
 	registry.Register(storage.NewModule())
 
 	// Register built-in factories
@@ -173,10 +169,22 @@ func RunWithConfig(cfg *config.Config) error {
 		Runner:    runner,
 		Registry:  registryStore,
 		Locker:    wfLocker,
-		Resolver:  identMod,
 	}
 
 	modules := registry.List()
+
+	// Resolve the ActorResolver from loaded modules
+	for _, mod := range modules {
+		if resolver, ok := mod.(registry.ActorResolver); ok {
+			deps.Resolver = resolver
+			break
+		}
+	}
+
+	// Fail-fast guard: ensure an identity resolver is registered
+	if deps.Resolver == nil {
+		return fmt.Errorf("Configuration Error: No active identity resolver (implementing registry.ActorResolver) is loaded. Please install an auth module (e.g. auth.apikey).")
+	}
 
 	// Ensure cleanup on error or exit
 	defer func() {
@@ -267,7 +275,7 @@ func RunWithConfig(cfg *config.Config) error {
 				Name: "Developer Agent",
 			}
 			if err := database.Create(&devActor).Error; err == nil {
-				devKey := identity.APIKey{
+				devKey := apikey.APIKey{
 					ID:      "key_mcp_developer",
 					Key:     "hyperrr-mcp-developer-key",
 					ActorID: "act_mcp_developer",
@@ -327,6 +335,8 @@ func RunWithConfig(cfg *config.Config) error {
 	var marketingModRef *marketing.Module
 	var searchModRef *search.Module
 	var analyticsModRef *analytics.Module
+	var emailPassModRef *emailpass.Module
+	var apiKeyModRef *apikey.Module
 
 	for _, m := range registry.List() {
 		switch m.ID() {
@@ -352,6 +362,10 @@ func RunWithConfig(cfg *config.Config) error {
 			searchModRef, _ = m.(*search.Module)
 		case "commerce.analytics":
 			analyticsModRef, _ = m.(*analytics.Module)
+		case "auth.emailpass":
+			emailPassModRef, _ = m.(*emailpass.Module)
+		case "auth.apikey":
+			apiKeyModRef, _ = m.(*apikey.Module)
 		}
 	}
 
@@ -370,8 +384,8 @@ func RunWithConfig(cfg *config.Config) error {
 			MarketingModule:    marketingModRef,
 			SearchModule:       searchModRef,
 			AnalyticsModule:    analyticsModRef,
-			IdentityModule:     identMod,
-			AuthModule:         authMod,
+			EmailPassModule:    emailPassModRef,
+			APIKeyModule:       apiKeyModRef,
 
 			Runner:         runner,
 			Registry:       registryStore,

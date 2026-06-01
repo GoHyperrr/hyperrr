@@ -26,6 +26,7 @@ func runBuild() error {
 		name string
 	}{
 		{src: filepath.Join("..", "commerce"), name: "commerce"},
+		{src: filepath.Join("..", "auth"), name: "auth"},
 		{src: "modules", name: "modules"},
 		{src: "pkg", name: "pkg"},
 		{src: "internal", name: "internal"},

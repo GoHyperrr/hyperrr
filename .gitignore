@@ -35,4 +35,3 @@ vendor/
 api/graph/generated.go
 api/graph/model/models_gen.go
 api/graph/schema_gen/
-api/graph/*.resolvers.go

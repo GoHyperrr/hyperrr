@@ -19,7 +19,8 @@ import (
 	"github.com/GoHyperrr/commerce/search"
 	analytics "github.com/GoHyperrr/commerce/analytics"
 	domain "github.com/GoHyperrr/hyperrr/pkg/ctxengine"
-	"github.com/GoHyperrr/hyperrr/modules/identity"
+	"github.com/GoHyperrr/auth/emailpass"
+	"github.com/GoHyperrr/auth/apikey"
 	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
@@ -51,12 +52,22 @@ func TestResolvers(t *testing.T) {
 		runner.RegisterTask(name, h)
 	}
 
-	identMod := identity.NewModule()
-	identMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
-	db.Register(identMod.Models()...)
-	for name, h := range identMod.Handlers() {
+	emailpassMod := emailpass.NewModule()
+	emailpassMod.Init(ctx, &registry.Dependencies{
+		Config:   &config.Config{JWTSecret: "secret", JWTExpiration: "24h"},
+		DB:       database,
+		EventBus: bus,
+		Runner:   runner,
+		Registry: registryStore,
+	})
+	db.Register(emailpassMod.Models()...)
+	for name, h := range emailpassMod.Handlers() {
 		runner.RegisterTask(name, h)
 	}
+
+	apikeyMod := apikey.NewModule()
+	apikeyMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus})
+	db.Register(apikeyMod.Models()...)
 
 	custMod := customer.NewModule()
 	custMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
@@ -140,7 +151,8 @@ func TestResolvers(t *testing.T) {
 		MarketingModule:    marketingMod,
 		SearchModule:       searchMod,
 		AnalyticsModule:    analyticsMod,
-		IdentityModule:     identMod,
+		EmailPassModule:    emailpassMod,
+		APIKeyModule:       apikeyMod,
 		Runner:             runner,
 		Registry:           registryStore,
 	}
