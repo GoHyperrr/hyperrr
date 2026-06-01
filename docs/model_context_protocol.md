@@ -70,3 +70,48 @@ To prevent resource leaks and runaways (e.g., an agent starts a long-running pay
 2. Every tool call or workflow run initiated by that agent is executed under a child context derived from this session context.
 3. If the HTTP stream closes or drops, the server triggers the session context cancellation.
 4. Any running workflow steps or database locks associated with the cancelled session are immediately halted and rolled back via Saga compensations, protecting system integrity.
+
+---
+
+## 5. MCP Apps and UI Integration
+
+Hyperrr supports the **MCP Apps UI spec** to enable rendering interactive, rich, and responsive dashboards inside compatible hosts (such as Claude Desktop or ChatGPT sandboxed `iframe` panels).
+
+### 5.1 Tool UI Linking
+Any tool exposed by the MCP server can declare a companion UI resource URI under its `_meta` field:
+```json
+{
+  "name": "app.product",
+  "description": "Dashboard and interactive console application for the commerce.product module.",
+  "inputSchema": { "type": "object" },
+  "_meta": {
+    "ui": {
+      "resourceUri": "ui://commerce.product"
+    }
+  }
+}
+```
+
+### 5.2 Server-Side Rendered (SSR) HTML Resources
+When a host queries or requests to read the `ui://` resource scheme, Hyperrr intercept it and renders a dedicated HTML/CSS dashboard populated with real-time data directly from the GORM database.
+*   **MIME Type**: These resources are served with the standardized `text/html;profile=mcp-app` MIME type.
+*   **Design & Theme**: The generated dashboards follow premium dark-mode styling with Outfit typography, glassmorphic card layouts, responsive CSS grids, CSS-only micro-animations, and HSL tailored color accents matching each specific module.
+
+---
+
+## 6. Dynamic Prompt Templates
+
+To guide AI agents in auditing and inspecting various modules, Hyperrr registers standard prompt templates that hosts can retrieve using the `prompts/list` and `prompts/get` protocol:
+1.  **System Diagnostics**: Run `system.about` to check server configurations, active modules, and environment flags.
+2.  **Inventory Health Check**: Review the product catalog and identify inventory shortages in fulfillment.
+3.  **Fulfillment Saga Tracker**: Audit PENDING orders and trace stuck transactions.
+4.  **Product Catalog Audit**: Check listing consistency, prices, and descriptions.
+5.  **Customer Churn Risk Analysis**: Inspect segments, personas, and identify VIP churn indicators.
+
+---
+
+## 7. Standard Validation and Utility Methods
+
+*   **Ping-Pong Check**: Supports the JSON-RPC `ping` request method. The server returns a simple `"pong"` string to verify connectivity.
+*   **Resource Templates**: Supports discovery of dynamic URI template schemas via `resources/templates/list` queries.
+*   **Logging Level Control**: Supports the `logging/setLevel` method as a no-op success handler to prevent client connection warnings.
