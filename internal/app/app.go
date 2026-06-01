@@ -124,10 +124,12 @@ func RunWithConfig(cfg *config.Config) error {
 	// Register built-in factories
 	registerBuiltInFactories()
 
-	// If no modules are configured, default to loading all built-in commerce modules
+	// If no modules are configured, default to loading all built-in commerce and auth modules
 	modulesToLoad := cfg.Modules
 	if len(modulesToLoad) == 0 {
 		modulesToLoad = []config.ModuleConfig{
+			{Resolve: "auth.emailpass"},
+			{Resolve: "auth.apikey"},
 			{Resolve: "commerce.product"},
 			{Resolve: "commerce.customer"},
 			{Resolve: "commerce.cart"},

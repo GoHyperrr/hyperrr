@@ -135,6 +135,9 @@ func TestRun(t *testing.T) {
 					"some_other_opt": "direct_value",
 				},
 			},
+			{
+				Resolve: "auth.apikey",
+			},
 		}
 
 		err = RunWithConfig(cfg)
