@@ -8,10 +8,7 @@ exec:
 model:
   filename: api/graph/model/models_gen.go
   package: model
-resolver:
-  layout: follow-schema
-  dir: api/graph
-  package: graph
+
 models:
   WorkflowLineage:
     fields:

@@ -36,3 +36,15 @@ type Resolver struct {
 	Runner             *workflow.Runner
 	Registry           *workflow.Registry
 }
+// Mutation returns MutationResolver implementation.
+func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
+
+// Query returns QueryResolver implementation.
+func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
+
+// WorkflowLineage returns WorkflowLineageResolver implementation.
+func (r *Resolver) WorkflowLineage() WorkflowLineageResolver { return &workflowLineageResolver{r} }
+
+type mutationResolver struct{ *Resolver }
+type queryResolver struct{ *Resolver }
+type workflowLineageResolver struct{ *Resolver }
