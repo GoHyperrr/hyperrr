@@ -365,22 +365,5 @@ func removeImport(filename, pkgPath string) error {
 
 func rebuildBinary(root string) error {
 	fmt.Println("Recompiling Hyperrr binary with updated imports...")
-	binName := "hyperrr"
-	if filepath.Separator == '\\' {
-		binName = "hyperrr.exe"
-	}
-	
-	binDir := filepath.Join(root, "bin")
-	_ = os.MkdirAll(binDir, 0755)
-
-	cmd := exec.Command("go", "build", "-o", filepath.Join(binDir, binName), "./cmd/hyperrr")
-	cmd.Dir = root
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("compilation failed: %w", err)
-	}
-
-	fmt.Printf("\n🚀 Rebuild completed! Recompiled binary saved to: bin/%s\n\n", binName)
-	return nil
+	return runBuild()
 }
