@@ -1,95 +1,140 @@
-# GraphQL API Gateway and Security Middleware
+# GraphQL API Gateway & Dynamic Resolver Architecture
 
-Hyperrr uses a modular GraphQL gateway (`api/graph`) built using the `gqlgen` code-generation library. The gateway stitches schemas and resolvers from independent modules together, handles authentication via JWT middleware, and enforces actor security context across domains.
+Hyperrr implements a **Zero Core Pollution** GraphQL API gateway (`api/graph`). Module authors can define schemas and resolvers entirely within their module directories, and the build tool (`hyperrr build`) dynamically aggregates schemas and generates resolver delegation code at compile-time.
 
 ---
 
-## 1. Modular Schema Co-Location
+## 1. Zero Core Pollution Architecture Overview
 
-To keep domain logic decoupled, Hyperrr does not write a single large schema file. Instead, each module defines its own `.graphqls` schema file inside its own directory:
-- Product schema: `commerce/product/product.graphqls`
-- Order schema: `commerce/order/order.graphqls`
-- System context schema: `internal/context/context.graphqls`
+In traditional GraphQL architectures, adding a field or query requires modifying core entry points. In Hyperrr, the core GraphQL gateway is a skeleton container. Individual modules are completely decoupled (residing in their own Go workspaces like `commerce` and `auth`), and the resolver container is auto-stitched:
 
-### The Compilation Configuration
-At compile-time, `gqlgen` reads `api/gqlgen.yml`, aggregates all scattered schema files, and generates a single unified execution entry point (`api/graph/generated.go`):
-
-```yaml
-schema:
-  - graph/*.graphqls
-  - ../internal/**/*.graphqls
-  - ../commerce/**/*.graphqls
+```
+                  +--------------------------------+
+                  |    Module Schema & Code        |
+                  |  (e.g., commerce/product)      |
+                  +---------------+----------------+
+                                  |
+                                  | hyperrr build
+                                  v
++------------------+     +------------------+     +-------------------+
+|  schema_gen/     |     |   generated.go   |     | resolvers_impl.go |
+| (Copied Schemas) |     |  (GQLGen Engine) |     | (Auto-Delegator)  |
++--------+---------+     +--------+---------+     +---------+---------+
+         |                        |                         |
+         +------------------------+-------------------------+
+                                  |
+                                  v
+                  +--------------------------------+
+                  |       Compiled Monolith        |
+                  |         (bin/hyperrr)          |
+                  +--------------------------------+
 ```
 
 ---
 
-## 2. The Unified Resolver Container
+## 2. Implementing the `GraphQLProvider` Interface
 
-Although schemas are compile-time merged, resolution is dynamically bound at boot. The main `Resolver` struct (`api/graph/resolver.go`) contains pointers to all module instances:
+Modules that expose GraphQL queries, mutations, or field resolvers must implement the `registry.GraphQLProvider` interface defined in [module.go](file:///D:/hyperrr-commerce-ai/hyperrr/pkg/registry/module.go):
 
 ```go
-type Resolver struct {
-	Projector      context.Projector
-	ProductModule  *product.Module
-	CustomerModule *customer.Module
-	CartModule     *cart.Module
-	OrderModule    *order.Module
-	FinanceModule  *finance.Module
-	...
+type GraphQLProvider interface {
+	Module
+	Queries() map[string]any
+	Mutations() map[string]any
+	FieldResolvers() map[string]any
 }
 ```
 
-During startup (`internal/app/app.go`), the bootstrapper queries the global `registry` list, retrieves the instantiated module pointers, and injects them into the GraphQL handler container.
+### Methods Explanation
+*   `Queries()`: Maps GraphQL Query resolver names (defined in your schema) to their respective handler functions on the module.
+*   `Mutations()`: Maps GraphQL Mutation resolver names to their respective handler functions on the module.
+*   `FieldResolvers()`: Maps nested model field resolvers (e.g. `WorkflowLineage.events`) using a dot-separated string syntax (e.g. `"WorkflowLineage.events": m.Events`).
 
----
-
-## 3. JWT Security and Actor Middleware
-
-Every query or mutation going through the gateway is interceptable by the security middleware (`api/middleware/auth.go`).
-
-```
-+---------+               +------------+               +-----------------+               +-----------+
-| Client  |  -- token --> | Middleware |  -- query --> |  ActorResolver  |  -- actor --> | GraphQL   |
-|         |               |  (Auth)    |               | (modules/ident) |               | Context   |
-+---------+               +------------+               +-----------------+               +-----------+
-```
-
-### Context Injection Workflow
-1. **Extraction**: The middleware parses the incoming `Authorization: Bearer <token>` HTTP header.
-2. **Signature Validation**: It validates the token's cryptographic signature against the `JWT_SECRET` key.
-3. **Actor Lookup**: If the signature is valid, it retrieves the `actor_id` from the JWT claims and calls the `ActorResolver` module:
-   ```go
-   actor, err := resolver.GetActorByID(ctx, actorID)
-   ```
-4. **Context Wrapping**: It wraps the resulting `identity.Actor` struct inside the request context:
-   ```go
-   ctx = context.WithValue(ctx, UserContextKey, actor)
-   ```
-5. **Resolver Enforcement**: Within any GraphQL resolver, the code retrieves the actor metadata to enforce authorization and access policies:
-   ```go
-   actor, ok := ctx.Value(UserContextKey).(*identity.Actor)
-   ```
-
----
-
-## 4. Safe Entity Type Mapping
-
-Because dynamic workflow state persistence engines return generic `map[string]any` maps upon resumption, GraphQL resolvers require a safe mapping utility to convert un-typed maps back to concrete schema structs.
-
-Hyperrr uses a custom decode mapper (`api/graph/mapper.go`):
+### Example Implementation (`commerce/product/graphql.go`)
 ```go
-func decodeResult(src any, dest any) error {
-	config := &mapstructure.DecoderConfig{
-		TagName:          "json",
-		Result:           dest,
-		WeaklyTypedInput: true,
+package product
+
+import (
+	"context"
+	"github.com/GoHyperrr/hyperrr/api/graph/model"
+)
+
+// Ensure Module implements registry.GraphQLProvider at compile time
+var _ registry.GraphQLProvider = (*Module)(nil)
+
+func (m *Module) Queries() map[string]any {
+	return map[string]any{
+		"getProduct":   m.GetProduct,
+		"listProducts": m.ListProducts,
 	}
-	decoder, err := mapstructure.NewDecoder(config)
-	if err != nil {
-		return err
+}
+
+func (m *Module) Mutations() map[string]any {
+	return map[string]any{
+		"createProduct": m.CreateProduct,
+		"updateProduct": m.UpdateProduct,
+		"deleteProduct": m.DeleteProduct,
 	}
-	return decoder.Decode(src)
+}
+
+func (m *Module) FieldResolvers() map[string]any {
+	return nil // No custom field resolvers for Product model
 }
 ```
-* **Panic Prevention**: This decoder replaces unsafe direct type assertions (e.g. `src.(order.Order)`) that would cause runtime crashes if the data structure was serialized/deserialized through the NATS or Redis database.
-* **Weak Typing Tolerance**: It handles conversions between numeric types (like GORM's `float64` and JSON-RPC's `int` formats) safely.
+
+---
+
+## 3. Dynamic Build & Code-Generation Pipeline
+
+When you run `go run ./cmd/hyperrr build` (or `make build`), the build orchestrator executing [build.go](file:///D:/hyperrr-commerce-ai/hyperrr/cmd/hyperrr/build.go) performs the following steps:
+
+### Step 1: Schema Aggregation
+1. Cleans up the target `api/graph/schema_gen` cache directory.
+2. Scans configured module paths (e.g. `../commerce`, `../auth`, `pkg`) for `.graphqls` files.
+3. Copies all discovered schemas into module-separated subdirectories under `api/graph/schema_gen/` (e.g., `api/graph/schema_gen/commerce/product/product.graphqls`).
+
+### Step 2: GQLGen Execution
+Invokes GQLGen via `gqlgen generate` to parse the aggregated schemas and write the type-safe engine framework inside `api/graph/generated.go` and `api/graph/model/models_gen.go`.
+
+### Step 3: Custom Delegation Codegen
+Executes [codegen.go](file:///D:/hyperrr-commerce-ai/hyperrr/cmd/hyperrr/codegen.go):
+1. **Module Scanning**: Leverages Go AST parsing to scan the packages, checking which ones implement `GraphQLProvider`.
+2. **Interface Parsing**: Parses the `MutationResolver`, `QueryResolver`, and other custom type resolver interfaces generated inside GQLGen's `generated.go`.
+3. **Case-Insensitive Mapping**: Statically matches GQLGen's resolver method names against the keys returned by `Queries()`, `Mutations()`, and `FieldResolvers()` case-insensitively.
+4. **Writes Glue Code**:
+    *   **`resolver.go`**: Contains the main `Resolver` struct with typed module fields and the `NewResolver` constructor.
+    *   **`resolvers_impl.go`**: Implements the resolver methods, checking if the module is loaded and delegating executions directly:
+        ```go
+        func (r *mutationResolver) CreateProduct(ctx context.Context, input model.CreateProductInput) (*model.Product, error) {
+        	if r.ProductModule == nil {
+        		return nil, fmt.Errorf("module product not loaded")
+        	}
+        	return r.ProductModule.CreateProduct(ctx, input)
+        }
+        ```
+
+---
+
+## 4. Run-Time Injection
+
+At startup, the bootstrapper in [app.go](file:///D:/hyperrr-commerce-ai/hyperrr/internal/app/app.go) retrieves the global list of active modules, instantiates the resolver dynamically, and serves the HTTP handler:
+
+```go
+resolver := graph.NewResolver(
+	registry.List(),
+	app.runner,
+	app.registryStore,
+	ctxMod.Projector(),
+)
+```
+
+No hardcoded switch-cases or manual imports are required.
+
+---
+
+## 5. Security & Authentication Middleware
+
+GraphQL requests pass through the security middleware ([auth.go](file:///D:/hyperrr-commerce-ai/hyperrr/api/middleware/auth.go)) which:
+1. Validates the `Authorization: Bearer <JWT>` header using the configured `JWT_SECRET`.
+2. Injects the verified `Actor` object directly into the Go `context.Context`.
+3. Dispatches the request to the dynamic resolvers, enabling easy authorization checks via `ctx.Value`.

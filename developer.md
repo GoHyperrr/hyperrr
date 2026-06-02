@@ -8,7 +8,7 @@ This guide describes the core runtime architecture, the pluggable storage and lo
 
 ## 1. System Architecture Overview
 
-Hyperrr is organized as a composable monolith. It leverages a pluggable core kernel while allowing individual domains (commerce vertical modules) to register data schemas, background task handlers, declarative workflows, and AI resources.
+Hyperrr is organized as a modular, multi-workspace monolith. The core kernel engine resides in the `hyperrr` directory, while functional modules are grouped into separate independent repositories and Go modules (such as `commerce` and `auth`), co-located and linked via a multi-module **Go Workspace (`go.work`)** at the project root. This ensures strict boundary separation and clean dependency management.
 
 ```
        +--------------------------------------------------------+
@@ -335,6 +335,86 @@ func (m *Module) ReadResource(ctx context.Context, uri string) (string, error) {
 }
 ```
 
+### Step 6: Expose GraphQL Resolvers via `GraphQLProvider`
+To expose your database query methods or mutation actions to the GraphQL API, your module must implement the `registry.GraphQLProvider` interface.
+
+First, create a `hotel.graphqls` schema file inside `commerce/hotel/`:
+```graphql
+type HotelBooking {
+  id: ID!
+  customerId: String!
+  roomType: String!
+  status: String!
+  price: Float!
+}
+
+extend type Query {
+  getHotelBooking(id: ID!): HotelBooking
+}
+
+extend type Mutation {
+  bookRoom(customerId: String!, roomType: String!, bookingId: String!): HotelBooking
+}
+```
+
+Then, implement the GraphQLProvider methods in a new file `commerce/hotel/graphql.go`:
+```go
+package hotel
+
+import (
+	"context"
+	"github.com/GoHyperrr/hyperrr/api/graph/model"
+	"github.com/GoHyperrr/hyperrr/pkg/registry"
+)
+
+// Ensure Module implements registry.GraphQLProvider at compile time.
+var _ registry.GraphQLProvider = (*Module)(nil)
+
+func (m *Module) Queries() map[string]any {
+	return map[string]any{
+		"getHotelBooking": m.GetHotelBookingResolver,
+	}
+}
+
+func (m *Module) Mutations() map[string]any {
+	return map[string]any{
+		"bookRoom": m.BookRoomResolver,
+	}
+}
+
+func (m *Module) FieldResolvers() map[string]any {
+	return nil
+}
+
+// Resolver implementations:
+func (m *Module) GetHotelBookingResolver(ctx context.Context, id string) (*model.HotelBooking, error) {
+	b, err := m.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return &model.HotelBooking{
+		ID:         b.ID,
+		CustomerID: b.CustomerID,
+		RoomType:   b.RoomType,
+		Status:     string(b.Status),
+		Price:      b.Price,
+	}, nil
+}
+
+func (m *Module) BookRoomResolver(ctx context.Context, customerID string, roomType string, bookingID string) (*model.HotelBooking, error) {
+	// Execute the booking workflow and return the mapped booking model
+	// ...
+	return nil, nil
+}
+```
+
+Now run the code generation build command:
+```bash
+go run ./cmd/hyperrr build
+```
+This automatically aggregates the new `hotel.graphqls` schema, executes GQLGen, and generates dynamic delegation code linking your module to the API Gateway.
+```
+
 ---
 
 ## 4. Bootstrapping & Registering the Module
@@ -389,7 +469,8 @@ On launch, the Core OS runtime resolves the configured `modules` list, instantia
 1.  **Auto-Discovery & Schema Migrations**: The core auto-discovers GORM schemas registered in `Models()` and executes database schema migrations automatically.
 2.  **Workflow Task Handlers Hooking**: Task handler maps returned by `Handlers()` are registered with the Workflow Runner.
 3.  **Init & Dependency Resolution**: The core invokes `Init(...)` on each module, allowing them to look up dependent modules dynamically from the registry and prepare endpoints.
-4.  **Agent Gateway Exposure**: The MCP Gateway server registers resources and workflows dynamically, preparing tools and SSE notification channels.
+4.  **GraphQL Gateway Integration**: The core resolves GQLGen resolver interfaces and delegates fields dynamically to modules implementing `GraphQLProvider`.
+5.  **Agent Gateway Exposure**: The MCP Gateway server registers resources and workflows dynamically, preparing tools and SSE notification channels.
 
 ---
 
