@@ -27,9 +27,6 @@ func TestResolversExtra(t *testing.T) {
 	bus := eventbus.NewInMemBus()
 	runner := workflow.NewRunner(bus, nil, nil)
 	registryStore := workflow.NewRegistry()
-	projector := domain.NewProjector(bus)
-	projector.Start(ctx)
-
 	// Setup DB
 	cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 	database, _ := db.Connect(cfg)
@@ -38,9 +35,16 @@ func TestResolversExtra(t *testing.T) {
 		d.Close()
 	}()
 
+	ctxMod := domain.NewModule()
+	_ = ctxMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus})
+	registry.Register(ctxMod)
+	db.Register(ctxMod.Models()...)
+	projector := ctxMod.Projector()
+
 	// Init modules (minimal set needed)
 	prodMod := product.NewModule()
 	prodMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	registry.Register(prodMod)
 	
 	emailpassMod := emailpass.NewModule()
 	emailpassMod.Init(ctx, &registry.Dependencies{
@@ -50,24 +54,31 @@ func TestResolversExtra(t *testing.T) {
 		Runner:   runner,
 		Registry: registryStore,
 	})
+	registry.Register(emailpassMod)
 
 	apikeyMod := apikey.NewModule()
 	apikeyMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus})
+	registry.Register(apikeyMod)
 
 	custMod := customer.NewModule()
 	custMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	registry.Register(custMod)
 	
 	cartMod := cart.NewModule()
 	cartMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	registry.Register(cartMod)
 	
 	fulfillMod := fulfillment.NewModule()
 	fulfillMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	registry.Register(fulfillMod)
 
 	supportMod := support.NewModule()
 	supportMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	registry.Register(supportMod)
 
 	marketingMod := marketing.NewModule()
 	marketingMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	registry.Register(marketingMod)
 
 	db.Register(prodMod.Models()...)
 	db.Register(emailpassMod.Models()...)
@@ -80,17 +91,18 @@ func TestResolversExtra(t *testing.T) {
 	database.AutoMigrateAll()
 
 	resolver := &Resolver{
-		Projector:          projector,
-		ProductModule:      prodMod,
-		CustomerModule:     custMod,
-		CartModule:         cartMod,
-		FulfillmentModule:  fulfillMod,
-		SupportModule:      supportMod,
-		MarketingModule:    marketingMod,
-		EmailPassModule:    emailpassMod,
-		APIKeyModule:       apikeyMod,
-		Runner:             runner,
-		Registry:           registryStore,
+		Projector:         projector,
+		ProductModule:     prodMod,
+		CustomerModule:    custMod,
+		CartModule:        cartMod,
+		FulfillmentModule: fulfillMod,
+		SupportModule:     supportMod,
+		MarketingModule:   marketingMod,
+		EmailpassModule:   emailpassMod,
+		ApikeyModule:      apikeyMod,
+		CtxEngineModule:   ctxMod,
+		Runner:            runner,
+		Registry:          registryStore,
 	}
 
 	t.Run("GetActiveCart with INACTIVE cart", func(t *testing.T) {

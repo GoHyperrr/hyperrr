@@ -2,9 +2,11 @@ package graph
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/commerce/product"
@@ -33,9 +35,6 @@ func TestResolvers(t *testing.T) {
 	bus := eventbus.NewInMemBus()
 	runner := workflow.NewRunner(bus, nil, nil)
 	registryStore := workflow.NewRegistry()
-	projector := domain.NewProjector(bus)
-	projector.Start(ctx)
-
 	// Setup DB for Product module
 	cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 	database, _ := db.Connect(cfg)
@@ -45,8 +44,15 @@ func TestResolvers(t *testing.T) {
 		d.Close()
 	}()
 
+	ctxMod := domain.NewModule()
+	_ = ctxMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus})
+	registry.Register(ctxMod)
+	db.Register(ctxMod.Models()...)
+	projector := ctxMod.Projector()
+
 	prodMod := product.NewModule()
 	prodMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	registry.Register(prodMod)
 	db.Register(prodMod.Models()...)
 	for name, h := range prodMod.Handlers() {
 		runner.RegisterTask(name, h)
@@ -60,6 +66,7 @@ func TestResolvers(t *testing.T) {
 		Runner:   runner,
 		Registry: registryStore,
 	})
+	registry.Register(emailpassMod)
 	db.Register(emailpassMod.Models()...)
 	for name, h := range emailpassMod.Handlers() {
 		runner.RegisterTask(name, h)
@@ -67,10 +74,12 @@ func TestResolvers(t *testing.T) {
 
 	apikeyMod := apikey.NewModule()
 	apikeyMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus})
+	registry.Register(apikeyMod)
 	db.Register(apikeyMod.Models()...)
 
 	custMod := customer.NewModule()
 	custMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	registry.Register(custMod)
 	db.Register(custMod.Models()...)
 	for name, h := range custMod.Handlers() {
 		runner.RegisterTask(name, h)
@@ -78,6 +87,7 @@ func TestResolvers(t *testing.T) {
 
 	cartMod := cart.NewModule()
 	cartMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	registry.Register(cartMod)
 	db.Register(cartMod.Models()...)
 	for name, h := range cartMod.Handlers() {
 		runner.RegisterTask(name, h)
@@ -85,6 +95,7 @@ func TestResolvers(t *testing.T) {
 
 	orderMod := order.NewModule()
 	orderMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	registry.Register(orderMod)
 	db.Register(orderMod.Models()...)
 	for name, h := range orderMod.Handlers() {
 		runner.RegisterTask(name, h)
@@ -92,6 +103,7 @@ func TestResolvers(t *testing.T) {
 
 	financeMod := finance.NewModule()
 	financeMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	registry.Register(financeMod)
 	db.Register(financeMod.Models()...)
 	for name, h := range financeMod.Handlers() {
 		runner.RegisterTask(name, h)
@@ -99,6 +111,7 @@ func TestResolvers(t *testing.T) {
 
 	fulfillMod := fulfillment.NewModule()
 	fulfillMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	registry.Register(fulfillMod)
 	db.Register(fulfillMod.Models()...)
 	for name, h := range fulfillMod.Handlers() {
 		runner.RegisterTask(name, h)
@@ -106,6 +119,7 @@ func TestResolvers(t *testing.T) {
 
 	notifMod := notification.NewModule(nil)
 	notifMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	registry.Register(notifMod)
 	db.Register(notifMod.Models()...)
 	for name, h := range notifMod.Handlers() {
 		runner.RegisterTask(name, h)
@@ -113,6 +127,7 @@ func TestResolvers(t *testing.T) {
 
 	supportMod := support.NewModule()
 	supportMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	registry.Register(supportMod)
 	db.Register(supportMod.Models()...)
 	for name, h := range supportMod.Handlers() {
 		runner.RegisterTask(name, h)
@@ -120,6 +135,7 @@ func TestResolvers(t *testing.T) {
 
 	marketingMod := marketing.NewModule()
 	marketingMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	registry.Register(marketingMod)
 	db.Register(marketingMod.Models()...)
 	for name, h := range marketingMod.Handlers() {
 		runner.RegisterTask(name, h)
@@ -128,6 +144,7 @@ func TestResolvers(t *testing.T) {
 	searchMod := search.NewModule()
 	searchMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
 	searchMod.SetProductModule(prodMod)
+	registry.Register(searchMod)
 	db.Register(searchMod.Models()...)
 	for name, h := range searchMod.Handlers() {
 		runner.RegisterTask(name, h)
@@ -135,6 +152,7 @@ func TestResolvers(t *testing.T) {
 
 	analyticsMod := analytics.NewModule()
 	analyticsMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	registry.Register(analyticsMod)
 
 	database.AutoMigrateAll()
 
@@ -151,8 +169,9 @@ func TestResolvers(t *testing.T) {
 		MarketingModule:    marketingMod,
 		SearchModule:       searchMod,
 		AnalyticsModule:    analyticsMod,
-		EmailPassModule:    emailpassMod,
-		APIKeyModule:       apikeyMod,
+		EmailpassModule:    emailpassMod,
+		ApikeyModule:       apikeyMod,
+		CtxEngineModule:    ctxMod,
 		Runner:             runner,
 		Registry:           registryStore,
 	}
@@ -467,8 +486,23 @@ func TestResolvers(t *testing.T) {
 		// 22. CreateOrderFromCart - Missing Workflow
 		// We use a separate registry that doesn't have fulfillment.v1
 		emptyRegistry := workflow.NewRegistry()
+		badOrderMod := order.NewModule()
+		_ = badOrderMod.Init(ctx, &registry.Dependencies{
+			DB:       database,
+			EventBus: bus,
+			Runner:   runner,
+			Registry: emptyRegistry,
+		})
+		
+		// Use unsafe reflection to delete the registered "fulfillment.v1" workflow from the unexported workflows map
+		v := reflect.ValueOf(emptyRegistry).Elem()
+		f := v.FieldByName("workflows")
+		ptr := unsafe.Pointer(f.UnsafeAddr())
+		mPtr := (*map[string]*workflow.Workflow)(ptr)
+		delete(*mPtr, "fulfillment.v1")
+
 		badResolver := *resolver
-		badResolver.Registry = emptyRegistry
+		badResolver.OrderModule = badOrderMod
 		_, err = badResolver.Mutation().CreateOrderFromCart(ctx, cartRes.ID)
 		if err == nil {
 			t.Error("expected error for missing workflow in CreateOrderFromCart")
@@ -694,16 +728,17 @@ func TestResolvers(t *testing.T) {
 		})
 
 		// 1. failed to retrieve updated product
+		badProductMod1 := product.NewModule()
 		rUpdateFail := workflow.NewRegistry()
-		rUpdateFail.Register(&workflow.Workflow{
+		_ = badProductMod1.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: rUpdateFail})
+		_ = rUpdateFail.Register(&workflow.Workflow{
 			Name: "product.update",
 			Steps: []workflow.Step{
 				{ID: "not_update", Uses: "noop_success"},
 			},
 		})
-		
 		badResolver := *resolver
-		badResolver.Registry = rUpdateFail
+		badResolver.ProductModule = badProductMod1
 		
 		newName := "New Name"
 		_, err := badResolver.Mutation().UpdateProduct(ctx, "p1", model.UpdateProductInput{Name: &newName})
@@ -712,49 +747,58 @@ func TestResolvers(t *testing.T) {
 		}
 
 		// 2. invalid product type in results
+		badProductMod2 := product.NewModule()
 		rUpdateInvalidType := workflow.NewRegistry()
+		_ = badProductMod2.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: rUpdateInvalidType})
 		runner.RegisterTask("bad_update_type", func(ctx context.Context, input any) (any, error) {
 			return map[string]any{"product": "not_a_product_struct"}, nil
 		})
-		rUpdateInvalidType.Register(&workflow.Workflow{
+		_ = rUpdateInvalidType.Register(&workflow.Workflow{
 			Name: "product.update",
 			Steps: []workflow.Step{
 				{ID: "update", Uses: "bad_update_type"},
 			},
 		})
-		badResolver.Registry = rUpdateInvalidType
-		_, err = badResolver.Mutation().UpdateProduct(ctx, "p1", model.UpdateProductInput{Name: &newName})
+		badResolver2 := *resolver
+		badResolver2.ProductModule = badProductMod2
+		_, err = badResolver2.Mutation().UpdateProduct(ctx, "p1", model.UpdateProductInput{Name: &newName})
 		if err == nil || !strings.Contains(err.Error(), "invalid product type in results") {
 			t.Errorf("expected 'invalid product type in results' error, got %v", err)
 		}
 
 		// 3. failed to retrieve created product
+		badProductMod3 := product.NewModule()
 		rCreateFail := workflow.NewRegistry()
-		rCreateFail.Register(&workflow.Workflow{
+		_ = badProductMod3.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: rCreateFail})
+		_ = rCreateFail.Register(&workflow.Workflow{
 			Name: "product.create",
 			Steps: []workflow.Step{
 				{ID: "not_persist", Uses: "noop_success"},
 			},
 		})
-		badResolver.Registry = rCreateFail
-		_, err = badResolver.Mutation().CreateProduct(ctx, model.CreateProductInput{ID: "p_fail", Name: "Fail", Price: 10})
+		badResolver3 := *resolver
+		badResolver3.ProductModule = badProductMod3
+		_, err = badResolver3.Mutation().CreateProduct(ctx, model.CreateProductInput{ID: "p_fail", Name: "Fail", Price: 10})
 		if err == nil || !strings.Contains(err.Error(), "failed to retrieve created product") {
 			t.Errorf("expected 'failed to retrieve created product' error, got %v", err)
 		}
 
 		// 4. invalid result format from update step
+		badProductMod4 := product.NewModule()
 		rUpdateInvalidFormat := workflow.NewRegistry()
+		_ = badProductMod4.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: rUpdateInvalidFormat})
 		runner.RegisterTask("bad_update_format", func(ctx context.Context, input any) (any, error) {
 			return "not_a_map", nil
 		})
-		rUpdateInvalidFormat.Register(&workflow.Workflow{
+		_ = rUpdateInvalidFormat.Register(&workflow.Workflow{
 			Name: "product.update",
 			Steps: []workflow.Step{
 				{ID: "update", Uses: "bad_update_format"},
 			},
 		})
-		badResolver.Registry = rUpdateInvalidFormat
-		_, err = badResolver.Mutation().UpdateProduct(ctx, "p1", model.UpdateProductInput{Name: &newName})
+		badResolver4 := *resolver
+		badResolver4.ProductModule = badProductMod4
+		_, err = badResolver4.Mutation().UpdateProduct(ctx, "p1", model.UpdateProductInput{Name: &newName})
 		if err == nil || !strings.Contains(err.Error(), "invalid result format from update step") {
 			t.Errorf("expected 'invalid result format from update step' error, got %v", err)
 		}

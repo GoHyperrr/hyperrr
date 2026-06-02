@@ -2,7 +2,9 @@ package tests
 
 import (
 	"context"
+	"reflect"
 	"testing"
+	"unsafe"
 
 	"github.com/GoHyperrr/hyperrr/api/graph"
 	domain "github.com/GoHyperrr/hyperrr/pkg/ctxengine"
@@ -48,7 +50,17 @@ func TestFullIntegration(t *testing.T) {
 	}
 
 	// Verify GraphQL (via Resolver)
-	resolver := &graph.Resolver{Projector: projector}
+	ctxMod := domain.NewModule()
+	// Inject projector into the unexported projector field of ctxMod using reflection
+	v := reflect.ValueOf(ctxMod).Elem()
+	f := v.FieldByName("projector")
+	ptr := unsafe.Pointer(f.UnsafeAddr())
+	*(**domain.Projector)(ptr) = projector
+
+	resolver := &graph.Resolver{
+		Projector:       projector,
+		CtxEngineModule: ctxMod,
+	}
 	gqlLineage, err := resolver.Query().GetWorkflowLineage(ctx, workflowID)
 	if err != nil {
 		t.Fatalf("gql query failed: %v", err)

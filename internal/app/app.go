@@ -18,7 +18,7 @@ import (
 	"github.com/GoHyperrr/commerce/marketing"
 	"github.com/GoHyperrr/commerce/search"
 	"github.com/GoHyperrr/commerce/analytics"
-	"github.com/GoHyperrr/auth/emailpass"
+	_ "github.com/GoHyperrr/auth/emailpass"
 	"github.com/GoHyperrr/auth/apikey"
 	"github.com/GoHyperrr/hyperrr/internal"
 	"github.com/GoHyperrr/hyperrr/api/graph"
@@ -325,73 +325,9 @@ func RunWithConfig(cfg *config.Config) error {
 	// 10. Setup MCP (Agent Gateway)
 	mcpServer := mcp.NewServer(deps)
 
-	// Resolve module dependencies dynamically from registry for GraphQL resolvers
-	var prodModRef *product.Module
-	var custModRef *customer.Module
-	var cartModRef *cart.Module
-	var orderModRef *order.Module
-	var financeModRef *finance.Module
-	var notifModRef *notification.Module
-	var fulfillModRef *fulfillment.Module
-	var supportModRef *support.Module
-	var marketingModRef *marketing.Module
-	var searchModRef *search.Module
-	var analyticsModRef *analytics.Module
-	var emailPassModRef *emailpass.Module
-	var apiKeyModRef *apikey.Module
-
-	for _, m := range registry.List() {
-		switch m.ID() {
-		case "commerce.product":
-			prodModRef, _ = m.(*product.Module)
-		case "commerce.customer":
-			custModRef, _ = m.(*customer.Module)
-		case "commerce.cart":
-			cartModRef, _ = m.(*cart.Module)
-		case "commerce.order":
-			orderModRef, _ = m.(*order.Module)
-		case "commerce.finance":
-			financeModRef, _ = m.(*finance.Module)
-		case "commerce.notification":
-			notifModRef, _ = m.(*notification.Module)
-		case "commerce.fulfillment":
-			fulfillModRef, _ = m.(*fulfillment.Module)
-		case "commerce.support":
-			supportModRef, _ = m.(*support.Module)
-		case "commerce.marketing":
-			marketingModRef, _ = m.(*marketing.Module)
-		case "commerce.search":
-			searchModRef, _ = m.(*search.Module)
-		case "commerce.analytics":
-			analyticsModRef, _ = m.(*analytics.Module)
-		case "auth.emailpass":
-			emailPassModRef, _ = m.(*emailpass.Module)
-		case "auth.apikey":
-			apiKeyModRef, _ = m.(*apikey.Module)
-		}
-	}
-
 	// 11. Setup GraphQL
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{
-		Resolvers: &graph.Resolver{
-			Projector:      ctxMod.Projector(),
-			ProductModule:  prodModRef,
-			CustomerModule: custModRef,
-			CartModule:     cartModRef,
-			OrderModule:    orderModRef,
-			FinanceModule:  financeModRef,
-			NotificationModule: notifModRef,
-			FulfillmentModule:  fulfillModRef,
-			SupportModule:      supportModRef,
-			MarketingModule:    marketingModRef,
-			SearchModule:       searchModRef,
-			AnalyticsModule:    analyticsModRef,
-			EmailPassModule:    emailPassModRef,
-			APIKeyModule:       apiKeyModRef,
-
-			Runner:         runner,
-			Registry:       registryStore,
-		},
+		Resolvers: graph.NewResolver(registry.List(), runner, registryStore, ctxMod.Projector()),
 	}))
 
 	// Dynamic Middleware chain

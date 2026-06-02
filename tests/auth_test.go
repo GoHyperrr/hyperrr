@@ -59,9 +59,9 @@ func TestAuthFlow(t *testing.T) {
 	database.AutoMigrateAll()
 
 	resolver := &graph.Resolver{
-		EmailPassModule: emailpassMod,
+		EmailpassModule: emailpassMod,
 		CustomerModule:  custMod,
-		APIKeyModule:    apikeyMod,
+		ApikeyModule:    apikeyMod,
 	}
 
 	t.Run("Register and Login", func(t *testing.T) {

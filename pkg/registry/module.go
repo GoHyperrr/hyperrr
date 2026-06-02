@@ -185,4 +185,14 @@ type TUIProvider interface {
 	TUIPages() []TUIPage
 }
 
+// GraphQLProvider is implemented by modules that expose GraphQL queries/mutations.
+type GraphQLProvider interface {
+	// Queries returns resolver function pointers keyed by GraphQL field name.
+	Queries() map[string]any
+	// Mutations returns resolver function pointers keyed by GraphQL field name.
+	Mutations() map[string]any
+	// FieldResolvers returns nested field resolvers (e.g. "WorkflowLineage.events").
+	FieldResolvers() map[string]any
+}
+
 

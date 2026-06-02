@@ -75,6 +75,13 @@ func runBuild() error {
 	}
 	fmt.Println("GraphQL code generated successfully!")
 
+	// 3.5. Run custom resolver codegen
+	fmt.Println("Running custom resolver codegen...")
+	if err := runCodegen(); err != nil {
+		return fmt.Errorf("custom resolver codegen failed: %w", err)
+	}
+	fmt.Println("Custom resolver code generated successfully!")
+
 	// 4. Run go build
 	fmt.Println("Compiling binary...")
 	binaryPath := filepath.Join("bin", "hyperrr")
