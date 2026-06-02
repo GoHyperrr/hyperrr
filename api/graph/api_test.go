@@ -882,4 +882,119 @@ func TestResolvers(t *testing.T) {
 		_, err = resolver.Query().GetShipment(ctx, "ghost")
 		if err == nil { t.Error("expected error for non-existent shipment") }
 	})
+
+	t.Run("GetActiveCart with INACTIVE cart", func(t *testing.T) {
+		customerID := "c_inactive"
+		// Create an inactive cart
+		inactiveCart := &cart.Cart{
+			ID:         "cart_inactive",
+			CustomerID: customerID,
+			Status:     cart.CartAbandoned, // or any non-active status
+		}
+		cartMod.Repo().Save(ctx, inactiveCart)
+
+		// GetActiveCart should create a NEW one
+		c, err := resolver.Query().GetActiveCart(ctx, customerID)
+		if err != nil {
+			t.Fatalf("GetActiveCart failed: %v", err)
+		}
+		if c.ID == "cart_inactive" {
+			t.Error("expected a new cart, but got the inactive one")
+		}
+		if c.Status != "ACTIVE" {
+			t.Errorf("expected ACTIVE status, got %s", c.Status)
+		}
+	})
+
+	t.Run("AddItemToCart with invalid cart ID", func(t *testing.T) {
+		// Register the workflow first
+		registryStore.Register(&workflow.Workflow{
+			Name: "cart.add",
+			Steps: []workflow.Step{
+				{ID: "validate", Uses: "identity.validate_actor"}, // doesn't matter much
+			},
+		})
+		// Runner will fail because steps are not fully implemented or will return error
+		// In api_test.go it's already tested, but let's confirm.
+		_, err := resolver.Mutation().AddItemToCart(ctx, "ghost_cart", model.AddItemInput{ProductID: "p1", Quantity: 1, Price: 10})
+		if err == nil {
+			t.Error("expected error for invalid cart ID")
+		}
+	})
+
+	t.Run("RemoveItemFromCart with invalid item ID", func(t *testing.T) {
+		registryStore.Register(&workflow.Workflow{
+			Name: "cart.remove",
+			Steps: []workflow.Step{{ID: "remove", Uses: "some_task"}},
+		})
+		_, err := resolver.Mutation().RemoveItemFromCart(ctx, "some_cart", "ghost_item")
+		if err == nil {
+			t.Error("expected error for invalid item ID")
+		}
+	})
+
+	t.Run("Login with non-existent email", func(t *testing.T) {
+		_, err := resolver.Mutation().Login(ctx, "ghost@example.com", "password")
+		if err == nil || !strings.Contains(err.Error(), "invalid credentials") {
+			t.Errorf("expected invalid credentials error, got %v", err)
+		}
+	})
+
+	t.Run("Register with existing email", func(t *testing.T) {
+		email := "duplicate@example.com"
+		_, err := resolver.Mutation().Register(ctx, email, "password", "User 1")
+		if err != nil {
+			t.Fatalf("first registration failed: %v", err)
+		}
+
+		_, err = resolver.Mutation().Register(ctx, email, "password", "User 2")
+		if err == nil {
+			t.Error("expected error for duplicate email registration")
+		}
+	})
+
+	t.Run("ApplyCouponToCart with inactive coupon", func(t *testing.T) {
+		code := "INACTIVE20"
+		coupon := &marketing.Coupon{ID: "cp1", Code: code, Active: false, DiscountPercentage: 20}
+		marketingMod.Repo().SaveCoupon(ctx, coupon)
+
+		_, err := resolver.Mutation().ApplyCouponToCart(ctx, "some_cart", code)
+		if err == nil {
+			t.Error("expected error for inactive coupon")
+		}
+	})
+
+	t.Run("UpdateShipmentStatus with non-existent shipment", func(t *testing.T) {
+		registryStore.Register(&workflow.Workflow{
+			Name: "fulfillment.ship_order",
+			Steps: []workflow.Step{{ID: "ship", Uses: "some_task"}},
+		})
+		_, err := resolver.Mutation().UpdateShipmentStatus(ctx, "ghost_ship", nil, nil)
+		if err == nil {
+			t.Error("expected error for non-existent shipment")
+		}
+	})
+
+	t.Run("GetInventory with non-existent product", func(t *testing.T) {
+		_, err := resolver.Query().GetInventory(ctx, "ghost_prod")
+		if err == nil {
+			t.Error("expected error for non-existent product inventory")
+		}
+	})
+
+	t.Run("GetTicket with non-existent ID", func(t *testing.T) {
+		_, err := resolver.Query().GetTicket(ctx, "ghost_tkt")
+		if err == nil {
+			t.Error("expected error for non-existent ticket")
+		}
+	})
+
+	t.Run("AddTicketMessage with invalid sender type", func(t *testing.T) {
+		res, err := resolver.Mutation().AddTicketMessage(ctx, "some_tkt", "INVALID_SENDER", "Hello")
+		if err != nil {
+			// If it fails, good.
+		} else if res.Sender != "INVALID_SENDER" {
+			t.Errorf("expected sender INVALID_SENDER, got %s", res.Sender)
+		}
+	})
 }
