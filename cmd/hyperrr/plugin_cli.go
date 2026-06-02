@@ -129,6 +129,48 @@ func (m *Module) Handlers() map[string]workflow.TaskHandler {
 		return err
 	}
 
+	// 5. Write graphql.go
+	titlePkg := strings.ToUpper(pkgName[:1]) + pkgName[1:]
+	graphqlContent := fmt.Sprintf(`package %s
+
+import (
+	"github.com/GoHyperrr/hyperrr/pkg/registry"
+)
+
+// Ensure Module implements registry.GraphQLProvider at compile time.
+var _ registry.GraphQLProvider = (*Module)(nil)
+
+func (m *Module) Queries() map[string]any {
+	return map[string]any{
+		// "myQueryField": m.MyQueryResolver,
+	}
+}
+
+func (m *Module) Mutations() map[string]any {
+	return map[string]any{
+		// "myMutationField": m.MyMutationResolver,
+	}
+}
+
+func (m *Module) FieldResolvers() map[string]any {
+	return nil
+}
+`, pkgName)
+	if err := os.WriteFile(filepath.Join(pkgName, "graphql.go"), []byte(graphqlContent), 0644); err != nil {
+		return err
+	}
+
+	// 6. Write <pkgName>.graphqls
+	schemaContent := fmt.Sprintf(`# GraphQL schema for the %s module
+
+# extend type Query {
+#   hello%s: String!
+# }
+`, pkgName, titlePkg)
+	if err := os.WriteFile(filepath.Join(pkgName, pkgName+".graphqls"), []byte(schemaContent), 0644); err != nil {
+		return err
+	}
+
 	// 4. Register in go.work if present
 	workPath := "go.work"
 	if _, err := os.Stat(workPath); err == nil {
