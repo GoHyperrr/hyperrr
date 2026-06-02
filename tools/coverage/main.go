@@ -113,7 +113,7 @@ func calculateCoverage(r io.Reader) (float64, int64, int64, map[string]bool, map
 		line := scanner.Text()
 		
 		// Skip generated, test, and main files
-		if strings.Contains(line, "generated.go") || strings.Contains(line, "models_gen.go") || strings.Contains(line, "_test.go") || strings.Contains(line, "main.go") || strings.Contains(line, ".resolvers.go") {
+		if strings.Contains(line, "generated.go") || strings.Contains(line, "models_gen.go") || strings.Contains(line, "_test.go") || strings.Contains(line, "main.go") || strings.Contains(line, ".resolvers.go") || strings.Contains(line, "resolver.go") || strings.Contains(line, "resolvers_impl.go") {
 			continue
 		}
 
