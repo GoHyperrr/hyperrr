@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/spf13/cobra"
+	"github.com/GoHyperrr/hyperrr"
 )
 
 var versionCmd = &cobra.Command{
@@ -11,7 +12,7 @@ var versionCmd = &cobra.Command{
 	Long:    `Print the current version, environment info, and build configuration of the Hyperrr command line engine.`,
 	GroupID: "utils",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Hyperrr Engine SDK v0.1.0")
+		fmt.Printf("Hyperrr Engine SDK v%s\n", hyperrr.Version)
 		fmt.Println("AI-Native Commerce Gateway")
 	},
 }
