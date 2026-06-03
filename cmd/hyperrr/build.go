@@ -21,16 +21,33 @@ func runBuild() error {
 
 	// 2. Scan and aggregate schemas
 	// We scan ../commerce and modules for any .graphqls files
-	scanPaths := []struct {
+	type scanItem struct {
 		src  string
 		name string
-	}{
-		{src: filepath.Join("..", "commerce"), name: "commerce"},
-		{src: filepath.Join("..", "auth"), name: "auth"},
-		{src: "modules", name: "modules"},
-		{src: "pkg", name: "pkg"},
-		{src: "internal", name: "internal"},
 	}
+	var scanPaths []scanItem
+
+	// Dynamically discover external workspace modules using go.work
+	if workDir, err := findWorkspaceRoot(); err == nil {
+		if modules, err := getWorkspaceModules(workDir); err == nil {
+			for _, mPath := range modules {
+				if filepath.Base(mPath) == "hyperrr" {
+					continue
+				}
+				scanPaths = append(scanPaths, scanItem{
+					src:  mPath,
+					name: filepath.Base(mPath),
+				})
+			}
+		}
+	}
+
+	// Always scan local folders in hyperrr core
+	scanPaths = append(scanPaths,
+		scanItem{src: "modules", name: "modules"},
+		scanItem{src: "pkg", name: "pkg"},
+		scanItem{src: "internal", name: "internal"},
+	)
 
 	for _, scan := range scanPaths {
 		if _, err := os.Stat(scan.src); os.IsNotExist(err) {

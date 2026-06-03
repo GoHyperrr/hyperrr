@@ -86,8 +86,10 @@ func (l *gormLoggerBridge) Trace(ctx context.Context, begin time.Time, fc func()
 	}
 	elapsed := time.Since(begin)
 	sql, rows := fc()
-	if err != nil && l.LogLevel >= gormlogger.Error {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) && l.LogLevel >= gormlogger.Error {
 		logger.Error("DB Trace Error", "err", err, "elapsed", elapsed, "rows", rows, "sql", sql)
+	} else if errors.Is(err, gorm.ErrRecordNotFound) && l.LogLevel >= gormlogger.Info {
+		logger.Debug("DB Record Not Found", "elapsed", elapsed, "rows", rows, "sql", sql)
 	} else if elapsed > time.Second && l.LogLevel >= gormlogger.Warn {
 		logger.Warn("DB Slow Query", "elapsed", elapsed, "rows", rows, "sql", sql)
 	} else if l.LogLevel >= gormlogger.Info {

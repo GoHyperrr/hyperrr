@@ -30,9 +30,9 @@ func TestAuthFlow(t *testing.T) {
 	}()
 
 	// Setup EmailPass Auth
-	emailpassMod := emailpass.NewModule()
+	emailpassMod := emailpass.NewModule("secret", "24h")
 	emailpassMod.Init(ctx, &registry.Dependencies{
-		Config:   &config.Config{JWTSecret: "secret", JWTExpiration: "24h"},
+		Config:   &config.Config{},
 		DB:       database,
 		EventBus: bus,
 	})

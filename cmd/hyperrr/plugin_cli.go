@@ -26,13 +26,8 @@ func runList() error {
 		modelsCount := len(m.Models())
 		tasksCount := len(m.Handlers())
 
-		tuiSupport := "NO"
-		if _, ok := m.(registry.TUIProvider); ok {
-			tuiSupport = "YES"
-		}
-
-		fmt.Printf("  • %-20s [Models: %d | Workflow Tasks: %d | TUI View: %s]\n",
-			m.ID(), modelsCount, tasksCount, tuiSupport)
+		fmt.Printf("  • %-20s [Models: %d | Workflow Tasks: %d]\n",
+			m.ID(), modelsCount, tasksCount)
 	}
 	fmt.Println()
 	return nil
@@ -287,6 +282,11 @@ func findProjectRoot() (string, error) {
 }
 
 func addImport(filename, pkgPath string) error {
+	// Sanitize package path input to prevent simple formatting injections
+	pkgPath = strings.Trim(pkgPath, "\"`'` \t\n\r")
+	pkgPath = strings.ReplaceAll(pkgPath, "\n", "")
+	pkgPath = strings.ReplaceAll(pkgPath, "\r", "")
+
 	var lines []string
 	if _, err := os.Stat(filename); err == nil {
 		file, err := os.Open(filename)

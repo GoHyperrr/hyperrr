@@ -140,27 +140,59 @@ func (s *Server) HandleMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// AUTH: Requirement 4 - API Key Authentication
-	apiKey := r.Header.Get("X-API-Key")
-
-	if apiKey == "" {
-		writeJSONError(w, "unauthorized: api key required", http.StatusUnauthorized)
-		return
+	// AUTH: Dynamic Multi-Provider Authentication
+	providers := s.deps.Config.MCPAuthProviders
+	if len(providers) == 0 {
+		providers = []string{"apikey"} // Default fallback
 	}
 
-	if s.deps.Resolver == nil {
-		writeJSONError(w, "identity resolver not configured", http.StatusInternalServerError)
-		return
+	var actor *ident.Actor
+	var authErr error
+	authenticated := false
+
+	for _, p := range providers {
+		switch p {
+		case "none":
+			// Bypass authentication check entirely and mock a developer actor
+			actor = &ident.Actor{
+				ID:   "act_mcp_developer",
+				Type: ident.ActorAIAgent,
+				Name: "Developer Agent (No Auth)",
+			}
+			authenticated = true
+		case "apikey":
+			apiKey := r.Header.Get("X-API-Key")
+			if apiKey == "" {
+				authErr = fmt.Errorf("api key required")
+				continue
+			}
+			if s.deps.Resolver == nil {
+				authErr = fmt.Errorf("identity resolver not configured")
+				continue
+			}
+			resActor, err := s.deps.Resolver.GetActorByAPIKey(r.Context(), apiKey)
+			if err != nil {
+				authErr = fmt.Errorf("invalid api key: %w", err)
+				continue
+			}
+			if resActor.Type != ident.ActorAIAgent {
+				authErr = fmt.Errorf("actor is not an AI agent")
+				continue
+			}
+			actor = resActor
+			authenticated = true
+		}
+		if authenticated {
+			break
+		}
 	}
 
-	actor, err := s.deps.Resolver.GetActorByAPIKey(r.Context(), apiKey)
-	if err != nil {
-		writeJSONError(w, "unauthorized: invalid api key", http.StatusUnauthorized)
-		return
-	}
-
-	if actor.Type != ident.ActorAIAgent {
-		writeJSONError(w, "unauthorized: actor is not an AI agent", http.StatusForbidden)
+	if !authenticated {
+		errMsg := "unauthorized"
+		if authErr != nil {
+			errMsg = fmt.Sprintf("unauthorized: %v", authErr)
+		}
+		writeJSONError(w, errMsg, http.StatusUnauthorized)
 		return
 	}
 

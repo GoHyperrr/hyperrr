@@ -134,7 +134,7 @@ No hardcoded switch-cases or manual imports are required.
 
 ## 5. Security & Authentication Middleware
 
-GraphQL requests pass through the security middleware ([auth.go](file:///D:/hyperrr-commerce-ai/hyperrr/api/middleware/auth.go)) which:
-1. Validates the `Authorization: Bearer <JWT>` header using the configured `JWT_SECRET`.
+GraphQL requests pass through the security middleware ([auth.go](file:///D:/hyperrr-commerce-ai/hyperrr/api/middleware/auth.go)) which is dynamically registered by the `auth.emailpass` module (under the `"auth"` key in the registry). The middleware:
+1. Validates the `Authorization: Bearer <JWT>` header using the secret configured locally inside the `auth.emailpass` module options.
 2. Injects the verified `Actor` object directly into the Go `context.Context`.
 3. Dispatches the request to the dynamic resolvers, enabling easy authorization checks via `ctx.Value`.

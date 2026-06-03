@@ -14,6 +14,7 @@ require (
 	github.com/nats-io/nats.go v1.52.0
 	github.com/redis/go-redis/v9 v9.20.0
 	github.com/spf13/viper v1.21.0
+	github.com/spf13/cobra v1.8.0
 	github.com/vektah/gqlparser/v2 v2.5.33
 	gocloud.dev v0.45.0
 	golang.org/x/crypto v0.51.0

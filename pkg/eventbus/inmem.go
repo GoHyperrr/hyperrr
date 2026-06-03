@@ -53,17 +53,23 @@ func (b *InMemBus) Publish(ctx context.Context, event Event) error {
 
 	b.mu.RLock()
 	typeHandlers, ok := b.handlers[event.Type]
+	if !ok {
+		b.mu.RUnlock()
+		return nil
+	}
+	// Copy handlers to slice under RLock to prevent concurrent map read/write race conditions
+	handlers := make([]EventHandler, 0, len(typeHandlers))
+	for _, h := range typeHandlers {
+		handlers = append(handlers, h)
+	}
 	async := b.async
 	b.mu.RUnlock()
 
-	if !ok {
-		return nil
-	}
-
-	for _, handler := range typeHandlers {
+	for _, handler := range handlers {
 		if async {
 			go func(h EventHandler) {
-				if err := h(ctx, event); err != nil {
+				detachedCtx := context.WithoutCancel(ctx)
+				if err := h(detachedCtx, event); err != nil {
 					logger.Error("event handler failed", "type", event.Type, "id", event.ID, "error", err)
 				}
 			}(handler)

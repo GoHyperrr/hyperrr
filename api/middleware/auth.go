@@ -29,7 +29,7 @@ func AuthMiddleware(validator TokenValidator) func(http.Handler) http.Handler {
 
 			parts := strings.Split(header, " ")
 			if len(parts) != 2 || parts[0] != "Bearer" {
-				next.ServeHTTP(w, r)
+				http.Error(w, "Malformed Authorization header (expected 'Bearer <token>')", http.StatusBadRequest)
 				return
 			}
 

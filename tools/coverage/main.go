@@ -112,8 +112,21 @@ func calculateCoverage(r io.Reader) (float64, int64, int64, map[string]bool, map
 	for scanner.Scan() {
 		line := scanner.Text()
 		
-		// Skip generated, test, and main files
-		if strings.Contains(line, "generated.go") || strings.Contains(line, "models_gen.go") || strings.Contains(line, "_test.go") || strings.Contains(line, "main.go") || strings.Contains(line, ".resolvers.go") || strings.Contains(line, "resolver.go") || strings.Contains(line, "resolvers_impl.go") {
+		// Extract file path before colon
+		colonIdx := strings.Index(line, ":")
+		if colonIdx == -1 {
+			continue
+		}
+		filePath := line[:colonIdx]
+
+		// Skip generated, test, and resolver files precisely
+		if strings.Contains(filePath, "generated.go") ||
+			strings.Contains(filePath, "models_gen.go") ||
+			strings.HasSuffix(filePath, "_test.go") ||
+			strings.HasSuffix(filePath, "/main.go") ||
+			strings.HasSuffix(filePath, ".resolvers.go") ||
+			strings.HasSuffix(filePath, "/resolver.go") ||
+			strings.HasSuffix(filePath, "/resolvers_impl.go") {
 			continue
 		}
 

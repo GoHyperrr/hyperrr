@@ -9,6 +9,24 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Default configuration constants.
+const (
+	DefaultAppName           = "hyperrr"
+	DefaultAppEnv            = "local"
+	DefaultLogLevel          = "info"
+	DefaultLogFormat         = "text"
+	DefaultServerPort        = 8080
+	DefaultEventBusProvider  = "inmem"
+	DefaultWorkflowStoreType = "mem"
+	DefaultNatsStateBucket   = "hyperrr_state"
+	DefaultNatsLocksBucket   = "hyperrr_locks"
+	DefaultDBDriver          = "sqlite"
+	DefaultDBDSN             = "hyperrr.db"
+	DefaultStorageProvider   = "cloud"
+	DefaultStorageBucketURL  = "mem://"
+	DefaultNatsURL           = "nats://localhost:4222"
+)
+
 // ModuleConfig represents registration info for a dynamic module.
 type ModuleConfig struct {
 	Resolve string         `mapstructure:"resolve" json:"resolve" yaml:"resolve"`
@@ -29,12 +47,11 @@ type Config struct {
 	NATSLocksBucket   string         `mapstructure:"NATS_LOCKS_BUCKET"`
 	DBDriver          string         `mapstructure:"DB_DRIVER"`
 	DBDSN             string         `mapstructure:"DB_DSN"`
-	JWTSecret         string         `mapstructure:"JWT_SECRET"`
-	JWTExpiration     string         `mapstructure:"JWT_EXPIRATION"`
 	StorageProvider   string         `mapstructure:"STORAGE_PROVIDER"`
 	StoragePath       string         `mapstructure:"STORAGE_PATH"`
 	StorageBucketURL  string         `mapstructure:"STORAGE_BUCKET_URL"`
 	NATSURL           string         `mapstructure:"NATS_URL"`
+	MCPAuthProviders  []string       `mapstructure:"MCP_AUTH_PROVIDERS"`
 	Modules           []ModuleConfig `mapstructure:"modules"`
 }
 
@@ -61,22 +78,21 @@ func LoadWithFile(filename string) (*Config, error) {
 	}
 
 	v := viper.New()
-	v.SetDefault("APP_NAME", "hyperrr")
-	v.SetDefault("APP_ENV", "local")
-	v.SetDefault("LOG_LEVEL", "info")
-	v.SetDefault("LOG_FORMAT", "text")
-	v.SetDefault("SERVER_PORT", 8080)
-	v.SetDefault("EVENT_BUS_PROVIDER", "inmem")
-	v.SetDefault("WORKFLOW_STORE_TYPE", "mem")
-	v.SetDefault("NATS_STATE_BUCKET", "hyperrr_state")
-	v.SetDefault("NATS_LOCKS_BUCKET", "hyperrr_locks")
-	v.SetDefault("DB_DRIVER", "sqlite")
-	v.SetDefault("DB_DSN", "hyperrr.db")
-	v.SetDefault("JWT_SECRET", "hyperrr-secret-key")
-	v.SetDefault("JWT_EXPIRATION", "24h")
-	v.SetDefault("STORAGE_PROVIDER", "cloud")
-	v.SetDefault("STORAGE_BUCKET_URL", "mem://")
-	v.SetDefault("NATS_URL", "nats://localhost:4222")
+	v.SetDefault("APP_NAME", DefaultAppName)
+	v.SetDefault("APP_ENV", DefaultAppEnv)
+	v.SetDefault("LOG_LEVEL", DefaultLogLevel)
+	v.SetDefault("LOG_FORMAT", DefaultLogFormat)
+	v.SetDefault("SERVER_PORT", DefaultServerPort)
+	v.SetDefault("EVENT_BUS_PROVIDER", DefaultEventBusProvider)
+	v.SetDefault("WORKFLOW_STORE_TYPE", DefaultWorkflowStoreType)
+	v.SetDefault("NATS_STATE_BUCKET", DefaultNatsStateBucket)
+	v.SetDefault("NATS_LOCKS_BUCKET", DefaultNatsLocksBucket)
+	v.SetDefault("DB_DRIVER", DefaultDBDriver)
+	v.SetDefault("DB_DSN", DefaultDBDSN)
+	v.SetDefault("STORAGE_PROVIDER", DefaultStorageProvider)
+	v.SetDefault("STORAGE_BUCKET_URL", DefaultStorageBucketURL)
+	v.SetDefault("NATS_URL", DefaultNatsURL)
+	v.SetDefault("MCP_AUTH_PROVIDERS", []string{"apikey"})
 
 	v.AutomaticEnv()
 

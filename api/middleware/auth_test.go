@@ -54,6 +54,22 @@ func TestAuthMiddleware_Scenarios(t *testing.T) {
 		h.ServeHTTP(httptest.NewRecorder(), req)
 	})
 
+	t.Run("Malformed Token", func(t *testing.T) {
+		mw := AuthMiddleware(&mockValidator{})
+		h := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			t.Error("expected handler to abort, but it was executed")
+		}))
+
+		req := httptest.NewRequest("GET", "/", nil)
+		req.Header.Set("Authorization", "invalid-format")
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", rr.Code)
+		}
+	})
+
 	t.Run("No Actor in context", func(t *testing.T) {
 		ctx := context.Background()
 		_, ok := ForContext(ctx)

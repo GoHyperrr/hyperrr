@@ -12,6 +12,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/identity"
 	"github.com/GoHyperrr/hyperrr/pkg/locking"
+	"github.com/GoHyperrr/hyperrr/pkg/logger"
 )
 
 // ActorResolver defines the interface for resolving identities.
@@ -160,31 +161,6 @@ type Module interface {
 	Shutdown(ctx context.Context) error
 }
 
-// TUIPage represents a self-contained view or tab in the admin panel.
-type TUIPage interface {
-	// Title returns the display name for the navigation tab.
-	Title() string
-
-	// Init initializes the page state with runtime dependencies.
-	// Returns a Bubble Tea command (cast to any).
-	Init(ctx context.Context, deps *Dependencies) any
-
-	// Update processes input keystrokes or system events for the page.
-	// Returns the updated page and an optional Bubble Tea command.
-	Update(msg any) (TUIPage, any)
-
-	// View renders the layout screen of the page.
-	View() string
-}
-
-// PageFocusMsg is sent to a TUIPage when it is selected/focused in the master layout.
-type PageFocusMsg struct{}
-
-// TUIProvider is implemented by modules that want to expose custom admin views.
-type TUIProvider interface {
-	TUIPages() []TUIPage
-}
-
 // GraphQLProvider is implemented by modules that expose GraphQL queries/mutations.
 type GraphQLProvider interface {
 	// Queries returns resolver function pointers keyed by GraphQL field name.
@@ -193,6 +169,61 @@ type GraphQLProvider interface {
 	Mutations() map[string]any
 	// FieldResolvers returns nested field resolvers (e.g. "WorkflowLineage.events").
 	FieldResolvers() map[string]any
+}
+
+// CLICommand represents a dynamic subcommand registered by a module.
+type CLICommand struct {
+	Group       string   // Command group: "auth", "commerce", etc.
+	Name        string   // Subcommand name: "apikey", "product", etc.
+	Aliases     []string // Alternative names
+	Short       string   // One-line description
+	Long        string   // Detailed description (shown in --help)
+	Usage       string   // Args pattern: "generate", "<email> <password>"
+	Run         func(deps *Dependencies, args []string) error
+	NeedsDB     bool     // If true, auto-connect DB before Run
+	NeedsServer bool     // If true, requires running server (validates connectivity)
+}
+
+var (
+	commandsMu sync.RWMutex
+	commands   = make(map[string]CLICommand)
+)
+
+func commandKey(cmd CLICommand) string {
+	if cmd.Group != "" {
+		return cmd.Group + "/" + cmd.Name
+	}
+	return cmd.Name
+}
+
+// RegisterCommand adds a dynamic CLI subcommand to the registry.
+func RegisterCommand(cmd CLICommand) {
+	commandsMu.Lock()
+	defer commandsMu.Unlock()
+	key := commandKey(cmd)
+	if existing, ok := commands[key]; ok {
+		logger.Warn("dynamic CLI command overwrite detected", "key", key, "existingUsage", existing.Usage, "newUsage", cmd.Usage)
+	}
+	commands[key] = cmd
+}
+
+// GetCommand retrieves a registered custom command by its group/name key.
+func GetCommand(key string) (CLICommand, bool) {
+	commandsMu.RLock()
+	defer commandsMu.RUnlock()
+	cmd, ok := commands[key]
+	return cmd, ok
+}
+
+// ListCommands returns a list of all registered custom CLI commands.
+func ListCommands() []CLICommand {
+	commandsMu.RLock()
+	defer commandsMu.RUnlock()
+	res := make([]CLICommand, 0, len(commands))
+	for _, cmd := range commands {
+		res = append(res, cmd)
+	}
+	return res
 }
 
 

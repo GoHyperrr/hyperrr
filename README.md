@@ -1,6 +1,6 @@
 # ⚡ Hyperrr — AI-Observable Distributed Commerce OS
 
-Hyperrr is a modern, event-native commerce operating system designed as a modular monolith. It treats all commerce operations as deterministic, replayable DAG workflows connected by a robust event fabric. It features an interactive, decoupled terminal dashboard console alongside its GraphQL server, consolidated under a single Go CLI.
+Hyperrr is a modern, event-native commerce operating system designed as a modular monolith. It treats all commerce operations as deterministic, replayable DAG workflows connected by a robust event fabric, managed via a powerful and extensible Cobra-based Go CLI.
 
 ---
 
@@ -8,8 +8,8 @@ Hyperrr is a modern, event-native commerce operating system designed as a modula
 
 ```text
        ┌────────────────────────┐         ┌────────────────────────┐
-       │  hyperrr admin (TUI)   │◄───────►│  GraphQL Playground    │
-       │  (Bubble Tea v2 Console)│         │   (Web API Tester)     │
+       │  hyperrr CLI (Cobra)   │◄───────►│  GraphQL Playground    │
+       │ (Go Developer Console) │         │   (Web API Tester)     │
        └───────────┬────────────┘         └───────────┬────────────┘
                    │                                  │
                    │ (HTTP GraphQL POST /query)       │
@@ -41,11 +41,11 @@ Hyperrr is a modern, event-native commerce operating system designed as a modula
 
 ## 🚀 Key Features
 
-* **Consolidated Developer Tooling**: A single compiled binary (`hyperrr`) controls the entire commerce engine and operator dashboard.
+* **Consolidated Developer Tooling**: A single compiled binary (`hyperrr`) controls the entire commerce engine, configuration, diagnostics, and modules.
 * **Unified GraphQL API Gateway**: Merges schema definitions and dynamic module resolvers dynamically.
-* **Composable TUI Dashboard**: Features a 100% decoupled Bubble Tea v2 dashboard console that loads state purely over HTTP POST queries.
+* **Extensible CLI Command Structure**: A clean, structured Cobra CLI command layout featuring resource-based groupings, self-documenting commands, and diagnostic health checks.
 * **Declarative Sagas & Compensation**: Handles complex multi-step operations (like Order Checkout) as DAGs, automatically running compensation procedures if a step fails.
-* **AI-Observable context**: A dedicated Context Engine tracks exact execution steps and outputs, exposing resources to AI agents over SSE (Model Context Protocol).
+* **AI-Observable Context**: A dedicated Context Engine tracks exact execution steps and outputs, exposing resources to AI agents over SSE (Model Context Protocol).
 
 ---
 
@@ -67,33 +67,24 @@ make build
 ```
 By default, the backend server will launch on port `8080`, migrate its SQLite database (`hyperrr.db`), and make the **GraphQL Playground** available at `http://localhost:8080`.
 
-### 3. Launch the Mission Control Console
-Open a separate terminal window and launch the dashboard:
+### 3. Run System Diagnostics
 ```bash
-./bin/hyperrr admin
+./bin/hyperrr doctor
 ```
+Run a full diagnostic check on the system, active configuration, database connection, module registry, and server port.
 
-* **Connecting to custom/remote backends**: You can point the local console client to any Hyperrr server instance:
-  ```bash
-  ./bin/hyperrr admin --server http://api.my-store.com:8080
-  ```
-
----
-
-## ⌨️ TUI Navigation & Control Guide
-
-* **Switch Tabs**: Press numbers `1` to `4` (or cycle using `Tab` / `Shift+Tab` and Left/Right arrows).
-* **Scroll Tables**: Use `j` / `down` and `k` / `up` to move rows.
-* **Interactive Forms**: Enter a page's edit/creation state, navigate text fields using `Tab` / `Shift+Tab`, and press `Enter` on the final field to save. Press `ESC` to cancel.
-* **Live Refresh**:
-  * **Auto-Reload**: Switching tabs automatically triggers a network query to keep data synchronized.
-  * **Manual Reload**: Press `r` on any catalog list view to manually trigger a fresh network fetch from the backend.
+### 4. Manage System Configuration
+```bash
+./bin/hyperrr config list
+./bin/hyperrr config set SERVER_PORT 8080
+```
+Easily view, modify, and list all resolved configurations.
 
 ---
 
 ## 🧪 GraphQL Seed Data Sandbox
 
-When starting with a fresh database, visit the GraphQL Playground at `http://localhost:8080/` and execute these queries to populate your dashboard with mock records:
+When starting with a fresh database, visit the GraphQL Playground at `http://localhost:8080/` and execute these queries to populate your database with mock records:
 
 ### A. Seed Catalog Products
 ```graphql
@@ -116,8 +107,18 @@ mutation {
 }
 ```
 
-### B. Register a Customer Profile
-Registering a user emits an `identity.user_created` event that automatically triggers the creation of a customer profile:
+### B. Register a Customer Profile & API Keys
+You can register users via GraphQL or directly from your terminal using the dynamic CLI command:
+
+```bash
+# Register a user via the CLI
+go run ./cmd/hyperrr auth user register dev@example.com mypassword "Developer User"
+
+# Generate an API Key for MCP AI Agents
+go run ./cmd/hyperrr auth apikey generate
+```
+
+To register via the GraphQL Playground (which emits `identity.user_created` to automatically create a customer profile):
 ```graphql
 mutation {
   register(
@@ -139,9 +140,7 @@ mutation {
 ## 📖 Deep-Dive Reference Docs
 
 Browse our specialized design docs inside the `docs/` folder to learn more about the core engines:
-* [docs/tui.md](file:///D:/hyperrr-commerce-ai/hyperrr/docs/tui.md): Composable Decoupled TUI Shell and network layer.
 * [docs/workflows_and_dags.md](file:///D:/hyperrr-commerce-ai/hyperrr/docs/workflows_and_dags.md): Declarative step definitions, RETRY gates, and parallel execution trees.
 * [docs/event_fabric.md](file:///D:/hyperrr-commerce-ai/hyperrr/docs/event_fabric.md): Asynchronous Pub/Sub and namespace routing.
 * [docs/model_context_protocol.md](file:///D:/hyperrr-commerce-ai/hyperrr/docs/model_context_protocol.md): MCP SSE gateway details.
 * [docs/graphql_api_gateway.md](file:///D:/hyperrr-commerce-ai/hyperrr/docs/graphql_api_gateway.md): Zero Core Pollution dynamic module resolver container.
-

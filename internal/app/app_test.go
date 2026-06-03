@@ -40,7 +40,11 @@ func (m *mockModule) Shutdown(ctx context.Context) error {
 func TestRun(t *testing.T) {
 	t.Run("Run with defaults", func(t *testing.T) {
 		os.Setenv("APP_ENV", "test")
+		os.Setenv("JWT_SECRET", "test-secret")
+		os.Setenv("JWT_EXPIRATION", "24h")
 		defer os.Unsetenv("APP_ENV")
+		defer os.Unsetenv("JWT_SECRET")
+		defer os.Unsetenv("JWT_EXPIRATION")
 		err := Run()
 		if err != nil {
 			t.Errorf("Run() failed: %v", err)
@@ -49,8 +53,12 @@ func TestRun(t *testing.T) {
 
 	t.Run("RunWithConfig", func(t *testing.T) {
 		os.Setenv("APP_ENV", "test")
+		os.Setenv("JWT_SECRET", "test-secret")
+		os.Setenv("JWT_EXPIRATION", "24h")
 		defer os.Unsetenv("APP_ENV")
-		err := RunWithConfig(&config.Config{AppEnv: "test", JWTSecret: "test-secret"})
+		defer os.Unsetenv("JWT_SECRET")
+		defer os.Unsetenv("JWT_EXPIRATION")
+		err := RunWithConfig(&config.Config{AppEnv: "test"})
 		if err != nil && err.Error() != "failed to load config" {
 			// Expected behavior if .env is missing or invalid in certain environments
 		}
@@ -59,7 +67,6 @@ func TestRun(t *testing.T) {
 	t.Run("RunWithConfig DB Failure", func(t *testing.T) {
 		cfg := &config.Config{
 			AppEnv:    "test",
-			JWTSecret: "test-secret",
 			DBDriver:  "postgres",
 			DBDSN:     "host=localhost port=5432 user=ghost password=ghost dbname=ghost sslmode=disable",
 		}
@@ -69,23 +76,9 @@ func TestRun(t *testing.T) {
 		}
 	})
 
-	t.Run("RunWithConfig Missing Secret", func(t *testing.T) {
-		cfg := &config.Config{
-			AppEnv:    "test",
-			DBDriver:  "sqlite",
-			DBDSN:     ":memory:",
-			JWTSecret: "",
-		}
-		err := RunWithConfig(cfg)
-		if err == nil || !strings.Contains(err.Error(), "JWT_SECRET is missing") {
-			t.Errorf("expected missing secret error, got %v", err)
-		}
-	})
-
 	t.Run("RunWithConfig Unsupported DB", func(t *testing.T) {
 		cfg := &config.Config{
 			AppEnv:    "test",
-			JWTSecret: "test-secret",
 			DBDriver:  "invalid",
 		}
 		err := RunWithConfig(cfg)
@@ -97,7 +90,6 @@ func TestRun(t *testing.T) {
 	t.Run("RunWithConfig NATS Failure", func(t *testing.T) {
 		cfg := &config.Config{
 			AppEnv:           "test",
-			JWTSecret:        "test-secret",
 			DBDriver:         "sqlite",
 			DBDSN:            ":memory:",
 			EventBusProvider: "nats",

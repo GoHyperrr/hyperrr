@@ -53,7 +53,6 @@ For in-depth explanations, code structures, and implementation philosophies of e
 5.  **[Database Architecture & Schema Auto-Migrations](file:///D:/hyperrr-commerce-ai/docs/database_and_migrations.md)**: Outlines GORM dialect setups, dynamic module database registration, idempotency checking, and table isolation patterns.
 6.  **[GraphQL API Gateway & Security Middleware](file:///D:/hyperrr-commerce-ai/docs/graphql_api_gateway.md)**: Explains modular schema aggregation, token parsing interceptors, RBAC actor context injection, and entity type mappers.
 7.  **[Distributed Locking & Coordination Kernel](file:///D:/hyperrr-commerce-ai/docs/distributed_locking_coordination.md)**: Describes pluggable lock interfaces, compare-and-swap (CAS) lock mechanics, and lock ownership validations.
-8.  **[Composable TUI Admin Dashboard](file:///D:/hyperrr-commerce-ai/docs/tui.md)**: Explains the decoupled standalone compilation, Bubble Tea v2 architecture, and dynamic layout composition of the terminal control center.
 
 
 ---
@@ -424,19 +423,42 @@ Hyperrr implements a dynamic, configuration-driven module registration pattern. 
 Instead, module registration requires three steps:
 
 ### Step A: Register the Module Factory
-Within the custom module package (e.g. `commerce/hotel/module.go` or a new `init.go`), define a Go package `init()` function that registers a `ModuleFactory` constructor to the global factory registry:
+Within the custom module package (e.g. `commerce/hotel/module.go` or a new `init.go`), define a Go package `init()` function that registers a `ModuleFactory` constructor to the global factory registry under **both** its short ID and its full Go import package path name:
 
 ```go
 func init() {
-	registry.RegisterFactory("commerce.hotel", func(options map[string]any) (registry.Module, error) {
+	factory := func(options map[string]any) (registry.Module, error) {
 		// Instantiate and configure module using provided option variables
 		m := NewModule()
 		return m, nil
+	}
+	
+	// Register under the short ID and full package path
+	registry.RegisterFactory("commerce.hotel", factory)
+	registry.RegisterFactory("github.com/GoHyperrr/commerce/hotel", factory)
+}
+```
+
+### Step B: Register dynamic CLI commands (Optional)
+If your module provides dynamic subcommands (such as user creation or key generation), you can register them within your `init()` block:
+
+```go
+func init() {
+	// ... factory registrations ...
+
+	registry.RegisterCommand(registry.CLICommand{
+		Name:        "hotel",
+		Usage:       "book <customer_id> <room_type>",
+		Description: "Book a hotel room dynamically via the CLI",
+		Run: func(deps *registry.Dependencies, args []string) error {
+			// Custom booking logic utilizing deps.DB
+			return nil
+		},
 	})
 }
 ```
 
-### Step B: Configure Module Activation in the Config File
+### Step C: Configure Module Activation in the Config File
 Add the module definition and its key/value options to the application configuration (JSON or YAML) under the `modules` array. 
 
 To keep secrets and credentials secure, options can dynamically load variables from the environment by using the `"env."` prefix. Hyperrr automatically resolves these at startup:
@@ -455,7 +477,7 @@ Hyperrr utilizes the `registry.NormalizeModuleID` function to match configured m
 * **Manual Override (`id`)**: If specified, the system looks up the module factory exactly under this custom name (e.g. `hyperrr.hotel`).
 * **Fallback Normalization**: If `id` is omitted, the `resolve` import path is normalized automatically (e.g., `github.com/GoHyperrr/commerce/hotel` becomes `commerce.hotel`), mapping it seamlessly to the factory registered with that standard name inside the package `init()`.
 
-### Step C: Run Code Generation
+### Step D: Run Code Generation
 To compile the package into the binary without manual code edits, run the built-in Go generator command in your terminal from the workspace root:
 
 ```bash
@@ -486,9 +508,13 @@ WORKFLOW_STORE_TYPE=redis
 REDIS_URL=redis://localhost:6379
 
 # Secrets and Server Configs
-JWT_SECRET=super_secure_key
 SERVER_PORT=8080
 LOG_LEVEL=info
+
+# MCP Gateway Security Providers (default: apikey)
+# In configuration files (hyperrr.yml):
+# MCP_AUTH_PROVIDERS: ["apikey"] (or ["none"] to bypass authentication during testing)
+MCP_AUTH_PROVIDERS=apikey
 ```
 
 ### 5.2 Auto-Recovery Loop

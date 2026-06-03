@@ -72,15 +72,35 @@ func runCodegen() error {
 func discoverModules() ([]ModuleInfo, error) {
 	var modules []ModuleInfo
 
-	scanPaths := []struct {
+	type scanItem struct {
 		root   string
 		prefix string
-	}{
-		{root: filepath.Join("..", "commerce"), prefix: "github.com/GoHyperrr/commerce/"},
-		{root: filepath.Join("..", "auth"), prefix: "github.com/GoHyperrr/auth/"},
-		{root: "pkg", prefix: "github.com/GoHyperrr/hyperrr/pkg/"},
-		{root: "modules", prefix: "github.com/GoHyperrr/hyperrr/modules/"},
 	}
+	var scanPaths []scanItem
+
+	// Dynamically discover external workspace modules using go.work and go.mod
+	if workDir, err := findWorkspaceRoot(); err == nil {
+		if wsModules, err := getWorkspaceModules(workDir); err == nil {
+			for _, mPath := range wsModules {
+				if filepath.Base(mPath) == "hyperrr" {
+					continue
+				}
+				modName, err := getModuleName(mPath)
+				if err == nil {
+					scanPaths = append(scanPaths, scanItem{
+						root:   mPath,
+						prefix: modName + "/",
+					})
+				}
+			}
+		}
+	}
+
+	// Always scan local folders in hyperrr core
+	scanPaths = append(scanPaths,
+		scanItem{root: "pkg", prefix: "github.com/GoHyperrr/hyperrr/pkg/"},
+		scanItem{root: "modules", prefix: "github.com/GoHyperrr/hyperrr/modules/"},
+	)
 
 	for _, scan := range scanPaths {
 		if _, err := os.Stat(scan.root); os.IsNotExist(err) {
@@ -189,6 +209,11 @@ func parseModuleQueriesMutations(dir string) (map[string]string, map[string]stri
 						}
 						compLit, ok := retStmt.Results[0].(*ast.CompositeLit)
 						if !ok {
+							// Return nil is valid and does not warrant a warning
+							if id, isIdent := retStmt.Results[0].(*ast.Ident); isIdent && id.Name == "nil" {
+								continue
+							}
+							fmt.Printf("WARNING: Method %s in %s returns non-composite literal (%T). Resolver mapping will be skipped in codegen. Please return inline map[string]any{...} directly.\n", methodName, dir, retStmt.Results[0])
 							continue
 						}
 						for _, elt := range compLit.Elts {

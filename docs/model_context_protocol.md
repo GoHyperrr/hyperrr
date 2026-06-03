@@ -115,3 +115,23 @@ To guide AI agents in auditing and inspecting various modules, Hyperrr registers
 *   **Ping-Pong Check**: Supports the JSON-RPC `ping` request method. The server returns a simple `"pong"` string to verify connectivity.
 *   **Resource Templates**: Supports discovery of dynamic URI template schemas via `resources/templates/list` queries.
 *   **Logging Level Control**: Supports the `logging/setLevel` method as a no-op success handler to prevent client connection warnings.
+
+---
+
+## 8. Server Security & Multi-Provider Authentication
+
+To authorize programmatic MCP client connections (e.g. Claude Desktop or autonomous agents), Hyperrr implements a dynamic, multi-provider security checker on its SSE RPC messages endpoint (`/mcp/messages`).
+
+### 8.1 Configuration
+
+Allowed authentication methods are specified in the `MCP_AUTH_PROVIDERS` slice inside `hyperrr.yml`:
+
+```yaml
+# hyperrr.yml
+MCP_AUTH_PROVIDERS: ["apikey"] # Default secure setting
+```
+
+### 8.2 Supported Providers
+
+1. **`"apikey"`**: The default secure auth method. The server extracts the `X-API-Key` header and validates it against the database using the dynamic `GetActorByAPIKey` dependency resolver registered by the `auth.apikey` module.
+2. **`"none"`**: Bypasses the authentication check completely. The active actor is mocked as `act_mcp_developer` (Developer Agent). This is useful for running local integration tests or configuring Claude Desktop without requiring custom HTTP headers.
