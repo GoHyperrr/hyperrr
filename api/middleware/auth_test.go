@@ -18,11 +18,20 @@ func (m *mockValidator) ValidateToken(ctx context.Context, token string) (*ident
 	return m.actor, m.err
 }
 
+type mockResolver struct {
+	actor *identity.Actor
+	err   error
+}
+
+func (m *mockResolver) GetActorByAPIKey(ctx context.Context, key string) (*identity.Actor, error) {
+	return m.actor, m.err
+}
+
 func TestAuthMiddleware_Scenarios(t *testing.T) {
-	t.Run("Valid Token", func(t *testing.T) {
+	t.Run("Valid JWT Token", func(t *testing.T) {
 		expectedActor := &identity.Actor{ID: "act_1", Type: identity.ActorHuman}
 		validator := &mockValidator{actor: expectedActor}
-		mw := AuthMiddleware(validator)
+		mw := AuthMiddleware([]string{"jwt"}, validator, nil)
 
 		h := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			actor, ok := ForContext(r.Context())
@@ -42,7 +51,7 @@ func TestAuthMiddleware_Scenarios(t *testing.T) {
 	})
 
 	t.Run("No Token", func(t *testing.T) {
-		mw := AuthMiddleware(&mockValidator{})
+		mw := AuthMiddleware([]string{"jwt"}, &mockValidator{}, nil)
 		h := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, ok := ForContext(r.Context())
 			if ok {
@@ -55,7 +64,7 @@ func TestAuthMiddleware_Scenarios(t *testing.T) {
 	})
 
 	t.Run("Malformed Token", func(t *testing.T) {
-		mw := AuthMiddleware(&mockValidator{})
+		mw := AuthMiddleware([]string{"jwt"}, &mockValidator{}, nil)
 		h := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			t.Error("expected handler to abort, but it was executed")
 		}))
@@ -65,8 +74,49 @@ func TestAuthMiddleware_Scenarios(t *testing.T) {
 		rr := httptest.NewRecorder()
 		h.ServeHTTP(rr, req)
 
-		if rr.Code != http.StatusBadRequest {
-			t.Errorf("expected 400, got %d", rr.Code)
+		if rr.Code != http.StatusUnauthorized {
+			t.Errorf("expected 401, got %d", rr.Code)
+		}
+	})
+
+	t.Run("Valid API Key", func(t *testing.T) {
+		expectedActor := &identity.Actor{ID: "agent_1", Type: identity.ActorAIAgent}
+		resolver := &mockResolver{actor: expectedActor}
+		mw := AuthMiddleware([]string{"apikey"}, nil, resolver)
+
+		h := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			actor, ok := ForContext(r.Context())
+			if !ok || actor.ID != "agent_1" {
+				t.Errorf("expected actor agent_1, got %v", actor)
+			}
+		}))
+
+		req := httptest.NewRequest("GET", "/", nil)
+		req.Header.Set("X-API-Key", "valid-api-key")
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", rr.Code)
+		}
+	})
+
+	t.Run("Bypass 'none' provider", func(t *testing.T) {
+		mw := AuthMiddleware([]string{"none"}, nil, nil)
+
+		h := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			actor, ok := ForContext(r.Context())
+			if !ok || actor.ID != "act_http_developer" {
+				t.Errorf("expected actor act_http_developer, got %v", actor)
+			}
+		}))
+
+		req := httptest.NewRequest("GET", "/", nil)
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", rr.Code)
 		}
 	})
 

@@ -1,9 +1,15 @@
 # Hyperrr configuration file
+# Environment variable substitution is supported using ${VAR_NAME} or ${env.VAR_NAME:fallback}
 app_name: "hyperrr"
 app_env: "local"
 log_level: "info"
 log_format: "text"
 server_port: 8080
+
+auth_providers:
+  - jwt
+mcp_auth_providers:
+  - apikey
 
 event_bus_provider: "inmem"
 workflow_store_type: "mem"

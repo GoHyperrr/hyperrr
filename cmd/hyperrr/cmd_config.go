@@ -77,6 +77,7 @@ var configListCmd = &cobra.Command{
 			{"STORAGE_BUCKET_URL", cfg.StorageBucketURL, getSource("STORAGE_BUCKET_URL")},
 			{"NATS_URL", cfg.NATSURL, getSource("NATS_URL")},
 			{"MCP_AUTH_PROVIDERS", cfg.MCPAuthProviders, getSource("MCP_AUTH_PROVIDERS")},
+			{"AUTH_PROVIDERS", cfg.AuthProviders, getSource("AUTH_PROVIDERS")},
 		}
 
 		if jsonOutput {
@@ -143,6 +144,8 @@ var configGetCmd = &cobra.Command{
 			val = cfg.NATSURL
 		case "MCP_AUTH_PROVIDERS":
 			val = cfg.MCPAuthProviders
+		case "AUTH_PROVIDERS":
+			val = cfg.AuthProviders
 		default:
 			return fmt.Errorf("unknown configuration key: %s", args[0])
 		}
@@ -182,7 +185,7 @@ var configSetCmd = &cobra.Command{
 				return fmt.Errorf("invalid SERVER_PORT (must be integer): %s", value)
 			}
 			typedVal = port
-		case "MCP_AUTH_PROVIDERS":
+		case "MCP_AUTH_PROVIDERS", "AUTH_PROVIDERS":
 			providers := strings.Split(value, ",")
 			for i, p := range providers {
 				providers[i] = strings.TrimSpace(p)

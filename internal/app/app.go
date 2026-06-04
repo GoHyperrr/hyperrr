@@ -12,6 +12,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/internal"
 	"github.com/GoHyperrr/hyperrr/api/graph"
 	"github.com/GoHyperrr/hyperrr/api/mcp"
+	apiMiddleware "github.com/GoHyperrr/hyperrr/api/middleware"
 	ctxEngine "github.com/GoHyperrr/hyperrr/pkg/ctxengine"
 	"github.com/GoHyperrr/hyperrr/internal/storage"
 	"github.com/GoHyperrr/hyperrr/pkg/workflow"
@@ -291,14 +292,21 @@ func RunWithConfig(cfg *config.Config) error {
 		Resolvers: graph.NewResolver(registry.List(), runner, registryStore, ctxMod.Projector()),
 	}))
 
-	// Dynamic Middleware chain
+	// 9. Setup Auth Middleware
+	var tokenValidator apiMiddleware.TokenValidator
+	for _, mod := range modules {
+		if v, ok := mod.(apiMiddleware.TokenValidator); ok {
+			tokenValidator = v
+			break
+		}
+	}
+
 	var h http.Handler = srv
 	var playH http.Handler = playground.Handler("GraphQL playground", "/query")
-	
-	if authMW, ok := registry.GetMiddleware("auth"); ok {
-		h = authMW(h)
-		playH = authMW(playH)
-	}
+
+	authMW := apiMiddleware.AuthMiddleware(cfg.AuthProviders, tokenValidator, deps.Resolver)
+	h = authMW(h)
+	playH = authMW(playH)
 
 	mux := http.NewServeMux()
 	mux.Handle("/", playH)

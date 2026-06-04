@@ -11,7 +11,7 @@ import (
 
 func main() {
 	// Look for hyperrr.yaml, hyperrr.yml, or hyperrr.json in the workspace root or configs/
-	configPaths := []string{"hyperrr.yaml", "hyperrr.yml", "hyperrr.json", "configs/hyperrr.yaml", "configs/hyperrr.yml", "configs/hyperrr.json", ".env"}
+	configPaths := []string{"hyperrr.yaml", "hyperrr.yml", "hyperrr.json", "configs/hyperrr.yaml", "configs/hyperrr.yml", "configs/hyperrr.json"}
 	var configContent string
 	var foundPath string
 
