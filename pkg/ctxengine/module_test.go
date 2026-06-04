@@ -2,13 +2,15 @@ package ctxengine
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
-	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"github.com/GoHyperrr/mdk"
+	"gorm.io/gorm"
 )
 
 func TestContextModule(t *testing.T) {
@@ -28,11 +30,6 @@ func TestContextModule(t *testing.T) {
 		t.Error("expected LineageModel in Models()")
 	}
 
-	// 3. Handlers
-	if m.Handlers() != nil {
-		t.Error("expected Handlers() to return nil")
-	}
-
 	// 4. Shutdown
 	if err := m.Shutdown(context.Background()); err != nil {
 		t.Errorf("expected nil error on Shutdown, got %v", err)
@@ -44,15 +41,15 @@ func TestContextModule(t *testing.T) {
 	database, _ := db.Connect(cfg)
 	_ = database.AutoMigrate(&LineageModel{})
 
-	deps := &registry.Dependencies{
-		EventBus: bus,
-		DB:       database,
+	rt := &mockRuntime{
+		bus: bus,
+		db:  database.DB,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err := m.Init(ctx, deps)
+	err := m.Init(ctx, rt)
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
 	}
@@ -94,3 +91,15 @@ func TestLineageGetters(t *testing.T) {
 		t.Error("GetEndedAt mismatch")
 	}
 }
+
+type mockRuntime struct {
+	db  *gorm.DB
+	bus mdk.EventBus
+}
+
+func (m *mockRuntime) DB() *gorm.DB { return m.db }
+func (m *mockRuntime) Bus() mdk.EventBus { return m.bus }
+func (m *mockRuntime) Workflows() mdk.WorkflowEngine { return nil }
+func (m *mockRuntime) Logger() *slog.Logger { return slog.Default() }
+func (m *mockRuntime) Module(id string) (mdk.Module, bool) { return nil, false }
+func (m *mockRuntime) Config(key string) any { return nil }

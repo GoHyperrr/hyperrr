@@ -4,11 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/GoHyperrr/hyperrr/pkg/workflow"
-	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"github.com/GoHyperrr/mdk"
 )
 
-// Module implements the registry.Module interface for Storage.
+// Module implements the mdk.Module interface for Storage.
 type Module struct {
 	provider ObjectStorage
 }
@@ -24,8 +23,8 @@ func (m *Module) ID() string {
 }
 
 // Init initializes the module.
-func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
-	bucketURL := deps.Config.StorageBucketURL
+func (m *Module) Init(ctx context.Context, rt mdk.Runtime) error {
+	bucketURL, _ := rt.Config("StorageBucketURL").(string)
 	if bucketURL == "" {
 		bucketURL = "mem://"
 	}
@@ -43,8 +42,8 @@ func (m *Module) Models() []any {
 	return nil
 }
 
-// Handlers returns the workflow task handlers provided by this module.
-func (m *Module) Handlers() map[string]workflow.TaskHandler {
+// Routes returns the HTTP routes provided by this module.
+func (m *Module) Routes() []mdk.Route {
 	return nil
 }
 
@@ -62,3 +61,4 @@ func (m *Module) Shutdown(ctx context.Context) error {
 func (m *Module) Provider() ObjectStorage {
 	return m.provider
 }
+

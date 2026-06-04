@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
+	"github.com/GoHyperrr/mdk"
 )
 
 func TestDeadlock(t *testing.T) {
@@ -12,17 +13,19 @@ func TestDeadlock(t *testing.T) {
 	runner := NewRunner(bus, nil, nil)
 
 	t.Run("Deadlock", func(t *testing.T) {
-		wf := &Workflow{
+		wf := mdk.Workflow{
+			ID:   "deadlock",
 			Name: "deadlock",
-			Steps: []Step{
+			Steps: []mdk.Step{
 				{ID: "s1", Uses: "task", DependsOn: []string{"s2"}},
 				{ID: "s2", Uses: "task", DependsOn: []string{"s1"}},
 			},
 		}
 		
-		runner.RegisterTask("task", func(ctx context.Context, input any) (any, error) { return nil, nil })
+		_ = runner.Register(wf)
+		_ = runner.RegisterHandler("task", func(ctx mdk.StepContext) mdk.StepResult { return mdk.StepResult{} })
 
-		_, err := runner.Execute(context.Background(), "dl1", wf, nil)
+		_, err := runner.ExecuteSync(context.Background(), "dl1", "deadlock", nil)
 		if err == nil {
 			t.Fatal("expected deadlock error")
 		}

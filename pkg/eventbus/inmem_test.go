@@ -16,15 +16,16 @@ func TestInMemBus(t *testing.T) {
 		defer bus.Close()
 
 		received := make(chan Event, 1)
-		_, err := bus.Subscribe(ctx, "test.event", func(ctx context.Context, event Event) error {
+		unsub, err := bus.Subscribe("test", "event", func(ctx context.Context, event Event) error {
 			received <- event
 			return nil
 		})
 		if err != nil {
 			t.Fatalf("failed to subscribe: %v", err)
 		}
+		defer unsub()
 
-		event := Event{ID: "1", Type: "test.event", Payload: "hello"}
+		event := Event{ID: "1", Namespace: "test", Type: "event", Payload: map[string]any{"msg": "hello"}}
 		err = bus.Publish(ctx, event)
 		if err != nil {
 			t.Fatalf("failed to publish: %v", err)
@@ -52,10 +53,12 @@ func TestInMemBus(t *testing.T) {
 			return nil
 		}
 
-		_, _ = bus.Subscribe(ctx, "multi.event", handler)
-		_, _ = bus.Subscribe(ctx, "multi.event", handler)
+		unsub1, _ := bus.Subscribe("multi", "event", handler)
+		unsub2, _ := bus.Subscribe("multi", "event", handler)
+		defer unsub1()
+		defer unsub2()
 
-		bus.Publish(ctx, Event{Type: "multi.event"})
+		_ = bus.Publish(ctx, Event{Namespace: "multi", Type: "event"})
 
 		done := make(chan struct{})
 		go func() {
@@ -74,12 +77,12 @@ func TestInMemBus(t *testing.T) {
 		bus := NewInMemBus()
 		defer bus.Close()
 
-		_, _ = bus.Subscribe(ctx, "error.event", func(ctx context.Context, event Event) error {
+		unsub, _ := bus.Subscribe("error", "event", func(ctx context.Context, event Event) error {
 			return errors.New("forced error")
 		})
+		defer unsub()
 
-		// This should not crash and should log (we can't easily check logs here without capturing stderr)
-		err := bus.Publish(ctx, Event{Type: "error.event"})
+		err := bus.Publish(ctx, Event{Namespace: "error", Type: "event"})
 		if err != nil {
 			t.Errorf("expected nil error from Publish even if handler fails, got %v", err)
 		}
@@ -89,7 +92,7 @@ func TestInMemBus(t *testing.T) {
 		bus := NewInMemBus()
 		bus.Close()
 
-		err := bus.Publish(ctx, Event{Type: "closed.event"})
+		err := bus.Publish(ctx, Event{Namespace: "closed", Type: "event"})
 		if !errors.Is(err, context.Canceled) {
 			t.Errorf("expected context.Canceled, got %v", err)
 		}
@@ -97,26 +100,26 @@ func TestInMemBus(t *testing.T) {
 
 	t.Run("Multiple Close Calls", func(t *testing.T) {
 		bus := NewInMemBus()
-		bus.Close()
+		_ = bus.Close()
 		// Should not panic
-		bus.Close()
+		_ = bus.Close()
 	})
 
 	t.Run("Unsubscribe", func(t *testing.T) {
 		bus := NewInMemBus()
 		count := 0
-		sub, _ := bus.Subscribe(ctx, "unsub.event", func(ctx context.Context, event Event) error {
+		unsub, _ := bus.Subscribe("unsub", "event", func(ctx context.Context, event Event) error {
 			count++
 			return nil
 		})
 
-		bus.Publish(ctx, Event{Type: "unsub.event"})
+		_ = bus.Publish(ctx, Event{Namespace: "unsub", Type: "event"})
 		if count != 1 {
 			t.Errorf("expected 1 event, got %d", count)
 		}
 
-		sub.Unsubscribe()
-		bus.Publish(ctx, Event{Type: "unsub.event"})
+		unsub()
+		_ = bus.Publish(ctx, Event{Namespace: "unsub", Type: "event"})
 		if count != 1 {
 			t.Errorf("expected still 1 event after unsubscribe, got %d", count)
 		}
@@ -127,12 +130,13 @@ func TestInMemBus(t *testing.T) {
 		defer bus.Close()
 
 		processed := false
-		_, _ = bus.Subscribe(ctx, "wait.event", func(ctx context.Context, event Event) error {
+		unsub, _ := bus.Subscribe("wait", "event", func(ctx context.Context, event Event) error {
 			processed = true
 			return nil
 		})
+		defer unsub()
 
-		bus.Publish(ctx, Event{Type: "wait.event"})
+		_ = bus.Publish(ctx, Event{Namespace: "wait", Type: "event"})
 
 		if !processed {
 			t.Error("expected event to be processed")
@@ -150,11 +154,12 @@ func TestInMemBus(t *testing.T) {
 			return nil
 		}
 
-		_, _ = bus.Subscribe(ctx, "async.event", handler)
-		_, _ = bus.Subscribe(ctx, "async.event", handler)
+		unsub1, _ := bus.Subscribe("async", "event", handler)
+		unsub2, _ := bus.Subscribe("async", "event", handler)
+		defer unsub1()
+		defer unsub2()
 
-		// If synchronous, this would take ~100ms. If async, ~50ms.
-		bus.Publish(ctx, Event{Type: "async.event"})
+		_ = bus.Publish(ctx, Event{Namespace: "async", Type: "event"})
 		
 		elapsed := time.Since(start)
 		if elapsed >= 100*time.Millisecond {

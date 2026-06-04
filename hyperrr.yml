@@ -1,0 +1,44 @@
+# Hyperrr configuration file
+app_name: "hyperrr"
+app_env: "local"
+log_level: "info"
+log_format: "text"
+server_port: 8080
+
+event_bus_provider: "inmem"
+workflow_store_type: "mem"
+db_driver: "sqlite"
+db_dsn: "hyperrr.db"
+storage_provider: "cloud"
+storage_bucket_url: "mem://"
+
+modules:
+  # Identity / Authentication
+  - resolve: "github.com/GoHyperrr/auth/apikey"
+    id: "auth.apikey"
+  - resolve: "github.com/GoHyperrr/auth/emailpass"
+    id: "auth.emailpass"
+
+  # Commerce functional domain packages
+  - resolve: "github.com/GoHyperrr/commerce/product"
+    id: "commerce.product"
+  - resolve: "github.com/GoHyperrr/commerce/customer"
+    id: "commerce.customer"
+  - resolve: "github.com/GoHyperrr/commerce/cart"
+    id: "commerce.cart"
+  - resolve: "github.com/GoHyperrr/commerce/order"
+    id: "commerce.order"
+  - resolve: "github.com/GoHyperrr/commerce/finance"
+    id: "commerce.finance"
+  - resolve: "github.com/GoHyperrr/commerce/notification"
+    id: "commerce.notification"
+  - resolve: "github.com/GoHyperrr/commerce/fulfillment"
+    id: "commerce.fulfillment"
+  - resolve: "github.com/GoHyperrr/commerce/support"
+    id: "commerce.support"
+  - resolve: "github.com/GoHyperrr/commerce/marketing"
+    id: "commerce.marketing"
+  - resolve: "github.com/GoHyperrr/commerce/search"
+    id: "commerce.search"
+  - resolve: "github.com/GoHyperrr/commerce/analytics"
+    id: "commerce.analytics"

@@ -31,29 +31,29 @@ func TestAuthFlow(t *testing.T) {
 
 	// Setup EmailPass Auth
 	emailpassMod := emailpass.NewModule("secret", "24h")
-	emailpassMod.Init(ctx, &registry.Dependencies{
+	emailpassMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{
 		Config:   &config.Config{},
 		DB:       database,
 		EventBus: bus,
-	})
+	}))
 	db.Register(emailpassMod.Models()...)
 
 	// Setup Customer
 	custMod := customer.NewModule()
-	custMod.Init(ctx, &registry.Dependencies{
+	custMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{
 		DB:       database,
 		EventBus: bus,
 		Runner:   workflow.NewRunner(bus, nil, nil),
 		Registry: workflow.NewRegistry(),
-	})
+	}))
 	db.Register(custMod.Models()...)
 
 	// Setup APIKey Auth
 	apikeyMod := apikey.NewModule()
-	apikeyMod.Init(ctx, &registry.Dependencies{
+	apikeyMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{
 		DB:       database,
 		EventBus: bus,
-	})
+	}))
 	db.Register(apikeyMod.Models()...)
 
 	database.AutoMigrateAll()

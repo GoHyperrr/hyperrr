@@ -9,12 +9,13 @@ import (
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/workflow"
-	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 	"github.com/GoHyperrr/hyperrr/pkg/utils"
+	"github.com/GoHyperrr/mdk"
 	"gorm.io/gorm"
+	"strings"
 )
 
 // Lineage represents the execution history of a workflow.
@@ -36,6 +37,7 @@ func (l *Lineage) GetState() string      { return l.State }
 func (l *Lineage) GetError() string      { return l.Error }
 func (l *Lineage) GetStartedAt() time.Time { return l.StartedAt }
 func (l *Lineage) GetEndedAt() *time.Time  { return l.EndedAt }
+func (l *Lineage) GetEvents() []eventbus.Event { return l.Events }
 
 // StepLineage represents a single step in the lineage.
 
@@ -72,17 +74,17 @@ func (LineageModel) TableName() string {
 type Projector struct {
 	mu       sync.RWMutex
 	lineages map[string]*Lineage
-	bus      eventbus.EventBus
-	db       *db.DB
+	bus      mdk.EventBus
+	db       *gorm.DB
 }
 
 // SetDB sets the database connection for the projector.
-func (p *Projector) SetDB(database *db.DB) {
+func (p *Projector) SetDB(database *gorm.DB) {
 	p.db = database
 }
 
 // NewProjector creates a new Projector.
-func NewProjector(bus eventbus.EventBus) *Projector {
+func NewProjector(bus mdk.EventBus) *Projector {
 	return &Projector{
 		lineages: make(map[string]*Lineage),
 		bus:      bus,
@@ -109,7 +111,14 @@ func (p *Projector) Start(ctx context.Context) error {
 	}
 
 	for _, t := range eventTypes {
-		_, err := p.bus.Subscribe(ctx, t, p.handleEvent)
+		parts := strings.SplitN(t, ".", 2)
+		var ns, et string
+		if len(parts) == 2 {
+			ns, et = parts[0], parts[1]
+		} else {
+			ns, et = "", t
+		}
+		_, err := p.bus.Subscribe(ns, et, p.handleEvent)
 		if err != nil {
 			return fmt.Errorf("failed to subscribe to %s: %w", t, err)
 		}
@@ -121,8 +130,8 @@ func (p *Projector) Start(ctx context.Context) error {
 func (p *Projector) handleEvent(ctx context.Context, event eventbus.Event) error {
 	p.mu.Lock()
 
-	rawPayload, ok := event.Payload.(map[string]any)
-	if !ok {
+	rawPayload := event.Payload
+	if rawPayload == nil {
 		p.mu.Unlock()
 		return nil
 	}
@@ -144,13 +153,18 @@ func (p *Projector) handleEvent(ctx context.Context, event eventbus.Event) error
 
 	lineage.Events = append(lineage.Events, event)
 
-	switch event.Type {
+	eventType := event.Type
+	if event.Namespace != "" {
+		eventType = event.Namespace + "." + event.Type
+	}
+
+	switch eventType {
 	case workflow.EventWorkflowStarted:
 		lineage.Name = utils.GetString(rawPayload, "name")
 		lineage.Version = utils.GetString(rawPayload, "version")
 		lineage.State = workflow.StateRunning
 		if lineage.StartedAt.IsZero() {
-			lineage.StartedAt = event.Timestamp
+			lineage.StartedAt = event.OccurredAt
 		}
 
 	case workflow.EventStepStarted:
@@ -159,7 +173,7 @@ func (p *Projector) handleEvent(ctx context.Context, event eventbus.Event) error
 			lineage.Steps = append(lineage.Steps, &StepLineage{
 				StepID:    stepID,
 				State:     workflow.StateRunning,
-				StartedAt: event.Timestamp,
+				StartedAt: event.OccurredAt,
 				Attempts:  1,
 			})
 		}
@@ -168,7 +182,7 @@ func (p *Projector) handleEvent(ctx context.Context, event eventbus.Event) error
 		stepID := utils.GetString(rawPayload, "step_id")
 		if step := p.findStep(lineage, stepID); step != nil {
 			step.State = workflow.StateCompleted
-			step.EndedAt = &event.Timestamp
+			step.EndedAt = &event.OccurredAt
 		}
 
 	case workflow.EventStepFailed:
@@ -177,7 +191,7 @@ func (p *Projector) handleEvent(ctx context.Context, event eventbus.Event) error
 		if step := p.findStep(lineage, stepID); step != nil {
 			step.State = workflow.StateFailed
 			step.Error = errMsg
-			step.EndedAt = &event.Timestamp
+			step.EndedAt = &event.OccurredAt
 		}
 
 	case workflow.EventStepRetrying:
@@ -192,12 +206,12 @@ func (p *Projector) handleEvent(ctx context.Context, event eventbus.Event) error
 
 	case workflow.EventWorkflowCompleted:
 		lineage.State = workflow.StateCompleted
-		lineage.EndedAt = &event.Timestamp
+		lineage.EndedAt = &event.OccurredAt
 
 	case workflow.EventWorkflowFailed:
 		lineage.State = workflow.StateFailed
 		lineage.Error = utils.GetString(rawPayload, "error")
-		lineage.EndedAt = &event.Timestamp
+		lineage.EndedAt = &event.OccurredAt
 	}
 
 	// Deep copy for storage to avoid holding lock during DB I/O and prevent data races
@@ -395,9 +409,9 @@ func (p *Projector) GetRelatedLineages(ctx context.Context, id string) ([]*Linea
 		}
 		
 		for _, event := range lineage.Events {
-			for key, val := range event.Metadata {
+			for key, val := range event.Payload {
 				for _, otherEvent := range other.Events {
-					if otherVal, ok := otherEvent.Metadata[key]; ok && otherVal == val {
+					if otherVal, ok := otherEvent.Payload[key]; ok && otherVal == val {
 						relatedIDsMap[other.ID] = true
 					}
 				}

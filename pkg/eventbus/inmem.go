@@ -8,21 +8,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// InMemSubscription implements the Subscription interface for InMemBus.
-type InMemSubscription struct {
-	bus       *InMemBus
-	eventType string
-	id        string
-}
-
-func (s *InMemSubscription) Unsubscribe() error {
-	return s.bus.unsubscribe(s.eventType, s.id)
-}
-
 // InMemBus is a thread-safe in-memory implementation of EventBus.
 type InMemBus struct {
 	mu        sync.RWMutex
-	handlers  map[string]map[string]EventHandler // type -> subID -> handler
+	handlers  map[string]map[string]EventHandler // topic (namespace.type) -> subID -> handler
 	closeOnce sync.Once
 	closed    chan struct{}
 	async     bool
@@ -43,6 +32,13 @@ func (b *InMemBus) SetAsync(async bool) {
 	b.async = async
 }
 
+func topicKey(namespace, eventType string) string {
+	if namespace == "" {
+		return eventType
+	}
+	return namespace + "." + eventType
+}
+
 // Publish sends an event to all registered handlers for the event type.
 func (b *InMemBus) Publish(ctx context.Context, event Event) error {
 	select {
@@ -51,8 +47,9 @@ func (b *InMemBus) Publish(ctx context.Context, event Event) error {
 	default:
 	}
 
+	key := topicKey(event.Namespace, event.Type)
 	b.mu.RLock()
-	typeHandlers, ok := b.handlers[event.Type]
+	typeHandlers, ok := b.handlers[key]
 	if !ok {
 		b.mu.RUnlock()
 		return nil
@@ -70,13 +67,13 @@ func (b *InMemBus) Publish(ctx context.Context, event Event) error {
 			go func(h EventHandler) {
 				detachedCtx := context.WithoutCancel(ctx)
 				if err := h(detachedCtx, event); err != nil {
-					logger.Error("event handler failed", "type", event.Type, "id", event.ID, "error", err)
+					logger.Error("event handler failed", "topic", key, "id", event.ID, "error", err)
 				}
 			}(handler)
 		} else {
 			// Execute synchronously for test stability and deterministic ordering.
 			if err := handler(ctx, event); err != nil {
-				logger.Error("event handler failed", "type", event.Type, "id", event.ID, "error", err)
+				logger.Error("event handler failed", "topic", key, "id", event.ID, "error", err)
 			}
 		}
 	}
@@ -85,38 +82,33 @@ func (b *InMemBus) Publish(ctx context.Context, event Event) error {
 }
 
 // Subscribe registers a handler for a specific event type.
-func (b *InMemBus) Subscribe(ctx context.Context, eventType string, handler EventHandler) (Subscription, error) {
+func (b *InMemBus) Subscribe(namespace, eventType string, handler EventHandler) (func(), error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if b.handlers[eventType] == nil {
-		b.handlers[eventType] = make(map[string]EventHandler)
+	key := topicKey(namespace, eventType)
+	if b.handlers[key] == nil {
+		b.handlers[key] = make(map[string]EventHandler)
 	}
 
 	id := uuid.New().String()
-	b.handlers[eventType][id] = handler
+	b.handlers[key][id] = handler
 
-	return &InMemSubscription{
-		bus:       b,
-		eventType: eventType,
-		id:        id,
-	}, nil
-}
-
-func (b *InMemBus) unsubscribe(eventType string, id string) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	if subs, ok := b.handlers[eventType]; ok {
-		delete(subs, id)
-		if len(subs) == 0 {
-			delete(b.handlers, eventType)
+	unsubscribe := func() {
+		b.mu.Lock()
+		defer b.mu.Unlock()
+		if subMap, ok := b.handlers[key]; ok {
+			delete(subMap, id)
+			if len(subMap) == 0 {
+				delete(b.handlers, key)
+			}
 		}
 	}
-	return nil
+
+	return unsubscribe, nil
 }
 
-// Close shuts down the event bus.
+// Close closes the event bus.
 func (b *InMemBus) Close() error {
 	b.closeOnce.Do(func() {
 		close(b.closed)

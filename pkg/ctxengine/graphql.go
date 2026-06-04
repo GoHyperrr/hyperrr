@@ -2,11 +2,11 @@ package ctxengine
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"github.com/GoHyperrr/mdk"
 )
 
 // Ensure Module implements registry.GraphQLProvider at compile time.
@@ -62,7 +62,7 @@ func (m *Module) ListLineages(ctx context.Context) ([]*model.WorkflowLineage, er
 	return res, nil
 }
 
-func (m *Module) Events(ctx context.Context, obj *model.WorkflowLineage) ([]*model.Event, error) {
+func (m *Module) Events(ctx context.Context, obj *model.WorkflowLineage) ([]*mdk.Event, error) {
 	lineage, err := m.projector.GetLineage(obj.ID)
 	if err != nil {
 		return nil, err
@@ -113,14 +113,8 @@ func mapToModel(l *Lineage) *model.WorkflowLineage {
 	}
 
 	for _, e := range l.Events {
-		payloadJSON, _ := json.Marshal(e.Payload)
-		payloadStr := string(payloadJSON)
-		res.Events = append(res.Events, &model.Event{
-			ID:        e.ID,
-			Type:      e.Type,
-			Timestamp: e.Timestamp,
-			Payload:   &payloadStr,
-		})
+		evCopy := e
+		res.Events = append(res.Events, &evCopy)
 	}
 
 	return res

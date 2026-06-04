@@ -30,7 +30,7 @@ func TestProjector(t *testing.T) {
 		// Simulate workflow.started
 		bus.Publish(ctx, eventbus.Event{
 			Type:      workflow.EventWorkflowStarted,
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 			Payload: map[string]any{
 				"id":      workflowID,
 				"name":    "test-workflow",
@@ -41,7 +41,7 @@ func TestProjector(t *testing.T) {
 		// Simulate step 1
 		bus.Publish(ctx, eventbus.Event{
 			Type:      workflow.EventStepStarted,
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 			Payload: map[string]any{
 				"id":      workflowID,
 				"step_id": "step1",
@@ -49,7 +49,7 @@ func TestProjector(t *testing.T) {
 		})
 		bus.Publish(ctx, eventbus.Event{
 			Type:      workflow.EventStepCompleted,
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 			Payload: map[string]any{
 				"id":      workflowID,
 				"step_id": "step1",
@@ -59,7 +59,7 @@ func TestProjector(t *testing.T) {
 		// Simulate workflow.completed
 		bus.Publish(ctx, eventbus.Event{
 			Type:      workflow.EventWorkflowCompleted,
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 			Payload: map[string]any{
 				"id": workflowID,
 			},
@@ -89,27 +89,27 @@ func TestProjector(t *testing.T) {
 		wfID := "wf_fail"
 		bus.Publish(ctx, eventbus.Event{
 			Type:      workflow.EventWorkflowStarted,
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 			Payload:   map[string]any{"id": wfID, "name": "fail", "version": "v1"},
 		})
 		bus.Publish(ctx, eventbus.Event{
 			Type:      workflow.EventStepStarted,
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 			Payload:   map[string]any{"id": wfID, "step_id": "s1"},
 		})
 		bus.Publish(ctx, eventbus.Event{
 			Type:      workflow.EventStepRetrying,
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 			Payload:   map[string]any{"id": wfID, "step_id": "s1"},
 		})
 		bus.Publish(ctx, eventbus.Event{
 			Type:      workflow.EventStepFailed,
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 			Payload:   map[string]any{"id": wfID, "step_id": "s1", "error": "boom"},
 		})
 		bus.Publish(ctx, eventbus.Event{
 			Type:      workflow.EventWorkflowFailed,
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 			Payload:   map[string]any{"id": wfID, "error": "workflow failed"},
 		})
 
@@ -161,52 +161,52 @@ func TestProjector(t *testing.T) {
 		bus.Publish(ctx, eventbus.Event{
 			Type: workflow.EventWorkflowStarted,
 			Payload: map[string]any{"id": wfID, "name": "comp-wf", "version": "v2"},
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 		})
 		bus.Publish(ctx, eventbus.Event{
 			Type: workflow.EventStepStarted,
 			Payload: map[string]any{"id": wfID, "step_id": "step1"},
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 		})
 		bus.Publish(ctx, eventbus.Event{
 			Type: workflow.EventStepRetrying,
 			Payload: map[string]any{"id": wfID, "step_id": "step1"},
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 		})
 		bus.Publish(ctx, eventbus.Event{
 			Type: workflow.EventStepCompleted,
 			Payload: map[string]any{"id": wfID, "step_id": "step1"},
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 		})
 		bus.Publish(ctx, eventbus.Event{
 			Type: "order.created",
 			Payload: map[string]any{"id": wfID, "order_id": "ord123"},
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 		})
 		bus.Publish(ctx, eventbus.Event{
 			Type: workflow.EventStepStarted,
 			Payload: map[string]any{"id": wfID, "step_id": "step2"},
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 		})
 		bus.Publish(ctx, eventbus.Event{
 			Type: workflow.EventStepFailed,
 			Payload: map[string]any{"id": wfID, "step_id": "step2", "error": "step fail"},
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 		})
 		bus.Publish(ctx, eventbus.Event{
 			Type: workflow.EventWaitingHuman,
 			Payload: map[string]any{"id": wfID},
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 		})
 		bus.Publish(ctx, eventbus.Event{
 			Type: "order.paid",
 			Payload: map[string]any{"id": wfID, "order_id": "ord123"},
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 		})
 		bus.Publish(ctx, eventbus.Event{
 			Type: workflow.EventWorkflowFailed,
 			Payload: map[string]any{"id": wfID, "error": "final fail"},
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 		})
 
 		time.Sleep(100 * time.Millisecond)
@@ -238,18 +238,15 @@ func TestProjector(t *testing.T) {
 	t.Run("Complex RelatedLineages", func(t *testing.T) {
 		bus.Publish(ctx, eventbus.Event{
 			Type: workflow.EventWorkflowStarted,
-			Payload: map[string]any{"id": "rel_a", "name": "a"},
-			Metadata: map[string]string{"customer_id": "cust_shared"},
+			Payload: map[string]any{"id": "rel_a", "name": "a", "customer_id": "cust_shared"},
 		})
 		bus.Publish(ctx, eventbus.Event{
 			Type: workflow.EventWorkflowStarted,
-			Payload: map[string]any{"id": "rel_b", "name": "b"},
-			Metadata: map[string]string{"customer_id": "cust_shared"},
+			Payload: map[string]any{"id": "rel_b", "name": "b", "customer_id": "cust_shared"},
 		})
 		bus.Publish(ctx, eventbus.Event{
 			Type: workflow.EventWorkflowStarted,
-			Payload: map[string]any{"id": "rel_c", "name": "c"},
-			Metadata: map[string]string{"customer_id": "cust_shared"},
+			Payload: map[string]any{"id": "rel_c", "name": "c", "customer_id": "cust_shared"},
 		})
 
 		time.Sleep(100 * time.Millisecond)
@@ -286,10 +283,10 @@ func TestProjector(t *testing.T) {
 	t.Run("Coverage Edge Cases", func(t *testing.T) {
 		p := NewProjector(nil)
 
-		// 1. handleEvent with payload that is NOT map[string]any
+		// 1. handleEvent with payload that is nil
 		err := p.handleEvent(ctx, eventbus.Event{
 			Type:    "test",
-			Payload: "not-a-map",
+			Payload: nil,
 		})
 		if err != nil {
 			t.Errorf("expected no error for invalid payload type, got %v", err)
@@ -336,12 +333,11 @@ func TestProjector(t *testing.T) {
 		}
 
 		for _, et := range eventTypes {
-			payload := map[string]any{"id": wfID, "step_id": "s1", "name": "test", "version": "v1", "error": "some error"}
+			payload := map[string]any{"id": wfID, "step_id": "s1", "name": "test", "version": "v1", "error": "some error", "m1": "v1"}
 			err := p.handleEvent(ctx, eventbus.Event{
-				Type:      et,
-				Payload:   payload,
-				Timestamp: time.Now(),
-				Metadata:  map[string]string{"m1": "v1"},
+				Type:       et,
+				Payload:    payload,
+				OccurredAt: time.Now(),
 			})
 			if err != nil {
 				t.Errorf("failed to handle event %s: %v", et, err)
@@ -374,14 +370,14 @@ func TestProjector(t *testing.T) {
 
 		bus := eventbus.NewInMemBus()
 		p := NewProjector(bus)
-		p.SetDB(database)
+		p.SetDB(database.DB)
 
 		wfID := "sql-wf-1"
 
 		// Simulate starting workflow
 		err = p.handleEvent(ctx, eventbus.Event{
 			Type:      workflow.EventWorkflowStarted,
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 			Payload:   map[string]any{"id": wfID, "name": "sql-flow", "version": "v1"},
 		})
 		if err != nil {
@@ -398,7 +394,7 @@ func TestProjector(t *testing.T) {
 		// Simulate terminal state: completed
 		err = p.handleEvent(ctx, eventbus.Event{
 			Type:      workflow.EventWorkflowCompleted,
-			Timestamp: time.Now(),
+			OccurredAt: time.Now(),
 			Payload:   map[string]any{"id": wfID},
 		})
 		if err != nil {
@@ -452,12 +448,12 @@ func TestProjector(t *testing.T) {
 		sqlDB, _ := database.DB.DB()
 
 		p := NewProjector(nil)
-		p.SetDB(database)
+		p.SetDB(database.DB)
 
 		lBad := &Lineage{
 			ID: "bad-marshal",
 			Events: []eventbus.Event{
-				{Type: "test", Payload: make(chan int)},
+				{Type: "test", Payload: map[string]any{"bad": make(chan int)}},
 			},
 		}
 		p.saveToDB(context.Background(), lBad)
@@ -488,6 +484,6 @@ type errorEventBus struct {
 	eventbus.EventBus
 }
 
-func (e *errorEventBus) Subscribe(ctx context.Context, eventType string, handler eventbus.EventHandler) (eventbus.Subscription, error) {
+func (e *errorEventBus) Subscribe(namespace, eventType string, handler eventbus.EventHandler) (func(), error) {
 	return nil, errors.New("mock subscription error")
 }

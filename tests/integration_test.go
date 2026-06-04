@@ -10,6 +10,7 @@ import (
 	domain "github.com/GoHyperrr/hyperrr/pkg/ctxengine"
 	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
+	"github.com/GoHyperrr/mdk"
 )
 
 func TestFullIntegration(t *testing.T) {
@@ -22,12 +23,13 @@ func TestFullIntegration(t *testing.T) {
 
 	// Setup Runner
 	runner := workflow.NewRunner(bus, nil, nil)
-	runner.RegisterTask("step1", func(ctx context.Context, input any) (any, error) {
-		return "done", nil
+	_ = runner.RegisterHandler("step1", func(sCtx mdk.StepContext) mdk.StepResult {
+		return mdk.StepResult{Output: map[string]any{"result": "done"}}
 	})
 
 	// Run Workflow
 	wf := &workflow.Workflow{
+		ID:   "integration-wf",
 		Name: "integration-wf",
 		Steps: []workflow.Step{
 			{ID: "s1", Uses: "step1"},
@@ -35,7 +37,7 @@ func TestFullIntegration(t *testing.T) {
 	}
 	
 	workflowID := "int-123"
-	_, err := runner.Execute(ctx, workflowID, wf, nil)
+	_, err := runner.ExecuteSyncWorkflow(ctx, workflowID, wf, nil)
 	if err != nil {
 		t.Fatalf("workflow failed: %v", err)
 	}

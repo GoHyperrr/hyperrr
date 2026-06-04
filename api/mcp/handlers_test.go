@@ -14,6 +14,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	ident "github.com/GoHyperrr/hyperrr/pkg/identity"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"github.com/GoHyperrr/mdk"
 )
 
 // Mock implementation of WorkflowRegistry for testing
@@ -44,7 +45,7 @@ type mockWorkflowRunner struct {
 	lastActor    *ident.Actor
 }
 
-func (m *mockWorkflowRunner) Execute(ctx context.Context, id string, wf *workflow.Workflow, input any) (map[string]any, error) {
+func (m *mockWorkflowRunner) ExecuteSyncWorkflow(ctx context.Context, id string, wf *workflow.Workflow, input any) (map[string]any, error) {
 	m.lastExecuted = wf.Name
 	m.lastInput = input
 	if a, ok := middleware.ForContext(ctx); ok {
@@ -169,9 +170,9 @@ func TestMCP_FullHandshake(t *testing.T) {
 type mockResourceProvider struct{}
 
 func (m *mockResourceProvider) ID() string { return "mock.resources" }
-func (m *mockResourceProvider) Init(ctx context.Context, deps *registry.Dependencies) error { return nil }
+func (m *mockResourceProvider) Init(ctx context.Context, rt mdk.Runtime) error { return nil }
 func (m *mockResourceProvider) Models() []any { return nil }
-func (m *mockResourceProvider) Handlers() map[string]workflow.TaskHandler { return nil }
+func (m *mockResourceProvider) Routes() []mdk.Route { return nil }
 func (m *mockResourceProvider) Shutdown(ctx context.Context) error { return nil }
 func (m *mockResourceProvider) ListResources(ctx context.Context) ([]registry.MCPResource, error) {
 	return []registry.MCPResource{

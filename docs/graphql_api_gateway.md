@@ -86,7 +86,7 @@ func (m *Module) FieldResolvers() map[string]any {
 
 ## 3. Dynamic Build & Code-Generation Pipeline
 
-When you run `go run ./cmd/hyperrr build` (or `make build`), the build orchestrator executing [build.go](file:///D:/hyperrr-commerce-ai/hyperrr/cmd/hyperrr/build.go) performs the following steps:
+When you run `go run ./cmd/hyperrr build` (or `make build`), the build orchestrator executing [build.go](../cmd/hyperrr/build.go) performs the following steps:
 
 ### Step 1: Schema Aggregation
 1. Cleans up the target `api/graph/schema_gen` cache directory.
@@ -97,7 +97,7 @@ When you run `go run ./cmd/hyperrr build` (or `make build`), the build orchestra
 Invokes GQLGen via `gqlgen generate` to parse the aggregated schemas and write the type-safe engine framework inside `api/graph/generated.go` and `api/graph/model/models_gen.go`.
 
 ### Step 3: Custom Delegation Codegen
-Executes [codegen.go](file:///D:/hyperrr-commerce-ai/hyperrr/cmd/hyperrr/codegen.go):
+Executes [codegen.go](../cmd/hyperrr/codegen.go):
 1. **Module Scanning**: Leverages Go AST parsing to scan the packages, checking which ones implement `GraphQLProvider`.
 2. **Interface Parsing**: Parses the `MutationResolver`, `QueryResolver`, and other custom type resolver interfaces generated inside GQLGen's `generated.go`.
 3. **Case-Insensitive Mapping**: Statically matches GQLGen's resolver method names against the keys returned by `Queries()`, `Mutations()`, and `FieldResolvers()` case-insensitively.
@@ -117,7 +117,7 @@ Executes [codegen.go](file:///D:/hyperrr-commerce-ai/hyperrr/cmd/hyperrr/codegen
 
 ## 4. Run-Time Injection
 
-At startup, the bootstrapper in [app.go](file:///D:/hyperrr-commerce-ai/hyperrr/internal/app/app.go) retrieves the global list of active modules, instantiates the resolver dynamically, and serves the HTTP handler:
+At startup, the bootstrapper in [app.go](../internal/app/app.go) retrieves the global list of active modules, instantiates the resolver dynamically, and serves the HTTP handler:
 
 ```go
 resolver := graph.NewResolver(
@@ -134,7 +134,8 @@ No hardcoded switch-cases or manual imports are required.
 
 ## 5. Security & Authentication Middleware
 
-GraphQL requests pass through the security middleware ([auth.go](file:///D:/hyperrr-commerce-ai/hyperrr/api/middleware/auth.go)) which is dynamically registered by the `auth.emailpass` module (under the `"auth"` key in the registry). The middleware:
+GraphQL requests pass through the security middleware ([auth.go](../api/middleware/auth.go)) which is dynamically registered by the `auth.emailpass` module (under the `"auth"` key in the registry). The middleware:
+
 1. Validates the `Authorization: Bearer <JWT>` header using the secret configured locally inside the `auth.emailpass` module options.
 2. Injects the verified `Actor` object directly into the Go `context.Context`.
 3. Dispatches the request to the dynamic resolvers, enabling easy authorization checks via `ctx.Value`.

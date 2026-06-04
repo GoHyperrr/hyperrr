@@ -24,10 +24,9 @@ func runList() error {
 
 	for _, m := range modules {
 		modelsCount := len(m.Models())
-		tasksCount := len(m.Handlers())
 
-		fmt.Printf("  • %-20s [Models: %d | Workflow Tasks: %d]\n",
-			m.ID(), modelsCount, tasksCount)
+		fmt.Printf("  • %-20s [Models: %d]\n",
+			m.ID(), modelsCount)
 	}
 	fmt.Println()
 	return nil
@@ -54,10 +53,8 @@ func runCreate(args []string) error {
 
 go 1.25.5
 
-replace github.com/GoHyperrr/hyperrr => ../
-
 require (
-	github.com/GoHyperrr/hyperrr v0.0.0
+	github.com/GoHyperrr/mdk v0.1.0
 )
 `, pkgName)
 	if err := os.WriteFile(filepath.Join(pkgName, "go.mod"), []byte(goModContent), 0644); err != nil {
@@ -70,11 +67,10 @@ require (
 import (
 	"context"
 
-	"github.com/GoHyperrr/hyperrr/pkg/workflow"
-	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"github.com/GoHyperrr/mdk"
 )
 
-// Module implements the registry.Module interface.
+// Module implements the mdk.Module interface.
 type Module struct{}
 
 func NewModule() *Module {
@@ -82,14 +78,14 @@ func NewModule() *Module {
 }
 
 func init() {
-	registry.Register(NewModule())
+	mdk.Register(func() mdk.Module { return NewModule() })
 }
 
 func (m *Module) ID() string {
 	return "plugin.%s"
 }
 
-func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
+func (m *Module) Init(ctx context.Context, rt mdk.Runtime) error {
 	// Initialize resources and hooks here
 	return nil
 }
@@ -102,8 +98,8 @@ func (m *Module) Models() []any {
 	return []any{}
 }
 
-func (m *Module) Handlers() map[string]workflow.TaskHandler {
-	return map[string]workflow.TaskHandler{}
+func (m *Module) Routes() []mdk.Route {
+	return nil
 }
 `, pkgName, pkgName)
 	if err := os.WriteFile(filepath.Join(pkgName, "module.go"), []byte(moduleContent), 0644); err != nil {
@@ -127,13 +123,6 @@ func (m *Module) Handlers() map[string]workflow.TaskHandler {
 	// 5. Write graphql.go
 	titlePkg := strings.ToUpper(pkgName[:1]) + pkgName[1:]
 	graphqlContent := fmt.Sprintf(`package %s
-
-import (
-	"github.com/GoHyperrr/hyperrr/pkg/registry"
-)
-
-// Ensure Module implements registry.GraphQLProvider at compile time.
-var _ registry.GraphQLProvider = (*Module)(nil)
 
 func (m *Module) Queries() map[string]any {
 	return map[string]any{

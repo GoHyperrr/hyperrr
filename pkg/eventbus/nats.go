@@ -10,26 +10,13 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-// NATSSubscription implements the Subscription interface for NATS.
-type NATSSubscription struct {
-	sub *nats.Subscription
-	bus *NATSBus
-}
-
-func (s *NATSSubscription) Unsubscribe() error {
-	if s.bus != nil {
-		s.bus.removeSubscription(s)
-	}
-	return s.sub.Unsubscribe()
-}
-
 // NATSBus is a NATS-based event bus.
 type NATSBus struct {
-	conn      *nats.Conn
-	ctx       context.Context
-	cancel    context.CancelFunc
-	mu        sync.Mutex
-	subs      []*NATSSubscription
+	conn   *nats.Conn
+	ctx    context.Context
+	cancel context.CancelFunc
+	mu     sync.Mutex
+	subs   []*nats.Subscription
 }
 
 // NewNATSBus creates a new NATSBus.
@@ -39,14 +26,11 @@ func NewNATSBus(url string) (*NATSBus, error) {
 		return nil, fmt.Errorf("failed to connect to NATS: %w", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	bus := &NATSBus{
+	return &NATSBus{
 		conn:   nc,
 		ctx:    ctx,
 		cancel: cancel,
-		subs:   make([]*NATSSubscription, 0),
-	}
-	
-	return bus, nil
+	}, nil
 }
 
 // SetContext sets the base context for event handlers and ties the bus lifecycle to it.
@@ -54,12 +38,12 @@ func (b *NATSBus) SetContext(ctx context.Context) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.cancel != nil {
-		b.cancel() // Cancel the old background context
+		b.cancel()
 	}
-	
 	b.ctx, b.cancel = context.WithCancel(ctx)
 }
 
+// Publish publishes an event to NATS.
 func (b *NATSBus) Publish(ctx context.Context, event Event) error {
 	if b.conn == nil {
 		return fmt.Errorf("nats connection is nil")
@@ -68,58 +52,66 @@ func (b *NATSBus) Publish(ctx context.Context, event Event) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal event: %w", err)
 	}
-	return b.conn.Publish(event.Type, data)
+	subject := topicKey(event.Namespace, event.Type)
+	return b.conn.Publish(subject, data)
 }
 
-func (b *NATSBus) Subscribe(ctx context.Context, eventType string, handler EventHandler) (Subscription, error) {
+// Subscribe subscribes to a topic.
+func (b *NATSBus) Subscribe(namespace, eventType string, handler EventHandler) (func(), error) {
 	if b.conn == nil {
 		return nil, fmt.Errorf("nats connection is nil")
 	}
-	sub, err := b.conn.Subscribe(eventType, func(m *nats.Msg) {
+	subject := topicKey(namespace, eventType)
+	sub, err := b.conn.Subscribe(subject, func(m *nats.Msg) {
 		var event Event
 		if err := json.Unmarshal(m.Data, &event); err != nil {
-			logger.Error("failed to unmarshal NATS event", "type", eventType, "error", err)
+			logger.Error("failed to unmarshal NATS event", "subject", subject, "error", err)
 			return
 		}
-		if err := handler(b.ctx, event); err != nil {
-			logger.Error("nats event handler failed", "type", event.Type, "id", event.ID, "error", err)
+		
+		b.mu.Lock()
+		activeCtx := b.ctx
+		b.mu.Unlock()
+		
+		if err := handler(activeCtx, event); err != nil {
+			logger.Error("nats event handler failed", "subject", subject, "id", event.ID, "error", err)
 		}
 	})
 	if err != nil {
 		return nil, err
 	}
-	
-	natsSub := &NATSSubscription{sub: sub, bus: b}
-	
-	b.mu.Lock()
-	b.subs = append(b.subs, natsSub)
-	b.mu.Unlock()
-	
-	return natsSub, nil
-}
 
-func (b *NATSBus) removeSubscription(s *NATSSubscription) {
 	b.mu.Lock()
-	defer b.mu.Unlock()
-	for i, sub := range b.subs {
-		if sub == s {
-			b.subs = append(b.subs[:i], b.subs[i+1:]...)
-			break
+	b.subs = append(b.subs, sub)
+	b.mu.Unlock()
+
+	unsubscribe := func() {
+		_ = sub.Unsubscribe()
+		b.mu.Lock()
+		defer b.mu.Unlock()
+		for i, s := range b.subs {
+			if s == sub {
+				b.subs = append(b.subs[:i], b.subs[i+1:]...)
+				break
+			}
 		}
 	}
+
+	return unsubscribe, nil
 }
 
+// Close closes the NATS event bus.
 func (b *NATSBus) Close() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
+
 	if b.cancel != nil {
 		b.cancel()
 		b.cancel = nil
 	}
 
 	for _, sub := range b.subs {
-		sub.sub.Unsubscribe()
+		_ = sub.Unsubscribe()
 	}
 	b.subs = nil
 

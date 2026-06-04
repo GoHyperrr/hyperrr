@@ -54,7 +54,7 @@ func TestStorage(t *testing.T) {
 			},
 		}
 
-		if err := mod.Init(ctx, deps); err != nil {
+		if err := mod.Init(ctx, registry.NewRuntime(deps)); err != nil {
 			t.Fatalf("init failed: %v", err)
 		}
 		if mod.Provider() == nil {
@@ -68,7 +68,7 @@ func TestStorage(t *testing.T) {
 			Config: &config.Config{}, // No bucket URL provided
 		}
 
-		if err := mod.Init(ctx, deps); err != nil {
+		if err := mod.Init(ctx, registry.NewRuntime(deps)); err != nil {
 			t.Fatalf("init failed: %v", err)
 		}
 		

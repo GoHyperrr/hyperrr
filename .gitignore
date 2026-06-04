@@ -39,3 +39,5 @@ api/graph/*.resolvers.go
 api/graph/resolver.go
 api/graph/resolvers_impl.go
 
+# Generated imports
+internal/app/imports_generated.go

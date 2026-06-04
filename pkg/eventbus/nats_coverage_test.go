@@ -10,14 +10,14 @@ func TestNATSBus_Coverage(t *testing.T) {
 	bus := &NATSBus{conn: nil}
 
 	t.Run("Publish with nil conn", func(t *testing.T) {
-		err := bus.Publish(ctx, Event{Type: "test"})
+		err := bus.Publish(ctx, Event{Namespace: "test", Type: "event"})
 		if err == nil {
 			t.Error("expected error when publishing with nil conn")
 		}
 	})
 
 	t.Run("Subscribe with nil conn", func(t *testing.T) {
-		_, err := bus.Subscribe(ctx, "test", func(ctx context.Context, e Event) error { return nil })
+		_, err := bus.Subscribe("test", "event", func(ctx context.Context, e Event) error { return nil })
 		if err == nil {
 			t.Error("expected error when subscribing with nil conn")
 		}

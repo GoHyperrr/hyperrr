@@ -9,6 +9,7 @@ import (
 
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/locking"
+	"github.com/GoHyperrr/mdk"
 )
 
 func TestStateStore_Common(t *testing.T) {
@@ -162,7 +163,7 @@ func TestWorkflow_IdempotentEmit(t *testing.T) {
 	
 	// Mock a handler that emits an event
 	count := 0
-	bus.Subscribe(ctx, "test.idempotent", func(ctx context.Context, event eventbus.Event) error {
+	_, _ = bus.Subscribe("test", "idempotent", func(ctx context.Context, event mdk.Event) error {
 		count++
 		return nil
 	})
@@ -186,17 +187,18 @@ func TestRunner_Execute_Checkpointing(t *testing.T) {
 	runner := NewRunner(bus, store, nil)
 	ctx := context.Background()
 	
-	runner.RegisterTask("t1", func(ctx context.Context, input any) (any, error) {
-		return "ok", nil
+	_ = runner.RegisterHandler("t1", func(sCtx mdk.StepContext) mdk.StepResult {
+		return mdk.StepResult{Output: map[string]any{"res": "ok"}}
 	})
 	
 	wf := &Workflow{
+		ID:   "check-wf",
 		Name: "check-wf",
 		Steps: []Step{{ID: "s1", Uses: "t1"}},
 	}
 	
 	id := "exec-check"
-	runner.Execute(ctx, id, wf, map[string]any{"start": true})
+	_, _ = runner.ExecuteSyncWorkflow(ctx, id, wf, map[string]any{"start": true})
 	
 	// Verify store has input
 	inp, _ := store.GetInput(ctx, id)
@@ -210,8 +212,8 @@ func TestRunner_Execute_Checkpointing(t *testing.T) {
 	
 	// Verify store has output
 	out, _ := store.GetStepOutput(ctx, id, "s1")
-	if string(out) != `"ok"` {
-		t.Errorf("expected \"ok\", got %s", string(out))
+	if string(out) != `{"res":"ok"}` {
+		t.Errorf("expected `{\"res\":\"ok\"}`, got %s", string(out))
 	}
 }
 

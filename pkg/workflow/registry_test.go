@@ -6,12 +6,11 @@ func TestWorkflowRegistry(t *testing.T) {
 	r := NewRegistry()
 	wf := &Workflow{
 		Name:        "test",
-		Version:     "v1",
 		Description: "A test workflow",
 		ExposeToAI:  true,
 		InputSchema: map[string]any{"type": "object"},
 	}
-	r.Register(wf)
+	_ = r.Register(wf)
 
 	t.Run("Get Success and Metadata", func(t *testing.T) {
 		got, err := r.Get("test")

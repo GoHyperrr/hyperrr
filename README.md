@@ -140,7 +140,8 @@ mutation {
 ## 📖 Deep-Dive Reference Docs
 
 Browse our specialized design docs inside the `docs/` folder to learn more about the core engines:
-* [docs/workflows_and_dags.md](file:///D:/hyperrr-commerce-ai/hyperrr/docs/workflows_and_dags.md): Declarative step definitions, RETRY gates, and parallel execution trees.
-* [docs/event_fabric.md](file:///D:/hyperrr-commerce-ai/hyperrr/docs/event_fabric.md): Asynchronous Pub/Sub and namespace routing.
-* [docs/model_context_protocol.md](file:///D:/hyperrr-commerce-ai/hyperrr/docs/model_context_protocol.md): MCP SSE gateway details.
-* [docs/graphql_api_gateway.md](file:///D:/hyperrr-commerce-ai/hyperrr/docs/graphql_api_gateway.md): Zero Core Pollution dynamic module resolver container.
+* [docs/workflows_and_dags.md](docs/workflows_and_dags.md): Declarative step definitions, RETRY gates, and parallel execution trees.
+* [docs/event_fabric.md](docs/event_fabric.md): Asynchronous Pub/Sub and namespace routing.
+* [docs/model_context_protocol.md](docs/model_context_protocol.md): MCP SSE gateway details.
+* [docs/graphql_api_gateway.md](docs/graphql_api_gateway.md): Zero Core Pollution dynamic module resolver container.
+

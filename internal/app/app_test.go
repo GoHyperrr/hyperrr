@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"github.com/GoHyperrr/mdk"
 )
 
 type mockModule struct {
@@ -20,8 +20,18 @@ func (m *mockModule) ID() string {
 	return "commerce.mockhotel"
 }
 
-func (m *mockModule) Init(ctx context.Context, deps *registry.Dependencies) error {
+func (m *mockModule) Init(ctx context.Context, rt mdk.Runtime) error {
 	m.initialized = true
+	if modulesVal := rt.Config("modules"); modulesVal != nil {
+		if modules, ok := modulesVal.([]config.ModuleConfig); ok {
+			for _, modCfg := range modules {
+				if registry.NormalizeModuleID(modCfg.Resolve) == registry.NormalizeModuleID(m.ID()) {
+					m.options = modCfg.Options
+					break
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -29,7 +39,7 @@ func (m *mockModule) Models() []any {
 	return nil
 }
 
-func (m *mockModule) Handlers() map[string]workflow.TaskHandler {
+func (m *mockModule) Routes() []mdk.Route {
 	return nil
 }
 
@@ -106,10 +116,9 @@ func TestRun(t *testing.T) {
 		defer os.Unsetenv("TEST_HOTEL_API_KEY")
 
 		// Register mock module factory with full import path name
-		var instantiatedMod *mockModule
-		registry.RegisterFactory("github.com/GoHyperrr/commerce/mockhotel", func(options map[string]any) (registry.Module, error) {
-			instantiatedMod = &mockModule{options: options}
-			return instantiatedMod, nil
+		instantiatedMod := &mockModule{}
+		mdk.Register(func() mdk.Module {
+			return instantiatedMod
 		})
 
 		cfg, err := config.LoadWithFile("")

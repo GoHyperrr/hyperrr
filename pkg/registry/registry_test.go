@@ -4,21 +4,21 @@ import (
 	"context"
 	"testing"
 
-	"github.com/GoHyperrr/hyperrr/pkg/workflow"
+	"github.com/GoHyperrr/mdk"
 )
 
 type mockModule struct {
-	id       string
-	initErr  error
-	models   []any
-	handlers map[string]workflow.TaskHandler
+	id      string
+	initErr error
+	models  []any
+	routes  []mdk.Route
 }
 
 func (m *mockModule) ID() string { return m.id }
-func (m *mockModule) Init(ctx context.Context, deps *Dependencies) error { return m.initErr }
+func (m *mockModule) Init(ctx context.Context, rt mdk.Runtime) error { return m.initErr }
 func (m *mockModule) Shutdown(ctx context.Context) error { return nil }
 func (m *mockModule) Models() []any { return m.models }
-func (m *mockModule) Handlers() map[string]workflow.TaskHandler { return m.handlers }
+func (m *mockModule) Routes() []mdk.Route { return m.routes }
 
 func TestRegistry(t *testing.T) {
 	t.Run("Register and List", func(t *testing.T) {
@@ -73,8 +73,8 @@ func TestRegistry(t *testing.T) {
 		m := &mockModule{
 			id:     "test",
 			models: []any{"model1"},
-			handlers: map[string]workflow.TaskHandler{
-				"task1": func(ctx context.Context, input any) (any, error) { return nil, nil },
+			routes: []mdk.Route{
+				{Method: "GET", Pattern: "/test", Handler: nil},
 			},
 		}
 
@@ -84,8 +84,8 @@ func TestRegistry(t *testing.T) {
 		if len(m.Models()) != 1 {
 			t.Error("invalid Models")
 		}
-		if len(m.Handlers()) != 1 {
-			t.Error("invalid Handlers")
+		if len(m.Routes()) != 1 {
+			t.Error("invalid Routes")
 		}
 		if m.Init(context.Background(), nil) != nil {
 			t.Error("invalid Init")

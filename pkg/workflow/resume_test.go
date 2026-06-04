@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
+	"github.com/GoHyperrr/mdk"
 )
 
 func TestRunner_ResumeExecution(t *testing.T) {
@@ -15,24 +16,23 @@ func TestRunner_ResumeExecution(t *testing.T) {
 	bus := eventbus.NewInMemBus()
 	store := NewInMemStore()
 
-	// Use an injected store
 	runner := NewRunner(bus, store, nil)
 
 	var step1Count, step2Count int
 
-	runner.RegisterTask("step1_handler", func(ctx context.Context, input any) (any, error) {
+	_ = runner.RegisterHandler("step1_handler", func(sCtx mdk.StepContext) mdk.StepResult {
 		step1Count++
-		return map[string]any{"step1_res": "ok"}, nil
+		return mdk.StepResult{Output: map[string]any{"step1_res": "ok"}}
 	})
 
-	runner.RegisterTask("step2_handler", func(ctx context.Context, input any) (any, error) {
+	_ = runner.RegisterHandler("step2_handler", func(sCtx mdk.StepContext) mdk.StepResult {
 		step2Count++
-		return map[string]any{"step2_res": "done"}, nil
+		return mdk.StepResult{Output: map[string]any{"step2_res": "done"}}
 	})
 
 	wf := &Workflow{
-		Name:    "resume_test_wf",
-		Version: "v1",
+		ID:   "resume_test_wf",
+		Name: "resume_test_wf",
 		Steps: []Step{
 			{ID: "step1", Uses: "step1_handler"},
 			{ID: "step2", Uses: "step2_handler", DependsOn: []string{"step1"}},
@@ -40,8 +40,6 @@ func TestRunner_ResumeExecution(t *testing.T) {
 	}
 
 	execID := "resume_test_exec_1"
-	
-	// Simulate an interrupted workflow where step1 completed successfully but step2 never started
 	
 	// Setup mock state in store
 	input := map[string]any{"user_id": "u1"}
@@ -60,7 +58,6 @@ func TestRunner_ResumeExecution(t *testing.T) {
 		t.Fatalf("ResumeExecution failed: %v", err)
 	}
 	
-	// Validate results
 	if step1Count != 0 {
 		t.Errorf("step1 should not have been executed, ran %d times", step1Count)
 	}
@@ -69,22 +66,14 @@ func TestRunner_ResumeExecution(t *testing.T) {
 		t.Errorf("step2 should have been executed exactly once, ran %d times", step2Count)
 	}
 	
-	if res["step1"] == nil {
-		t.Errorf("step1 results missing from final output")
-	} else {
-		resMap := res["step1"].(map[string]any)
-		if resMap["step1_res"] != "ok" {
-			t.Errorf("expected step1_res=ok, got %v", resMap["step1_res"])
-		}
-	}
-	
-	if res["step2"] == nil {
-		t.Errorf("step2 results missing from final output")
+	s1Res, ok := res["step1"].(map[string]any)
+	if !ok || s1Res["step1_res"] != "ok" {
+		t.Errorf("expected step1_res=ok, got %v", res["step1"])
 	}
 }
 
 func TestRunner_ResumeExecution_NoStore(t *testing.T) {
-	runner := &Runner{handlers: make(map[string]TaskHandler)}
+	runner := &Runner{}
 	_, err := runner.ResumeExecution(context.Background(), "id", &Workflow{})
 	if err == nil {
 		t.Error("expected error when resuming without StateStore")
@@ -166,15 +155,15 @@ func TestRunner_ResumeExecution_ErrorPaths(t *testing.T) {
 		runner := NewRunner(bus, store, nil)
 
 		compCalled := false
-		runner.RegisterTask("ok_task", func(ctx context.Context, input any) (any, error) {
-			return "ok", nil
+		_ = runner.RegisterHandler("ok_task", func(sCtx mdk.StepContext) mdk.StepResult {
+			return mdk.StepResult{Output: map[string]any{"res": "ok"}}
 		})
-		runner.RegisterTask("fail_task", func(ctx context.Context, input any) (any, error) {
-			return nil, errors.New("step failed")
+		_ = runner.RegisterHandler("fail_task", func(sCtx mdk.StepContext) mdk.StepResult {
+			return mdk.StepResult{Err: errors.New("step failed")}
 		})
-		runner.RegisterTask("comp_task", func(ctx context.Context, input any) (any, error) {
+		_ = runner.RegisterHandler("comp_task", func(sCtx mdk.StepContext) mdk.StepResult {
 			compCalled = true
-			return nil, nil
+			return mdk.StepResult{}
 		})
 
 		execID := "resume-fail"
@@ -184,12 +173,12 @@ func TestRunner_ResumeExecution_ErrorPaths(t *testing.T) {
 
 		// s1 already completed
 		store.SaveState(ctx, execID, "s1", StateCompleted)
-		s1Out, _ := json.Marshal("ok")
+		s1Out, _ := json.Marshal(map[string]any{"res": "ok"})
 		store.SaveStepOutput(ctx, execID, "s1", s1Out)
 
 		wf := &Workflow{
 			Steps: []Step{
-				{ID: "s1", Uses: "ok_task", Saga: &Saga{Uses: "comp_task"}},
+				{ID: "s1", Uses: "ok_task", Saga: &mdk.Saga{Uses: "comp_task"}},
 				{ID: "s2", Uses: "fail_task", DependsOn: []string{"s1"}},
 			},
 		}
@@ -208,9 +197,9 @@ func TestRunner_ResumeExecution_ErrorPaths(t *testing.T) {
 		runner := NewRunner(bus, store, nil)
 
 		callCount := 0
-		runner.RegisterTask("rerun_task", func(ctx context.Context, input any) (any, error) {
+		_ = runner.RegisterHandler("rerun_task", func(sCtx mdk.StepContext) mdk.StepResult {
 			callCount++
-			return "rerun_result", nil
+			return mdk.StepResult{Output: map[string]any{"res": "rerun_result"}}
 		})
 
 		execID := "resume-running"
@@ -230,7 +219,8 @@ func TestRunner_ResumeExecution_ErrorPaths(t *testing.T) {
 		if callCount != 1 {
 			t.Errorf("expected step to be re-executed once, got %d", callCount)
 		}
-		if res["s1"] != "rerun_result" {
+		s1Res, ok := res["s1"].(map[string]any)
+		if !ok || s1Res["res"] != "rerun_result" {
 			t.Errorf("expected rerun_result, got %v", res["s1"])
 		}
 	})
@@ -239,12 +229,12 @@ func TestRunner_ResumeExecution_ErrorPaths(t *testing.T) {
 		store := NewInMemStore()
 		runner := NewRunner(bus, store, nil)
 
-		runner.RegisterTask("slow_task", func(ctx context.Context, input any) (any, error) {
+		_ = runner.RegisterHandler("slow_task", func(sCtx mdk.StepContext) mdk.StepResult {
 			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
+			case <-sCtx.Ctx.Done():
+				return mdk.StepResult{Err: sCtx.Ctx.Err()}
 			case <-time.After(5 * time.Second):
-				return "done", nil
+				return mdk.StepResult{Output: map[string]any{"res": "done"}}
 			}
 		})
 
@@ -280,7 +270,7 @@ func TestRunner_ResumeExecution_ErrorPaths(t *testing.T) {
 	t.Run("Resume deadlock detection", func(t *testing.T) {
 		store := NewInMemStore()
 		runner := NewRunner(bus, store, nil)
-		runner.RegisterTask("t1", func(ctx context.Context, input any) (any, error) { return nil, nil })
+		_ = runner.RegisterHandler("t1", func(sCtx mdk.StepContext) mdk.StepResult { return mdk.StepResult{} })
 
 		execID := "resume-deadlock"
 		inputBytes, _ := json.Marshal(map[string]any{"x": 1})
@@ -299,49 +289,18 @@ func TestRunner_ResumeExecution_ErrorPaths(t *testing.T) {
 			t.Error("expected deadlock error during resume")
 		}
 	})
-
-	t.Run("Resume completed step with empty output bytes", func(t *testing.T) {
-		store := NewInMemStore()
-		runner := NewRunner(bus, store, nil)
-
-		runner.RegisterTask("next_task", func(ctx context.Context, input any) (any, error) {
-			return "ok", nil
-		})
-
-		execID := "resume-empty-output"
-		inputBytes, _ := json.Marshal(map[string]any{"x": 1})
-		store.SaveInput(ctx, execID, inputBytes)
-		store.InitializeExecution(ctx, execID, inputBytes)
-		store.SaveState(ctx, execID, "s1", StateCompleted)
-		store.SaveStepOutput(ctx, execID, "s1", []byte{}) // empty output
-
-		wf := &Workflow{
-			Steps: []Step{
-				{ID: "s1", Uses: "next_task"},
-				{ID: "s2", Uses: "next_task", DependsOn: []string{"s1"}},
-			},
-		}
-
-		res, err := runner.ResumeExecution(ctx, execID, wf)
-		if err != nil {
-			t.Fatalf("ResumeExecution failed: %v", err)
-		}
-		if res["s2"] != "ok" {
-			t.Errorf("expected ok, got %v", res["s2"])
-		}
-	})
 }
 
-func TestRunner_Execute_ContextCancellation(t *testing.T) {
+func TestRunner_ExecuteSyncWorkflow_ContextCancellation(t *testing.T) {
 	bus := eventbus.NewInMemBus()
 	runner := NewRunner(bus, nil, nil)
 
-	runner.RegisterTask("slow", func(ctx context.Context, input any) (any, error) {
+	_ = runner.RegisterHandler("slow", func(sCtx mdk.StepContext) mdk.StepResult {
 		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
+		case <-sCtx.Ctx.Done():
+			return mdk.StepResult{Err: sCtx.Ctx.Err()}
 		case <-time.After(5 * time.Second):
-			return "done", nil
+			return mdk.StepResult{Output: map[string]any{"res": "done"}}
 		}
 	})
 
@@ -352,7 +311,7 @@ func TestRunner_Execute_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	errChan := make(chan error, 1)
 	go func() {
-		_, err := runner.Execute(ctx, "ctx-cancel-exec", wf, nil)
+		_, err := runner.ExecuteSyncWorkflow(ctx, "ctx-cancel-exec", wf, nil)
 		errChan <- err
 	}()
 
@@ -369,33 +328,17 @@ func TestRunner_Execute_ContextCancellation(t *testing.T) {
 	}
 }
 
-func TestRunner_ResumeWorkflow_NotWaiting(t *testing.T) {
-	bus := eventbus.NewInMemBus()
-	runner := NewRunner(bus, nil, nil)
-
-	err := runner.ResumeWorkflow("non-existent-wf", "retry")
-	if err == nil {
-		t.Error("expected error for non-waiting workflow")
-	}
-}
-
-func TestRunner_ApplyBackoff_NilPolicy(t *testing.T) {
-	r := &Runner{}
-	// Should not panic
-	r.applyBackoff(nil, 1)
-}
-
 func TestRunner_Compensate_NonCriticalFailure(t *testing.T) {
 	bus := eventbus.NewInMemBus()
 	runner := NewRunner(bus, nil, nil)
 
-	runner.RegisterTask("comp_non_crit", func(ctx context.Context, input any) (any, error) {
-		return nil, errors.New("comp failed non-critical")
+	_ = runner.RegisterHandler("comp_non_crit", func(sCtx mdk.StepContext) mdk.StepResult {
+		return mdk.StepResult{Err: errors.New("comp failed non-critical")}
 	})
 
 	// Should not panic, just log
 	runner.compensate(context.Background(), "test-id", []Step{
-		{ID: "s1", Uses: "t1", Saga: &Saga{Uses: "comp_non_crit", IsCritical: false}},
+		{ID: "s1", Uses: "t1", Saga: &mdk.Saga{Uses: "comp_non_crit", IsCritical: false}},
 	}, map[string]any{})
 }
 

@@ -4,20 +4,11 @@ package app
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
-	"github.com/GoHyperrr/commerce/product"
-	"github.com/GoHyperrr/commerce/customer"
-	"github.com/GoHyperrr/commerce/cart"
-	"github.com/GoHyperrr/commerce/order"
-	"github.com/GoHyperrr/commerce/finance"
-	"github.com/GoHyperrr/commerce/notification"
-	"github.com/GoHyperrr/commerce/fulfillment"
-	"github.com/GoHyperrr/commerce/support"
-	"github.com/GoHyperrr/commerce/marketing"
-	"github.com/GoHyperrr/commerce/search"
-	"github.com/GoHyperrr/commerce/analytics"
 	"github.com/GoHyperrr/hyperrr/internal"
 	"github.com/GoHyperrr/hyperrr/api/graph"
 	"github.com/GoHyperrr/hyperrr/api/mcp"
@@ -30,8 +21,10 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/locking"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"github.com/GoHyperrr/mdk"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
+	"gorm.io/gorm"
 )
 
 // Run initializes and starts the hyperrr application.
@@ -114,46 +107,46 @@ func RunWithConfig(cfg *config.Config) error {
 	registry.Register(storage.NewModule())
 
 	// Register built-in factories
-	registerBuiltInFactories()
-
 	// If no modules are configured, default to loading all built-in commerce and auth modules
 	modulesToLoad := cfg.Modules
+	factories := mdk.Registered()
+
 	if len(modulesToLoad) == 0 {
-		modulesToLoad = []config.ModuleConfig{
-			{Resolve: "auth.emailpass"},
-			{Resolve: "auth.apikey"},
-			{Resolve: "commerce.product"},
-			{Resolve: "commerce.customer"},
-			{Resolve: "commerce.cart"},
-			{Resolve: "commerce.order"},
-			{Resolve: "commerce.finance"},
-			{Resolve: "commerce.notification"},
-			{Resolve: "commerce.fulfillment"},
-			{Resolve: "commerce.support"},
-			{Resolve: "commerce.marketing"},
-			{Resolve: "commerce.search"},
-			{Resolve: "commerce.analytics"},
+		for _, factory := range factories {
+			mod := factory()
+			registry.Register(mod)
+		}
+	} else {
+		// Dynamic Module Registration
+		for _, mCfg := range modulesToLoad {
+			lookupID := mCfg.ID
+			if lookupID == "" {
+				lookupID = mCfg.Resolve
+			}
+			normalizedID := registry.NormalizeModuleID(lookupID)
+
+			factory, ok := factories[normalizedID]
+			if !ok {
+				factory, ok = factories[lookupID]
+			}
+			if !ok {
+				return fmt.Errorf("module factory not found for resolve path or ID: %s", lookupID)
+			}
+
+			mod := factory()
+			registry.Register(mod)
 		}
 	}
 
-	// Dynamic Module Registration
-	for _, mCfg := range modulesToLoad {
-		lookupID := mCfg.ID
-		if lookupID == "" {
-			lookupID = mCfg.Resolve
-		}
-		factory, ok := registry.GetFactory(lookupID)
-		if !ok {
-			return fmt.Errorf("module factory not found for resolve path or ID: %s (resolve: %s)", lookupID, mCfg.Resolve)
-		}
-
-		mod, err := factory(mCfg.Options)
-		if err != nil {
-			return fmt.Errorf("failed to instantiate module %s: %w", mCfg.Resolve, err)
-		}
-
-		registry.Register(mod)
+	// Create dynamic Runtime wrapper
+	rt := &runtimeImpl{
+		db:        database.DB,
+		bus:       bus,
+		workflows: runner,
+		cfg:       cfg,
+		logger:    logger.Get().Logger,
 	}
+	runner.SetRuntime(rt)
 
 	// 7. Discover and Initialize Modules (Plugins)
 	deps := &registry.Dependencies{
@@ -237,21 +230,9 @@ func RunWithConfig(cfg *config.Config) error {
 	}
 
 	for _, mod := range modules {
-		logger.Info("Initializing module", "id", mod.ID())
-
 		// Auto-register models
 		if models := mod.Models(); len(models) > 0 {
 			db.Register(models...)
-		}
-
-		// Auto-register task handlers
-		for name, handler := range mod.Handlers() {
-			runner.RegisterTask(name, handler)
-		}
-
-		// Module-specific initialization
-		if err := mod.Init(context.Background(), deps); err != nil {
-			return fmt.Errorf("failed to initialize module %s: %w", mod.ID(), err)
 		}
 	}
 
@@ -260,24 +241,15 @@ func RunWithConfig(cfg *config.Config) error {
 		return fmt.Errorf("failed to run database migrations: %w", err)
 	}
 
-	// 9. Register system.about tool & workflow for AI agent context
-	runner.RegisterTask("system.about", func(ctx context.Context, input any) (any, error) {
-		var activeModules []string
-		for _, m := range registry.List() {
-			activeModules = append(activeModules, m.ID())
+	for _, mod := range modules {
+		logger.Info("Initializing module", "id", mod.ID())
+		// Module-specific initialization
+		if err := mod.Init(context.Background(), rt); err != nil {
+			return fmt.Errorf("failed to initialize module %s: %w", mod.ID(), err)
 		}
+	}
 
-		info := map[string]any{
-			"version":        internal.Version,
-			"environment":    cfg.AppEnv,
-			"current_time":   time.Now().Format(time.RFC3339),
-			"active_modules": activeModules,
-			"event_bus":      cfg.EventBusProvider,
-			"state_store":    cfg.WorkflowStoreType,
-		}
-		return info, nil
-	})
-
+	// 9. Register system.about workflow for AI agent context
 	_ = registryStore.Register(&workflow.Workflow{
 		Name:        "system.about",
 		Description: "Returns metadata about the running system, including active modules, version, current server time, and environment configurations.",
@@ -288,7 +260,23 @@ func RunWithConfig(cfg *config.Config) error {
 		Steps: []workflow.Step{
 			{
 				ID:   "about",
-				Uses: "system.about",
+				Name: "About System",
+				Handler: func(sCtx mdk.StepContext) mdk.StepResult {
+					var activeModules []string
+					for _, m := range registry.List() {
+						activeModules = append(activeModules, m.ID())
+					}
+
+					info := map[string]any{
+						"version":        internal.Version,
+						"environment":    cfg.AppEnv,
+						"current_time":   time.Now().Format(time.RFC3339),
+						"active_modules": activeModules,
+						"event_bus":      cfg.EventBusProvider,
+						"state_store":    cfg.WorkflowStoreType,
+					}
+					return mdk.StepResult{Output: info}
+				},
 			},
 		},
 	})
@@ -328,38 +316,39 @@ func RunWithConfig(cfg *config.Config) error {
 	return http.ListenAndServe(addr, mux)
 }
 
-func registerBuiltInFactories() {
-	registry.RegisterFactory("commerce.product", func(opts map[string]any) (registry.Module, error) {
-		return product.NewModule(), nil
-	})
-	registry.RegisterFactory("commerce.customer", func(opts map[string]any) (registry.Module, error) {
-		return customer.NewModule(), nil
-	})
-	registry.RegisterFactory("commerce.cart", func(opts map[string]any) (registry.Module, error) {
-		return cart.NewModule(), nil
-	})
-	registry.RegisterFactory("commerce.order", func(opts map[string]any) (registry.Module, error) {
-		return order.NewModule(), nil
-	})
-	registry.RegisterFactory("commerce.finance", func(opts map[string]any) (registry.Module, error) {
-		return finance.NewModule(), nil
-	})
-	registry.RegisterFactory("commerce.notification", func(opts map[string]any) (registry.Module, error) {
-		return notification.NewModule(nil), nil
-	})
-	registry.RegisterFactory("commerce.fulfillment", func(opts map[string]any) (registry.Module, error) {
-		return fulfillment.NewModule(), nil
-	})
-	registry.RegisterFactory("commerce.support", func(opts map[string]any) (registry.Module, error) {
-		return support.NewModule(), nil
-	})
-	registry.RegisterFactory("commerce.marketing", func(opts map[string]any) (registry.Module, error) {
-		return marketing.NewModule(), nil
-	})
-	registry.RegisterFactory("commerce.search", func(opts map[string]any) (registry.Module, error) {
-		return search.NewModule(), nil
-	})
-	registry.RegisterFactory("commerce.analytics", func(opts map[string]any) (registry.Module, error) {
-		return analytics.NewModule(), nil
-	})
+type runtimeImpl struct {
+	db        *gorm.DB
+	bus       mdk.EventBus
+	workflows mdk.WorkflowEngine
+	cfg       *config.Config
+	logger    *slog.Logger
 }
+
+func (r *runtimeImpl) DB() *gorm.DB { return r.db }
+func (r *runtimeImpl) Bus() mdk.EventBus { return r.bus }
+func (r *runtimeImpl) Workflows() mdk.WorkflowEngine { return r.workflows }
+func (r *runtimeImpl) Logger() *slog.Logger { return r.logger }
+func (r *runtimeImpl) Module(id string) (mdk.Module, bool) {
+	return registry.Get(id)
+}
+func (r *runtimeImpl) Config(key string) any {
+	switch strings.ToLower(key) {
+	case "appname", "app_name":
+		return r.cfg.AppName
+	case "appenv", "app_env":
+		return r.cfg.AppEnv
+	case "loglevel", "log_level":
+		return r.cfg.LogLevel
+	case "serverport", "server_port":
+		return r.cfg.ServerPort
+	case "storagebucketurl", "storage_bucket_url":
+		return r.cfg.StorageBucketURL
+	case "natsurl", "nats_url":
+		return r.cfg.NATSURL
+	case "modules":
+		return r.cfg.Modules
+	default:
+		return nil
+	}
+}
+

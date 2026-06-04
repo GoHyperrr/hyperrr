@@ -2,9 +2,10 @@ package registry
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
-	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/workflow"
 	"github.com/GoHyperrr/hyperrr/pkg/config"
@@ -13,6 +14,8 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/identity"
 	"github.com/GoHyperrr/hyperrr/pkg/locking"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
+	"github.com/GoHyperrr/mdk"
+	"gorm.io/gorm"
 )
 
 // ActorResolver defines the interface for resolving identities.
@@ -22,7 +25,7 @@ type ActorResolver interface {
 
 // WorkflowRunner defines the interface for executing workflows.
 type WorkflowRunner interface {
-	Execute(ctx context.Context, id string, wf *workflow.Workflow, input any) (map[string]any, error)
+	ExecuteSyncWorkflow(ctx context.Context, id string, wf *workflow.Workflow, input any) (map[string]any, error)
 }
 
 // WorkflowRegistry defines the interface for managing workflow definitions.
@@ -42,6 +45,67 @@ type Dependencies struct {
 	Locker    locking.Locker
 	Resolver  ActorResolver
 	ServerURL string
+}
+
+// Satisfy mdk.Runtime interface via depsRuntime wrapper.
+
+type depsRuntime struct {
+	deps *Dependencies
+}
+
+func (r *depsRuntime) DB() *gorm.DB {
+	if r.deps.DB == nil {
+		return nil
+	}
+	return r.deps.DB.DB
+}
+
+func (r *depsRuntime) Bus() mdk.EventBus {
+	return r.deps.EventBus
+}
+
+func (r *depsRuntime) Workflows() mdk.WorkflowEngine {
+	if engine, ok := r.deps.Runner.(mdk.WorkflowEngine); ok {
+		return engine
+	}
+	return nil
+}
+
+func (r *depsRuntime) Logger() *slog.Logger {
+	return logger.Get().Logger
+}
+
+func (r *depsRuntime) Module(id string) (mdk.Module, bool) {
+	return Get(id)
+}
+
+func (r *depsRuntime) Config(key string) any {
+	if r.deps.Config == nil {
+		return nil
+	}
+	switch strings.ToLower(key) {
+	case "appname", "app_name":
+		return r.deps.Config.AppName
+	case "appenv", "app_env":
+		return r.deps.Config.AppEnv
+	case "loglevel", "log_level":
+		return r.deps.Config.LogLevel
+	case "serverport", "server_port":
+		return r.deps.Config.ServerPort
+	case "storagebucketurl", "storage_bucket_url":
+		return r.deps.Config.StorageBucketURL
+	case "natsurl", "nats_url":
+		return r.deps.Config.NATSURL
+	case "modules":
+		return r.deps.Config.Modules
+	default:
+		return nil
+	}
+}
+
+// NewRuntime wraps Dependencies to satisfy the mdk.Runtime interface.
+func NewRuntime(d *Dependencies) mdk.Runtime {
+	return &depsRuntime{deps: d}
 }
 
 // Middleware is a standard HTTP middleware function.
@@ -68,20 +132,10 @@ func GetMiddleware(name string) (Middleware, bool) {
 }
 
 // LineageData defines the minimal interface for accessing workflow execution data.
-type LineageData interface {
-	GetID() string
-	GetName() string
-	GetState() string
-	GetError() string
-	GetStartedAt() time.Time
-	GetEndedAt() *time.Time
-}
+type LineageData = mdk.LineageData
 
 // Projector defines the interface for querying execution lineages.
-type Projector interface {
-	ListLineages() []LineageData
-	QueryLineages(filter func(LineageData) bool) []LineageData
-}
+type Projector = mdk.Projector
 
 // OrderResult defines the minimal interface for accessing order data across modules.
 type OrderResult interface {
@@ -90,76 +144,18 @@ type OrderResult interface {
 	GetCustomerID() string
 }
 
-// MCPResource represents a discoverable data resource exposed to AI agents.
-type MCPResource struct {
-	URI         string
-	Name        string
-	Description string
-	MimeType    string
-}
-
-// ResourceProvider is implemented by modules that want to expose resources to MCP.
-type ResourceProvider interface {
-	ListResources(ctx context.Context) ([]MCPResource, error)
-	ReadResource(ctx context.Context, uri string) (string, error)
-}
-
-// MCPPromptArgument represents an argument for a prompt template.
-type MCPPromptArgument struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	Required    bool   `json:"required,omitempty"`
-}
-
-// MCPPrompt represents a reusable prompt template.
-type MCPPrompt struct {
-	Name        string              `json:"name"`
-	Description string              `json:"description,omitempty"`
-	Arguments   []MCPPromptArgument `json:"arguments,omitempty"`
-}
-
-// MCPPromptMessageContent represents the content inside a prompt message.
-type MCPPromptMessageContent struct {
-	Type string `json:"type"`
-	Text string `json:"text,omitempty"`
-}
-
-// MCPPromptMessage represents a prompt message history node.
-type MCPPromptMessage struct {
-	Role    string                  `json:"role"`
-	Content MCPPromptMessageContent `json:"content"`
-}
-
-// GetPromptResult is returned by GetPrompt.
-type GetPromptResult struct {
-	Description string             `json:"description,omitempty"`
-	Messages    []MCPPromptMessage `json:"messages"`
-}
-
-// PromptProvider is implemented by modules that want to expose custom prompt templates to LLMs.
-type PromptProvider interface {
-	ListPrompts(ctx context.Context) ([]MCPPrompt, error)
-	GetPrompt(ctx context.Context, name string, arguments map[string]string) (*GetPromptResult, error)
-}
-
-
-// Module is the standard interface for all hyperrr plugins.
-type Module interface {
-	// ID returns the unique identifier for the module.
-	ID() string
-	
-	// Init initializes the module with its dependencies.
-	Init(ctx context.Context, deps *Dependencies) error
-	
-	// Models returns the GORM models owned by this module.
-	Models() []any
-	
-	// Handlers returns the workflow task handlers provided by this module.
-	Handlers() map[string]workflow.TaskHandler
-
-	// Shutdown allows the module to release resources cleanly.
-	Shutdown(ctx context.Context) error
-}
+// Type aliases linking to mdk module/mcp structures to preserve backward compatibility.
+type Module = mdk.Module
+type Route = mdk.Route
+type Factory = mdk.Factory
+type MCPResource = mdk.MCPResource
+type ResourceProvider = mdk.ResourceProvider
+type MCPPromptArgument = mdk.MCPPromptArgument
+type MCPPrompt = mdk.MCPPrompt
+type MCPPromptMessageContent = mdk.MCPPromptMessageContent
+type MCPPromptMessage = mdk.MCPPromptMessage
+type GetPromptResult = mdk.GetPromptResult
+type PromptProvider = mdk.PromptProvider
 
 // GraphQLProvider is implemented by modules that expose GraphQL queries/mutations.
 type GraphQLProvider interface {
@@ -179,7 +175,7 @@ type CLICommand struct {
 	Short       string   // One-line description
 	Long        string   // Detailed description (shown in --help)
 	Usage       string   // Args pattern: "generate", "<email> <password>"
-	Run         func(deps *Dependencies, args []string) error
+	Run         func(rt mdk.Runtime, args []string) error
 	NeedsDB     bool     // If true, auto-connect DB before Run
 	NeedsServer bool     // If true, requires running server (validates connectivity)
 }
@@ -225,5 +221,6 @@ func ListCommands() []CLICommand {
 	}
 	return res
 }
+
 
 

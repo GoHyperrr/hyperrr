@@ -92,8 +92,6 @@ func (s *mockNatsServer) handleConnection(conn net.Conn) {
 		case "PUB":
 			// Read the payload (next line)
 			if len(parts) >= 3 {
-				// PUB <subject> [reply] <bytes>
-				// Just read the next line for payload
 				_, _ = reader.ReadString('\n')
 			}
 		case "SUB":
@@ -116,20 +114,6 @@ func (s *mockNatsServer) broadcastMessage(t *testing.T, subject string, sid stri
 	}
 }
 
-// Global helper for broadcast format string
-func fmtPrintf(format string, args ...any) string {
-	// Simple formatter
-	var s string
-	// Minimal replacement
-	if len(args) > 0 {
-		s = strings.Replace(format, "%s", args[0].(string), 1)
-	}
-	if len(args) > 1 {
-		s = strings.Replace(s, "%s", args[1].(string), 1)
-	}
-	return s
-}
-
 func TestNATSBus_LifecycleAndOperations(t *testing.T) {
 	server := startMockNatsServer(t)
 	defer server.Close()
@@ -145,12 +129,11 @@ func TestNATSBus_LifecycleAndOperations(t *testing.T) {
 	bus.SetContext(ctx)
 
 	// 2. Subscribe and wait for event
-	eventType := "test.event"
 	var wg sync.WaitGroup
 	wg.Add(1)
 
 	var received Event
-	sub, err := bus.Subscribe(ctx, eventType, func(ctx context.Context, ev Event) error {
+	unsub, err := bus.Subscribe("test", "event", func(ctx context.Context, ev Event) error {
 		received = ev
 		wg.Done()
 		return nil
@@ -162,17 +145,18 @@ func TestNATSBus_LifecycleAndOperations(t *testing.T) {
 	// Wait for connection subscription registry
 	time.Sleep(50 * time.Millisecond)
 
-	// Broadcast from mock server
+	// Broadcast from mock server (subject is "test.event")
 	sentEvent := Event{
-		ID:        "evt-123",
-		Type:      eventType,
-		Payload:   map[string]any{"data": "hello"},
-		Timestamp: time.Now(),
+		ID:         "evt-123",
+		Namespace:  "test",
+		Type:       "event",
+		Payload:    map[string]any{"data": "hello"},
+		OccurredAt: time.Now(),
 	}
 	payloadBytes, _ := json.Marshal(sentEvent)
 	
 	// NATS subscription ID is typically "1" for the first subscription
-	server.broadcastMessage(t, eventType, "1", payloadBytes)
+	server.broadcastMessage(t, "test.event", "1", payloadBytes)
 
 	// Wait for handler to receive message
 	c := make(chan struct{})
@@ -204,10 +188,7 @@ func TestNATSBus_LifecycleAndOperations(t *testing.T) {
 	}
 
 	// 5. Unsubscribe
-	err = sub.Unsubscribe()
-	if err != nil {
-		t.Errorf("Unsubscribe failed: %v", err)
-	}
+	unsub()
 }
 
 func TestNATSBus_NilConnectionErrors(t *testing.T) {
@@ -219,7 +200,7 @@ func TestNATSBus_NilConnectionErrors(t *testing.T) {
 		t.Error("expected error publishing on nil connection")
 	}
 
-	_, err = bus.Subscribe(ctx, "test", func(ctx context.Context, ev Event) error { return nil })
+	_, err = bus.Subscribe("test", "event", func(ctx context.Context, ev Event) error { return nil })
 	if err == nil {
 		t.Error("expected error subscribing on nil connection")
 	}
@@ -237,14 +218,14 @@ func TestNATSBus_ErrorCases(t *testing.T) {
 	defer server.Close()
 
 	bus, _ := NewNATSBus(server.Addr())
-	bus.Close() // Close immediately
+	_ = bus.Close() // Close immediately
 
 	err = bus.Publish(context.Background(), Event{})
 	if err == nil {
 		t.Error("expected error publishing on closed bus")
 	}
 
-	_, err = bus.Subscribe(context.Background(), "test", func(ctx context.Context, ev Event) error { return nil })
+	_, err = bus.Subscribe("test", "event", func(ctx context.Context, ev Event) error { return nil })
 	if err == nil {
 		t.Error("expected error subscribing on closed bus")
 	}
@@ -270,8 +251,9 @@ func TestNATSBus_AdditionalCoverage(t *testing.T) {
 
 	t.Run("Publish json marshal error", func(t *testing.T) {
 		event := Event{
-			Type:    "marshal.error",
-			Payload: make(chan int),
+			Namespace: "marshal",
+			Type:      "error",
+			Payload:   map[string]any{"data": make(chan int)}, // Unmarshalable
 		}
 		err := bus.Publish(ctx, event)
 		if err == nil {
@@ -281,7 +263,7 @@ func TestNATSBus_AdditionalCoverage(t *testing.T) {
 
 	t.Run("Subscribe connection error", func(t *testing.T) {
 		bus.conn.Close()
-		_, err := bus.Subscribe(ctx, "test.sub.err", func(ctx context.Context, ev Event) error { return nil })
+		_, err := bus.Subscribe("test", "sub.err", func(ctx context.Context, ev Event) error { return nil })
 		if err == nil {
 			t.Error("expected subscribe error on closed connection, got nil")
 		}
@@ -301,16 +283,16 @@ func TestNATSBus_HandlerErrors(t *testing.T) {
 	ctx := context.Background()
 	bus.SetContext(ctx)
 
-	_, _ = bus.Subscribe(ctx, "bad.json", func(ctx context.Context, ev Event) error { return nil })
+	_, _ = bus.Subscribe("bad", "json", func(ctx context.Context, ev Event) error { return nil })
 	time.Sleep(20 * time.Millisecond)
 	server.broadcastMessage(t, "bad.json", "1", []byte("invalid-json"))
 	time.Sleep(20 * time.Millisecond)
 
-	_, _ = bus.Subscribe(ctx, "handler.err", func(ctx context.Context, ev Event) error {
+	_, _ = bus.Subscribe("handler", "err", func(ctx context.Context, ev Event) error {
 		return errors.New("handler error")
 	})
 	time.Sleep(20 * time.Millisecond)
-	evt := Event{ID: "evt-999", Type: "handler.err"}
+	evt := Event{ID: "evt-999", Namespace: "handler", Type: "err"}
 	evtBytes, _ := json.Marshal(evt)
 	server.broadcastMessage(t, "handler.err", "2", evtBytes)
 	time.Sleep(20 * time.Millisecond)

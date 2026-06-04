@@ -1,0 +1,17 @@
+# CodeRabbit Configuration File
+# Reference: https://docs.coderabbit.ai/spec/configuration
+
+language: "en-US"
+tone_instruction: "Review code as a senior Go software engineer with a focus on concurrency safety, modular monolithic design boundaries, and clear error propagation."
+
+reviews:
+  profile: "assertive"
+  auto_review:
+    enabled: true
+    drafts: false
+  high_level_summary: true
+  reviews_per_file: true
+  collapse_dependency_reviews: true
+
+chat:
+  auto_reply: true

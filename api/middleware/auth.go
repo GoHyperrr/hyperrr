@@ -6,11 +6,8 @@ import (
 	"strings"
 
 	"github.com/GoHyperrr/hyperrr/pkg/identity"
+	"github.com/GoHyperrr/mdk"
 )
-
-type contextKey string
-
-const actorCtxKey contextKey = "actor"
 
 // TokenValidator defines an interface for validating authentication tokens.
 type TokenValidator interface {
@@ -40,7 +37,7 @@ func AuthMiddleware(validator TokenValidator) func(http.Handler) http.Handler {
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), actorCtxKey, actor)
+			ctx := mdk.WithActor(r.Context(), actor)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -48,11 +45,11 @@ func AuthMiddleware(validator TokenValidator) func(http.Handler) http.Handler {
 
 // WithActor returns a new context with the given actor.
 func WithActor(ctx context.Context, actor *identity.Actor) context.Context {
-	return context.WithValue(ctx, actorCtxKey, actor)
+	return mdk.WithActor(ctx, actor)
 }
 
 // ForContext retrieves the Actor from the context and a boolean indicating success.
 func ForContext(ctx context.Context) (*identity.Actor, bool) {
-	raw, ok := ctx.Value(actorCtxKey).(*identity.Actor)
-	return raw, ok
+	return mdk.ActorFromContext(ctx)
 }
+

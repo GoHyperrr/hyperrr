@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"gorm.io/gorm"
 )
 
 var rootCmd = &cobra.Command{
@@ -16,14 +17,6 @@ var rootCmd = &cobra.Command{
 It provides high-performance commerce modules, GraphQL API, and Model Context Protocol (MCP) servers.`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
-}
-
-func Execute() {
-	registerPluginCommands()
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
 }
 
 func init() {
@@ -39,6 +32,14 @@ func init() {
 		&cobra.Group{ID: "config", Title: "Configuration Commands:"},
 		&cobra.Group{ID: "utils", Title: "Utility Commands:"},
 	)
+}
+
+func Execute() {
+	registerPluginCommands()
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 var groupCmds = make(map[string]*cobra.Command)
@@ -69,8 +70,7 @@ func findOrCreateGroupCmd(groupName string) *cobra.Command {
 }
 
 func registerPluginCommands() {
-	for _, cmd := range registry.ListCommands() {
-		c := cmd // Capture for closure
+	for _, c := range registry.ListCommands() {
 		var parent *cobra.Command
 		if c.Group != "" {
 			parent = findOrCreateGroupCmd(c.Group)
@@ -88,7 +88,15 @@ func registerPluginCommands() {
 				if err != nil {
 					return err
 				}
-				return c.Run(deps, args)
+				var gormDB *gorm.DB
+				if deps.DB != nil {
+					gormDB = deps.DB.DB
+				}
+				rt := &runtimeImpl{
+					db:  gormDB,
+					cfg: deps.Config,
+				}
+				return c.Run(rt, args)
 			},
 		}
 

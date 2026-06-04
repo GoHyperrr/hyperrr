@@ -521,7 +521,7 @@ func (s *Server) handleToolsCall(ctx context.Context, actor *ident.Actor, params
 	// Inject actor into context
 	ctx = middleware.WithActor(ctx, actor)
 	
-	results, err := s.deps.Runner.Execute(ctx, execID, wf, args)
+	results, err := s.deps.Runner.ExecuteSyncWorkflow(ctx, execID, wf, args)
 	if err != nil {
 		return CallToolResult{
 			IsError: true,
@@ -717,7 +717,14 @@ func (s *Server) startEventSubscription() {
 	}
 
 	for _, et := range eventTypes {
-		_, _ = s.deps.EventBus.Subscribe(context.Background(), et, func(ctx context.Context, ev eventbus.Event) error {
+		parts := strings.SplitN(et, ".", 2)
+		var ns, evType string
+		if len(parts) == 2 {
+			ns, evType = parts[0], parts[1]
+		} else {
+			ns, evType = "", et
+		}
+		_, _ = s.deps.EventBus.Subscribe(ns, evType, func(ctx context.Context, ev eventbus.Event) error {
 			s.handleIncomingEvent(ev)
 			return nil
 		})
@@ -748,15 +755,7 @@ func (s *Server) handleIncomingEvent(ev eventbus.Event) {
 		}
 	}
 
-	metaMap := make(map[string]any)
-	for k, v := range ev.Metadata {
-		metaMap[k] = v
-	}
-	extractURIs(metaMap)
-
-	if payloadMap, ok := ev.Payload.(map[string]any); ok {
-		extractURIs(payloadMap)
-	}
+	extractURIs(ev.Payload)
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()

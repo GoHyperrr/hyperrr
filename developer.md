@@ -46,13 +46,14 @@ Hyperrr is organized as a modular, multi-workspace monolith. The core kernel eng
 
 ### Detailed Subsystem Architecture Guides
 For in-depth explanations, code structures, and implementation philosophies of each major subsystem, refer to the following dedicated manuals:
-1.  **[Workflows & DAG Execution Engine](file:///D:/hyperrr-commerce-ai/docs/workflows_and_dags.md)**: Explains declarative step definitions, dependencies evaluation, parallel branch execution, and state checkpointing.
-2.  **[Distributed Transactions & Saga Compensations](file:///D:/hyperrr-commerce-ai/docs/distributed_transactions_sagas.md)**: Details the eventual consistency pattern, chronological rollback history execution, and critical transaction alert handling.
-3.  **[Pluggable Event Fabric](file:///D:/hyperrr-commerce-ai/docs/event_fabric.md)**: Compares in-memory and NATS message distribution, namespace routing, and context tracing propagation.
-4.  **[Model Context Protocol (MCP) Server](file:///D:/hyperrr-commerce-ai/docs/model_context_protocol.md)**: Describes translating workflows to LLM tools, context-bound lifecycles, and SSE-based resource subscriptions.
-5.  **[Database Architecture & Schema Auto-Migrations](file:///D:/hyperrr-commerce-ai/docs/database_and_migrations.md)**: Outlines GORM dialect setups, dynamic module database registration, idempotency checking, and table isolation patterns.
-6.  **[GraphQL API Gateway & Security Middleware](file:///D:/hyperrr-commerce-ai/docs/graphql_api_gateway.md)**: Explains modular schema aggregation, token parsing interceptors, RBAC actor context injection, and entity type mappers.
-7.  **[Distributed Locking & Coordination Kernel](file:///D:/hyperrr-commerce-ai/docs/distributed_locking_coordination.md)**: Describes pluggable lock interfaces, compare-and-swap (CAS) lock mechanics, and lock ownership validations.
+1.  **[Workflows & DAG Execution Engine](docs/workflows_and_dags.md)**: Explains declarative step definitions, dependencies evaluation, parallel branch execution, and state checkpointing.
+2.  **[Distributed Transactions & Saga Compensations](docs/distributed_transactions_sagas.md)**: Details the eventual consistency pattern, chronological rollback history execution, and critical transaction alert handling.
+3.  **[Pluggable Event Fabric](docs/event_fabric.md)**: Compares in-memory and NATS message distribution, namespace routing, and context tracing propagation.
+4.  **[Model Context Protocol (MCP) Server](docs/model_context_protocol.md)**: Describes translating workflows to LLM tools, context-bound lifecycles, and SSE-based resource subscriptions.
+5.  **[Database Architecture & Schema Auto-Migrations](docs/database_and_migrations.md)**: Outlines GORM dialect setups, dynamic module database registration, idempotency checking, and table isolation patterns.
+6.  **[GraphQL API Gateway & Security Middleware](docs/graphql_api_gateway.md)**: Explains modular schema aggregation, token parsing interceptors, RBAC actor context injection, and entity type mappers.
+7.  **[Distributed Locking & Coordination Kernel](docs/distributed_locking_coordination.md)**: Describes pluggable lock interfaces, compare-and-swap (CAS) lock mechanics, and lock ownership validations.
+
 
 
 ---
@@ -418,7 +419,7 @@ This automatically aggregates the new `hotel.graphqls` schema, executes GQLGen, 
 
 ## 4. Bootstrapping & Registering the Module
 
-Hyperrr implements a dynamic, configuration-driven module registration pattern. Developers do **not** need to modify the core application bootstrapper [internal/app/app.go](file:///D:/hyperrr-commerce-ai/internal/app/app.go) or main entry points to register, load, or activate their modules.
+Hyperrr implements a dynamic, configuration-driven module registration pattern. Developers do **not** need to modify the core application bootstrapper [internal/app/app.go](internal/app/app.go) or main entry points to register, load, or activate their modules.
 
 Instead, module registration requires three steps:
 

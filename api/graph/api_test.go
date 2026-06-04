@@ -8,7 +8,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/GoHyperrr/hyperrr/api/graph/model"
 	"github.com/GoHyperrr/commerce/product"
 	"github.com/GoHyperrr/commerce/customer"
 	"github.com/GoHyperrr/commerce/cart"
@@ -28,6 +27,7 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"github.com/GoHyperrr/mdk"
 )
 
 func TestResolvers(t *testing.T) {
@@ -45,113 +45,80 @@ func TestResolvers(t *testing.T) {
 	}()
 
 	ctxMod := domain.NewModule()
-	_ = ctxMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus})
+	_ = ctxMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{DB: database, EventBus: bus}))
 	registry.Register(ctxMod)
 	db.Register(ctxMod.Models()...)
 	projector := ctxMod.Projector()
 
 	prodMod := product.NewModule()
-	prodMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	prodMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore}))
 	registry.Register(prodMod)
 	db.Register(prodMod.Models()...)
-	for name, h := range prodMod.Handlers() {
-		runner.RegisterTask(name, h)
-	}
 
 	emailpassMod := emailpass.NewModule("secret", "24h")
-	emailpassMod.Init(ctx, &registry.Dependencies{
+	emailpassMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{
 		Config:   &config.Config{},
 		DB:       database,
 		EventBus: bus,
 		Runner:   runner,
 		Registry: registryStore,
-	})
+	}))
 	registry.Register(emailpassMod)
 	db.Register(emailpassMod.Models()...)
-	for name, h := range emailpassMod.Handlers() {
-		runner.RegisterTask(name, h)
-	}
 
 	apikeyMod := apikey.NewModule()
-	apikeyMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus})
+	apikeyMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{DB: database, EventBus: bus}))
 	registry.Register(apikeyMod)
 	db.Register(apikeyMod.Models()...)
 
 	custMod := customer.NewModule()
-	custMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	custMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore}))
 	registry.Register(custMod)
 	db.Register(custMod.Models()...)
-	for name, h := range custMod.Handlers() {
-		runner.RegisterTask(name, h)
-	}
 
 	cartMod := cart.NewModule()
-	cartMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	cartMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore}))
 	registry.Register(cartMod)
 	db.Register(cartMod.Models()...)
-	for name, h := range cartMod.Handlers() {
-		runner.RegisterTask(name, h)
-	}
 
 	orderMod := order.NewModule()
-	orderMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	orderMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore}))
 	registry.Register(orderMod)
 	db.Register(orderMod.Models()...)
-	for name, h := range orderMod.Handlers() {
-		runner.RegisterTask(name, h)
-	}
 
 	financeMod := finance.NewModule()
-	financeMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	financeMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore}))
 	registry.Register(financeMod)
 	db.Register(financeMod.Models()...)
-	for name, h := range financeMod.Handlers() {
-		runner.RegisterTask(name, h)
-	}
 
 	fulfillMod := fulfillment.NewModule()
-	fulfillMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	fulfillMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore}))
 	registry.Register(fulfillMod)
 	db.Register(fulfillMod.Models()...)
-	for name, h := range fulfillMod.Handlers() {
-		runner.RegisterTask(name, h)
-	}
 
 	notifMod := notification.NewModule(nil)
-	notifMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	notifMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore}))
 	registry.Register(notifMod)
 	db.Register(notifMod.Models()...)
-	for name, h := range notifMod.Handlers() {
-		runner.RegisterTask(name, h)
-	}
 
 	supportMod := support.NewModule()
-	supportMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	supportMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore}))
 	registry.Register(supportMod)
 	db.Register(supportMod.Models()...)
-	for name, h := range supportMod.Handlers() {
-		runner.RegisterTask(name, h)
-	}
 
 	marketingMod := marketing.NewModule()
-	marketingMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	marketingMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore}))
 	registry.Register(marketingMod)
 	db.Register(marketingMod.Models()...)
-	for name, h := range marketingMod.Handlers() {
-		runner.RegisterTask(name, h)
-	}
 
 	searchMod := search.NewModule()
-	searchMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	searchMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore}))
 	searchMod.SetProductModule(prodMod)
 	registry.Register(searchMod)
 	db.Register(searchMod.Models()...)
-	for name, h := range searchMod.Handlers() {
-		runner.RegisterTask(name, h)
-	}
 
 	analyticsMod := analytics.NewModule()
-	analyticsMod.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore})
+	analyticsMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore}))
 	registry.Register(analyticsMod)
 
 	database.AutoMigrateAll()
@@ -208,7 +175,7 @@ func TestResolvers(t *testing.T) {
 
 	t.Run("Product Mutations", func(t *testing.T) {
 		// Create
-		createInput := model.CreateProductInput{
+		createInput := product.CreateProductInput{
 			ID:    "p_new",
 			Name:  "New Product",
 			Price: 50.0,
@@ -220,7 +187,7 @@ func TestResolvers(t *testing.T) {
 
 		// Update
 		newName := "Updated Name"
-		updateInput := model.UpdateProductInput{Name: &newName}
+		updateInput := product.UpdateProductInput{Name: &newName}
 		upRes, err := resolver.Mutation().UpdateProduct(ctx, "p_new", updateInput)
 		if err != nil || upRes.Name != newName {
 			t.Fatalf("UpdateProduct failed: %v", err)
@@ -233,7 +200,7 @@ func TestResolvers(t *testing.T) {
 		}
 
 		// Create failure (missing name)
-		_, err = resolver.Mutation().CreateProduct(ctx, model.CreateProductInput{ID: "fail", Price: 10.0})
+		_, err = resolver.Mutation().CreateProduct(ctx, product.CreateProductInput{ID: "fail", Price: 10.0})
 		if err == nil {
 			t.Error("expected error for invalid product create")
 		}
@@ -246,7 +213,7 @@ func TestResolvers(t *testing.T) {
 
 		// Update
 		newName := "Jane Doe"
-		updateInput := model.UpdateCustomerInput{Name: &newName}
+		updateInput := customer.UpdateCustomerInput{Name: &newName}
 		upRes, err := resolver.Mutation().UpdateCustomer(ctx, "c1", updateInput)
 		if err != nil || upRes.Name != newName {
 			t.Fatalf("UpdateCustomer failed: %v", err)
@@ -276,7 +243,7 @@ func TestResolvers(t *testing.T) {
 		}
 
 		// 2. Add Item
-		addInput := model.AddItemInput{
+		addInput := cart.AddItemInput{
 			ProductID: "p1",
 			Quantity:  2,
 			Price:     10.0,
@@ -312,7 +279,7 @@ func TestResolvers(t *testing.T) {
 		}
 
 		// 6. AddItem failure
-		_, err = resolver.Mutation().AddItemToCart(ctx, "ghost", model.AddItemInput{})
+		_, err = resolver.Mutation().AddItemToCart(ctx, "ghost", cart.AddItemInput{})
 		if err == nil {
 			t.Error("expected error for non-existent cart add")
 		}
@@ -333,7 +300,7 @@ func TestResolvers(t *testing.T) {
 	t.Run("Order Resolvers", func(t *testing.T) {
 		// 1. Setup Cart with items
 		cartRes, _ := resolver.Query().GetActiveCart(ctx, "c3")
-		resolver.Mutation().AddItemToCart(ctx, cartRes.ID, model.AddItemInput{ProductID: "p3", Quantity: 1, Price: 150.0})
+		resolver.Mutation().AddItemToCart(ctx, cartRes.ID, cart.AddItemInput{ProductID: "p3", Quantity: 1, Price: 150.0})
 
 		// 2. Create Order from Cart
 		o, err := resolver.Mutation().CreateOrderFromCart(ctx, cartRes.ID)
@@ -459,7 +426,7 @@ func TestResolvers(t *testing.T) {
 
 		// 18. Update Product failure (non-existent)
 		pNewName := "Ghost Product"
-		uInput := model.UpdateProductInput{Name: &pNewName}
+		uInput := product.UpdateProductInput{Name: &pNewName}
 		_, err = resolver.Mutation().UpdateProduct(ctx, "ghost", uInput)
 		if err == nil {
 			t.Error("expected error for non-existent product update")
@@ -484,21 +451,18 @@ func TestResolvers(t *testing.T) {
 		}
 
 		// 22. CreateOrderFromCart - Missing Workflow
-		// We use a separate registry that doesn't have fulfillment.v1
-		emptyRegistry := workflow.NewRegistry()
 		badOrderMod := order.NewModule()
-		_ = badOrderMod.Init(ctx, &registry.Dependencies{
+		_ = badOrderMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{
 			DB:       database,
 			EventBus: bus,
 			Runner:   runner,
-			Registry: emptyRegistry,
-		})
+		}))
 		
-		// Use unsafe reflection to delete the registered "fulfillment.v1" workflow from the unexported workflows map
-		v := reflect.ValueOf(emptyRegistry).Elem()
+		// Use unsafe reflection to delete the registered "fulfillment.v1" workflow from the runner's workflows map
+		v := reflect.ValueOf(runner).Elem()
 		f := v.FieldByName("workflows")
 		ptr := unsafe.Pointer(f.UnsafeAddr())
-		mPtr := (*map[string]*workflow.Workflow)(ptr)
+		mPtr := (*map[string]mdk.Workflow)(ptr)
 		delete(*mPtr, "fulfillment.v1")
 
 		badResolver := *resolver
@@ -522,7 +486,7 @@ func TestResolvers(t *testing.T) {
 		}
 
 		// 23. AddItemToCart - Invalid Input (Quantity <= 0)
-		badAddInput := model.AddItemInput{
+		badAddInput := cart.AddItemInput{
 			ProductID: "p1",
 			Quantity:  0,
 			Price:     10.0,
@@ -597,7 +561,7 @@ func TestResolvers(t *testing.T) {
 		// 4. Apply Coupon to Cart
 		cartRes, _ := resolver.Query().GetActiveCart(ctx, "c4")
 		// Add an item first so apply_coupon can trigger cart.add_item effectively (or just test the workflow)
-		resolver.Mutation().AddItemToCart(ctx, cartRes.ID, model.AddItemInput{ProductID: "p4", Quantity: 1, Price: 100.0})
+		resolver.Mutation().AddItemToCart(ctx, cartRes.ID, cart.AddItemInput{ProductID: "p4", Quantity: 1, Price: 100.0})
 		
 		updatedCart, err := resolver.Mutation().ApplyCouponToCart(ctx, cartRes.ID, "SAVE20")
 		if err != nil {
@@ -631,7 +595,7 @@ func TestResolvers(t *testing.T) {
 			bus.Publish(ctx, eventbus.Event{
 				Type: "workflow.started",
 				Payload: map[string]any{"id": s.id, "name": "test.wf", "version": "v1"},
-				Timestamp: time.Now().Add(-10 * time.Minute),
+				OccurredAt: time.Now().Add(-10 * time.Minute),
 			})
 			if s.state != "workflow.started" {
 				payload := map[string]any{"id": s.id}
@@ -641,7 +605,7 @@ func TestResolvers(t *testing.T) {
 				bus.Publish(ctx, eventbus.Event{
 					Type: s.state,
 					Payload: payload,
-					Timestamp: time.Now(),
+					OccurredAt: time.Now(),
 				})
 			}
 		}
@@ -723,17 +687,17 @@ func TestResolvers(t *testing.T) {
 	})
 
 	t.Run("Product Resolvers Edge Cases", func(t *testing.T) {
-		runner.RegisterTask("noop_success", func(ctx context.Context, input any) (any, error) {
-			return map[string]any{}, nil
+		_ = runner.RegisterHandler("noop_success", func(sCtx mdk.StepContext) mdk.StepResult {
+			return mdk.StepResult{Output: map[string]any{}}
 		})
 
 		// 1. failed to retrieve updated product
 		badProductMod1 := product.NewModule()
-		rUpdateFail := workflow.NewRegistry()
-		_ = badProductMod1.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: rUpdateFail})
-		_ = rUpdateFail.Register(&workflow.Workflow{
-			Name: "product.update",
-			Steps: []workflow.Step{
+		_ = badProductMod1.Init(ctx, registry.NewRuntime(&registry.Dependencies{DB: database, EventBus: bus, Runner: runner}))
+		_ = runner.Register(mdk.Workflow{
+			ID:   "product.update",
+			Name: "Product Update",
+			Steps: []mdk.Step{
 				{ID: "not_update", Uses: "noop_success"},
 			},
 		})
@@ -741,64 +705,65 @@ func TestResolvers(t *testing.T) {
 		badResolver.ProductModule = badProductMod1
 		
 		newName := "New Name"
-		_, err := badResolver.Mutation().UpdateProduct(ctx, "p1", model.UpdateProductInput{Name: &newName})
+		_, err := badResolver.Mutation().UpdateProduct(ctx, "p1", product.UpdateProductInput{Name: &newName})
 		if err == nil || !strings.Contains(err.Error(), "failed to retrieve updated product") {
 			t.Errorf("expected 'failed to retrieve updated product' error, got %v", err)
 		}
 
 		// 2. invalid product type in results
 		badProductMod2 := product.NewModule()
-		rUpdateInvalidType := workflow.NewRegistry()
-		_ = badProductMod2.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: rUpdateInvalidType})
-		runner.RegisterTask("bad_update_type", func(ctx context.Context, input any) (any, error) {
-			return map[string]any{"product": "not_a_product_struct"}, nil
+		_ = badProductMod2.Init(ctx, registry.NewRuntime(&registry.Dependencies{DB: database, EventBus: bus, Runner: runner}))
+		_ = runner.RegisterHandler("bad_update_type", func(sCtx mdk.StepContext) mdk.StepResult {
+			return mdk.StepResult{Output: map[string]any{"product": "not_a_product_struct"}}
 		})
-		_ = rUpdateInvalidType.Register(&workflow.Workflow{
-			Name: "product.update",
-			Steps: []workflow.Step{
+		_ = runner.Register(mdk.Workflow{
+			ID:   "product.update",
+			Name: "Product Update",
+			Steps: []mdk.Step{
 				{ID: "update", Uses: "bad_update_type"},
 			},
 		})
 		badResolver2 := *resolver
 		badResolver2.ProductModule = badProductMod2
-		_, err = badResolver2.Mutation().UpdateProduct(ctx, "p1", model.UpdateProductInput{Name: &newName})
+		_, err = badResolver2.Mutation().UpdateProduct(ctx, "p1", product.UpdateProductInput{Name: &newName})
 		if err == nil || !strings.Contains(err.Error(), "invalid product type in results") {
 			t.Errorf("expected 'invalid product type in results' error, got %v", err)
 		}
 
 		// 3. failed to retrieve created product
 		badProductMod3 := product.NewModule()
-		rCreateFail := workflow.NewRegistry()
-		_ = badProductMod3.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: rCreateFail})
-		_ = rCreateFail.Register(&workflow.Workflow{
-			Name: "product.create",
-			Steps: []workflow.Step{
+		_ = badProductMod3.Init(ctx, registry.NewRuntime(&registry.Dependencies{DB: database, EventBus: bus, Runner: runner}))
+		_ = runner.Register(mdk.Workflow{
+			ID:   "product.create",
+			Name: "Product Create",
+			Steps: []mdk.Step{
 				{ID: "not_persist", Uses: "noop_success"},
 			},
 		})
 		badResolver3 := *resolver
 		badResolver3.ProductModule = badProductMod3
-		_, err = badResolver3.Mutation().CreateProduct(ctx, model.CreateProductInput{ID: "p_fail", Name: "Fail", Price: 10})
+		_, err = badResolver3.Mutation().CreateProduct(ctx, product.CreateProductInput{ID: "p_fail", Name: "Fail", Price: 10})
 		if err == nil || !strings.Contains(err.Error(), "failed to retrieve created product") {
 			t.Errorf("expected 'failed to retrieve created product' error, got %v", err)
 		}
 
 		// 4. invalid result format from update step
 		badProductMod4 := product.NewModule()
-		rUpdateInvalidFormat := workflow.NewRegistry()
-		_ = badProductMod4.Init(ctx, &registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: rUpdateInvalidFormat})
-		runner.RegisterTask("bad_update_format", func(ctx context.Context, input any) (any, error) {
-			return "not_a_map", nil
+		_ = badProductMod4.Init(ctx, registry.NewRuntime(&registry.Dependencies{DB: database, EventBus: bus, Runner: runner}))
+		_ = runner.RegisterHandler("bad_update_format", func(sCtx mdk.StepContext) mdk.StepResult {
+			return mdk.StepResult{Output: map[string]any{"update": "not_a_map"}}
 		})
-		_ = rUpdateInvalidFormat.Register(&workflow.Workflow{
-			Name: "product.update",
-			Steps: []workflow.Step{
-				{ID: "update", Uses: "bad_update_format"},
+		_ = runner.Register(mdk.Workflow{
+			ID:   "product.update",
+			Name: "Product Update",
+			Steps: []mdk.Step{
+				{ID: "not_update", Uses: "bad_update_format"},
 			},
 		})
 		badResolver4 := *resolver
 		badResolver4.ProductModule = badProductMod4
-		_, err = badResolver4.Mutation().UpdateProduct(ctx, "p1", model.UpdateProductInput{Name: &newName})
+		res, err := badResolver4.Mutation().UpdateProduct(ctx, "p1", product.UpdateProductInput{Name: &newName})
+		t.Logf("DEBUG: res=%+v, err=%v", res, err)
 		if err == nil || !strings.Contains(err.Error(), "invalid result format from update step") {
 			t.Errorf("expected 'invalid result format from update step' error, got %v", err)
 		}
@@ -843,19 +808,17 @@ func TestResolvers(t *testing.T) {
 		}
 
 		// 4. Related Lineages sub-resolver
-		// Add metadata to correlate
+		// Add metadata to correlate via Payload
 		metaID := "correlation_1"
 		bus.Publish(ctx, eventbus.Event{
 			Type: "workflow.started",
 			ID: "rel_1",
-			Metadata: map[string]string{"order_id": metaID},
-			Payload: map[string]any{"id": "rel_1"},
+			Payload: map[string]any{"id": "rel_1", "order_id": metaID},
 		})
 		bus.Publish(ctx, eventbus.Event{
 			Type: "workflow.started",
 			ID: "rel_2",
-			Metadata: map[string]string{"order_id": metaID},
-			Payload: map[string]any{"id": "rel_2"},
+			Payload: map[string]any{"id": "rel_2", "order_id": metaID},
 		})
 		time.Sleep(50 * time.Millisecond)
 		
@@ -916,7 +879,7 @@ func TestResolvers(t *testing.T) {
 		})
 		// Runner will fail because steps are not fully implemented or will return error
 		// In api_test.go it's already tested, but let's confirm.
-		_, err := resolver.Mutation().AddItemToCart(ctx, "ghost_cart", model.AddItemInput{ProductID: "p1", Quantity: 1, Price: 10})
+		_, err := resolver.Mutation().AddItemToCart(ctx, "ghost_cart", cart.AddItemInput{ProductID: "p1", Quantity: 1, Price: 10})
 		if err == nil {
 			t.Error("expected error for invalid cart ID")
 		}

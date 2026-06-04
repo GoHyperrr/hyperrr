@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/locking"
+	"github.com/GoHyperrr/mdk"
 )
 
 type contextKey string
@@ -99,7 +99,7 @@ func GetStateStore(ctx context.Context) StateStore {
 }
 
 // GetEventBus retrieves the EventBus attached to the current workflow runner.
-func GetEventBus(ctx context.Context) eventbus.EventBus {
+func GetEventBus(ctx context.Context) mdk.EventBus {
 	r, ok := ctx.Value(runnerKey).(*Runner)
 	if !ok || r == nil {
 		return nil
