@@ -13,7 +13,7 @@ import (
 var Timeout = getTimeoutFromEnv()
 
 func getTimeoutFromEnv() time.Duration {
-	if val := os.Getenv("HYPERRR_TUI_TIMEOUT"); val != "" {
+	if val := os.Getenv("HYPERRR_CLIENT_TIMEOUT"); val != "" {
 		if d, err := time.ParseDuration(val); err == nil {
 			return d
 		}

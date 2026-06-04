@@ -2,13 +2,13 @@
 
 Welcome to the **Hyperrr Core OS** Developer Guide. Hyperrr is an AI-native, modular "operating system" designed to run transaction-heavy workflows across multiple domains (such as Retail Commerce, Travel, Lodging, and Logistics).
 
-This guide describes the core runtime architecture, the pluggable storage and locking kernel, the Event Fabric, and the Agent Gateway (MCP). It also provides a complete, step-by-step tutorial on how to develop, integrate, and deploy a custom module that is fully integrated with the GraphQL API and exposed to autonomous AI agents.
+This guide describes the core runtime architecture, the pluggable storage and locking kernel, the Event Fabric, and the Agent Gateway (MCP). It also provides a complete, step-by-step tutorial on how to develop, integrate, and deploy a custom module using the Module Development Kit (`mdk`) that is fully integrated with the GraphQL API and exposed to autonomous AI agents.
 
 ---
 
 ## 1. System Architecture Overview
 
-Hyperrr is organized as a modular, multi-workspace monolith. The core kernel engine resides in the `hyperrr` directory, while functional modules are grouped into separate independent repositories and Go modules (such as `commerce` and `auth`), co-located and linked via a multi-module **Go Workspace (`go.work`)** at the project root. This ensures strict boundary separation and clean dependency management.
+Hyperrr is organized as a modular, multi-workspace monolith. The core kernel engine resides in the `hyperrr` directory, while functional modules are grouped into separate independent repositories and Go modules (such as `commerce` and `auth`), co-located and linked via a multi-module **Go Workspace (`go.work`)** at the project root. This ensures strict boundary separation, compiler decoupling, and clean dependency management.
 
 ```
        +--------------------------------------------------------+
@@ -38,34 +38,22 @@ Hyperrr is organized as a modular, multi-workspace monolith. The core kernel eng
       (In-Memory/NATS)       (In-Memory/Redis)     (Redis/NATS JS)
 ```
 
-### The Core Modules
-*   **Workflow Runner (`internal/workflow`)**: Orchestrates complex workflows using Directed Acyclic Graphs (DAGs). Provides built-in support for step retries, transactional Saga compensations, and human-in-the-loop escalation gates.
-*   **Agent Gateway (`api/mcp`)**: Implements the Model Context Protocol (MCP). Dynamically translates registered workflows into tools for LLMs, maps system resources, and publishes reactive change events.
-*   **API Router (`api/graph`)**: Stitches GraphQL resolvers together, handles token authentication, and enforces RBAC identities.
-*   **Kernel Services (`pkg/`)**: Holds standard implementations for database mapping (`pkg/db`), event buses (`pkg/eventbus`), and distributed synchronization (`pkg/locking`).
-
-### Detailed Subsystem Architecture Guides
-For in-depth explanations, code structures, and implementation philosophies of each major subsystem, refer to the following dedicated manuals:
-1.  **[Workflows & DAG Execution Engine](docs/workflows_and_dags.md)**: Explains declarative step definitions, dependencies evaluation, parallel branch execution, and state checkpointing.
-2.  **[Distributed Transactions & Saga Compensations](docs/distributed_transactions_sagas.md)**: Details the eventual consistency pattern, chronological rollback history execution, and critical transaction alert handling.
-3.  **[Pluggable Event Fabric](docs/event_fabric.md)**: Compares in-memory and NATS message distribution, namespace routing, and context tracing propagation.
-4.  **[Model Context Protocol (MCP) Server](docs/model_context_protocol.md)**: Describes translating workflows to LLM tools, context-bound lifecycles, and SSE-based resource subscriptions.
-5.  **[Database Architecture & Schema Auto-Migrations](docs/database_and_migrations.md)**: Outlines GORM dialect setups, dynamic module database registration, idempotency checking, and table isolation patterns.
-6.  **[GraphQL API Gateway & Security Middleware](docs/graphql_api_gateway.md)**: Explains modular schema aggregation, token parsing interceptors, RBAC actor context injection, and entity type mappers.
-7.  **[Distributed Locking & Coordination Kernel](docs/distributed_locking_coordination.md)**: Describes pluggable lock interfaces, compare-and-swap (CAS) lock mechanics, and lock ownership validations.
-
-
+### The Core Modules & Interfaces
+*   **Module Development Kit (`mdk`)**: A shared lightweight boundary library containing all core type declarations, event types, workflow engine schemas, and MCP provider contracts. Custom modules depend *only* on `mdk` and have no compile-time dependencies on the core engine.
+*   **Workflow Runner (`pkg/workflow`)**: Orchestrates complex workflows using Directed Acyclic Graphs (DAGs). Provides built-in support for step retries, transactional Saga compensations, and auto-resume checkpoint execution.
+*   **Agent Gateway (`api/mcp`)**: Implements the Model Context Protocol (MCP). Dynamically translates registered workflows into tools for LLMs, maps system resources, and publishes reactive change events over SSE channels.
+*   **API Router (`api/graph`)**: Stitches GraphQL resolvers together, handles multi-provider token authentication, and enforces RBAC actor contexts.
 
 ---
 
 ## 2. Core Capabilities & Design Patterns
 
 ### 2.1 Pluggable Workflows & DAG Execution
-Workflows in Hyperrr are defined declaratively:
+Workflows in Hyperrr are defined declaratively via `mdk.Workflow`:
 ```go
 type Workflow struct {
-    Name        string         // Unique ID (e.g., "order.fulfillment")
-    Version     string         // SemVer string
+    ID          string         // Unique ID (e.g. "hotel.booking.v1")
+    Name        string         // Descriptive name
     Description string         // Exposed to LLMs as tool documentation
     ExposeToAI  bool           // Flag indicating auto-discovery by MCP
     InputSchema map[string]any // JSON Schema of parameters
@@ -73,58 +61,38 @@ type Workflow struct {
 }
 ```
 *   **Parallel Execution**: The Runner evaluates the `DependsOn` fields of all steps, constructing a dependency tree and launching independent steps in parallel goroutines.
-*   **State Checkpointing**: Every step transition (PENDING -> RUNNING -> COMPLETED/FAILED) is persisted to the `StateStore`. If the application crashes, the auto-recovery supervisor scans the store at startup and calls `ResumeExecution()` to pick up unfinished tasks.
-*   **Saga Compensation Transactions**: Each workflow step can register a `Saga` rollback handler. If a step fails, the engine halts the execution DAG, rolls back through the execution history, and executes compensating actions in reverse order to ensure consistency.
+*   **State Checkpointing**: Every step transition is persisted to the `StateStore`. If the application crashes, the auto-recovery supervisor scans the store at startup and calls `ResumeExecution()` to pick up unfinished tasks.
+*   **Saga Compensation Transactions**: Each step can register a `Saga` rollback handler. If a step fails, the engine halts execution, rolls back through the execution history, and executes compensating actions in reverse order to ensure eventual consistency.
 
 ### 2.2 Pluggable State Stores & Lockers
-Hyperrr maintains three lock and store drivers: **In-Memory** (for local development and testing), **NATS JetStream KV**, and **Redis**.
-*   **Consistency Guarantee**: To swap state stores without changing behavior, all drivers implement the same transactional expectations. Both NATS and Redis locker implementations use compare-and-swap (CAS) and owner validation check scripts during locks and releases to prevent delayed release races.
-*   **Key-Level TTLs**: State stores implement `SetTTL` to automatically expire completed transaction state data.
+Hyperrr maintains three lock and store drivers: **In-Memory** (for local development and testing), **NATS JetStream KV**, and **Redis**. All drivers implement standard `StateStore` and `Locker` interfaces, ensuring transactional invariants are preserved.
 
 ### 2.3 Reactive Event Fabric
-The `EventBus` handles system communication.
-```go
-type EventBus interface {
-    Publish(ctx context.Context, event Event) error
-    Subscribe(ctx context.Context, eventType string, handler EventHandler) (Subscription, error)
-    Close() error
-}
-```
-On publishing an event, the system maps structural metadata to track request lineage across goroutines, enabling full traceability in the workflow projection log (`internal/context`).
-
-### 2.4 Agent Gateway (Model Context Protocol)
-The native MCP server runs alongside the HTTP monolith, offering:
-*   **Tools Auto-Discovery**: Workflows with `ExposeToAI: true` are formatted as JSON Schema tools for LLMs.
-*   **Session-Bound Lifecycles**: Invoked tools run on contexts linked to the SSE stream. If an agent drops its connection, ongoing background tasks are cancelled immediately to prevent resource leakage.
-*   **Resource Reading & Subscriptions**: Exposes system entities (such as orders or product catalogs) via URIs (e.g., `order://{id}/status`). Agents can subscribe to these URIs and receive reactive notification payloads whenever matching events are published to the `EventBus`.
+The Event Fabric propagates domain events asynchronously. On publishing an event, the system maps structural metadata to track request lineage across goroutines, enabling full traceability in the workflow projection logs.
 
 ---
 
 ## 3. Step-by-Step Module Development Guide
 
-This tutorial shows how to build a new domain module (e.g., a "Hotels & Lodging" module), register it with the Core OS, implement database persistence, hook task handlers to workflows, and expose resources to AI agents.
+This tutorial shows how to build a new domain module (e.g., a "Hotels & Lodging" module), register it with the Core OS using `mdk`, implement database persistence, hook task handlers to workflows, and expose resources to AI agents.
 
 ### Step 1: Implement the Module Interface
-Create a new directory `commerce/hotel` and declare the module structure matching the `registry.Module` interface:
+Create a new directory `commerce/hotel` and declare the module structure matching the `mdk.Module` interface:
 
 ```go
 package hotel
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"strings"
+	"net/http"
 
-	"github.com/GoHyperrr/hyperrr/internal/workflow"
-	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
-	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"github.com/GoHyperrr/mdk"
 	"gorm.io/gorm"
 )
 
 type Module struct {
 	db   *gorm.DB
-	bus  eventbus.EventBus
+	bus  mdk.EventBus
 	repo *Repository
 }
 
@@ -138,6 +106,10 @@ func (m *Module) ID() string {
 
 func (m *Module) Models() []any {
 	return []any{&Booking{}}
+}
+
+func (m *Module) Routes() []mdk.Route {
+	return nil
 }
 
 func (m *Module) Shutdown(ctx context.Context) error {
@@ -183,128 +155,120 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*Booking, error) {
 ```
 
 ### Step 3: Implement Task Handlers & Saga Compensations
-Define task handlers that will be executed as steps in our workflows:
+Define task handlers that will be executed as steps in our workflows. Step handlers must match the signature `mdk.StepHandler`:
 
 ```go
 // ReserveRoom creates a pending booking (Forward action)
-func (m *Module) ReserveRoom(ctx context.Context, input any) (any, error) {
-	data, ok := input.(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("invalid handler input")
-	}
-
-	workflowInput, _ := data["input"].(map[string]any)
-	customerID, _ := workflowInput["customer_id"].(string)
-	roomType, _ := workflowInput["room_type"].(string)
-	bookingID, _ := workflowInput["booking_id"].(string)
+func (m *Module) ReserveRoom(sCtx mdk.StepContext) mdk.StepResult {
+	customerID, _ := sCtx.Input["customer_id"].(string)
+	roomType, _ := sCtx.Input["room_type"].(string)
+	bookingID, _ := sCtx.Input["booking_id"].(string)
 
 	booking := &Booking{
 		ID:         bookingID,
 		CustomerID: customerID,
 		RoomType:   roomType,
 		Status:     BookingPending,
-		Price:      150.00, // Fixed mock price
+		Price:      150.00,
 	}
 
-	if err := m.repo.Save(ctx, booking); err != nil {
-		return nil, err
+	if err := m.repo.Save(sCtx.Ctx, booking); err != nil {
+		return mdk.StepResult{Err: err}
 	}
 
-	return map[string]any{"booking": booking}, nil
+	return mdk.StepResult{Output: map[string]any{"booking": booking}}
 }
 
 // CancelReservation rolls back a booking (Saga compensation action)
-func (m *Module) CancelReservation(ctx context.Context, input any) (any, error) {
-	data, ok := input.(map[string]any)
+func (m *Module) CancelReservation(sCtx mdk.StepContext) mdk.StepResult {
+	reserveStep, ok := sCtx.Input["hotel.reserve_room"].(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("invalid handler input")
-	}
-
-	// Retrieve reserved booking from previous step output context
-	reserveStep, ok := data["hotel.reserve_room"].(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("reservation data not found in saga context")
+		return mdk.StepResult{Err: fmt.Errorf("reservation data not found in saga context")}
 	}
 
 	bookingMap, _ := reserveStep["booking"].(map[string]any)
 	bookingID, _ := bookingMap["id"].(string)
 
-	booking, err := m.repo.GetByID(ctx, bookingID)
+	booking, err := m.repo.GetByID(sCtx.Ctx, bookingID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve booking for cancellation: %w", err)
+		return mdk.StepResult{Err: fmt.Errorf("failed to retrieve booking: %w", err)}
 	}
 
 	booking.Status = BookingCancelled
-	if err := m.repo.Save(ctx, booking); err != nil {
-		return nil, err
+	if err := m.repo.Save(sCtx.Ctx, booking); err != nil {
+		return mdk.StepResult{Err: err}
 	}
 
-	return map[string]any{"cancelled_booking_id": bookingID}, nil
-}
-
-func (m *Module) Handlers() map[string]workflow.TaskHandler {
-	return map[string]workflow.TaskHandler{
-		"hotel.reserve_room":       m.ReserveRoom,
-		"hotel.cancel_reservation": m.CancelReservation,
-	}
+	return mdk.StepResult{Output: map[string]any{"cancelled_booking_id": bookingID}}
 }
 ```
 
 ### Step 4: Define Workflows and Expose to AI
-Initialize the module, load dependencies, and register the declarative workflows:
+Initialize the module, load dependencies, and register the declarative workflows in the `Init` function:
 
 ```go
-func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
-	m.db = deps.DB.DB // Access underlying GORM DB wrapper
-	m.bus = deps.EventBus
+func (m *Module) Init(ctx context.Context, rt mdk.Runtime) error {
+	m.db = rt.DB()
+	m.bus = rt.Bus()
 	m.repo = &Repository{db: m.db}
 
-	// Register workflow definition
-	err := deps.Registry.Register(&workflow.Workflow{
-		Name:        "hotel.booking.v1",
-		Description: "Books a hotel room and handles compensation if payment fails.",
-		ExposeToAI:  true, // Expose to MCP Agent Gateway
-		InputSchema: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"customer_id": map[string]any{"type": "string"},
-				"room_type":   map[string]any{"type": "string"},
-				"booking_id":  map[string]any{"type": "string"},
+	if rt.Workflows() != nil {
+		// Register step handlers
+		_ = rt.Workflows().RegisterHandler("hotel.reserve_room", m.ReserveRoom)
+		_ = rt.Workflows().RegisterHandler("hotel.cancel_reservation", m.CancelReservation)
+
+		// Register workflow definition
+		err := rt.Workflows().Register(mdk.Workflow{
+			Name:        "hotel.booking.v1",
+			Description: "Books a hotel room and handles compensation if payment fails.",
+			ExposeToAI:  true,
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"customer_id": map[string]any{"type": "string"},
+					"room_type":   map[string]any{"type": "string"},
+					"booking_id":  map[string]any{"type": "string"},
+				},
+				"required": []string{"customer_id", "room_type", "booking_id"},
 			},
-			"required": []string{"customer_id", "room_type", "booking_id"},
-		},
-		Steps: []workflow.Step{
-			{
-				ID:   "hotel.reserve_room",
-				Uses: "hotel.reserve_room",
-				Saga: &workflow.Saga{Uses: "hotel.cancel_reservation"},
+			Steps: []mdk.Step{
+				{
+					ID:   "hotel.reserve_room",
+					Uses: "hotel.reserve_room",
+					Saga: &mdk.Saga{Uses: "hotel.cancel_reservation"},
+				},
+				{
+					ID:        "finance.charge_card",
+					Uses:      "finance.charge_card",
+					DependsOn: []string{"hotel.reserve_room"},
+					Saga:      &mdk.Saga{Uses: "finance.refund_payment"},
+				},
 			},
-			{
-				ID:        "finance.charge_card",
-				Uses:      "finance.charge_card",
-				DependsOn: []string{"hotel.reserve_room"},
-				Saga:      &workflow.Saga{Uses: "finance.refund_payment"},
-			},
-		},
-	})
-	return err
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 ```
 
 ### Step 5: Implement `ResourceProvider` for AI Agent Context
-Make the module implement `registry.ResourceProvider` to expose hotel resources and real-time subscription update flags:
+Make the module implement `mdk.ResourceProvider` to expose hotel resources and real-time subscription update channels to LLMs:
 
 ```go
-func (m *Module) ListResources(ctx context.Context) ([]registry.MCPResource, error) {
-	// Query GORM DB to expose current resources
+// Ensure Module implements mdk.ResourceProvider at compile time.
+var _ mdk.ResourceProvider = (*Module)(nil)
+
+func (m *Module) ListResources(ctx context.Context) ([]mdk.MCPResource, error) {
 	var bookings []Booking
 	if err := m.db.WithContext(ctx).Find(&bookings).Error; err != nil {
 		return nil, err
 	}
 
-	var res []registry.MCPResource
+	var res []mdk.MCPResource
 	for _, b := range bookings {
-		res = append(res, registry.MCPResource{
+		res = append(res, mdk.MCPResource{
 			URI:         "hotel://" + b.ID + "/status",
 			Name:        "Hotel Booking: " + b.ID,
 			Description: "Fulfillment and payment status of lodging reservation " + b.ID,
@@ -336,7 +300,7 @@ func (m *Module) ReadResource(ctx context.Context, uri string) (string, error) {
 ```
 
 ### Step 6: Expose GraphQL Resolvers via `GraphQLProvider`
-To expose your database query methods or mutation actions to the GraphQL API, your module must implement the `registry.GraphQLProvider` interface.
+To expose your database query methods or mutation actions to the GraphQL API, your module must implement the `registry.GraphQLProvider` interface defined in `hyperrr/pkg/registry` (since GraphQL stitching is controlled by the core API gateway).
 
 First, create a `hotel.graphqls` schema file inside `commerce/hotel/`:
 ```graphql
@@ -386,7 +350,6 @@ func (m *Module) FieldResolvers() map[string]any {
 	return nil
 }
 
-// Resolver implementations:
 func (m *Module) GetHotelBookingResolver(ctx context.Context, id string) (*model.HotelBooking, error) {
 	b, err := m.repo.GetByID(ctx, id)
 	if err != nil {
@@ -400,43 +363,28 @@ func (m *Module) GetHotelBookingResolver(ctx context.Context, id string) (*model
 		Price:      b.Price,
 	}, nil
 }
-
-func (m *Module) BookRoomResolver(ctx context.Context, customerID string, roomType string, bookingID string) (*model.HotelBooking, error) {
-	// Execute the booking workflow and return the mapped booking model
-	// ...
-	return nil, nil
-}
 ```
 
-Now run the code generation build command:
+Now compile the package into the binary:
 ```bash
 go run ./cmd/hyperrr build
 ```
-This automatically aggregates the new `hotel.graphqls` schema, executes GQLGen, and generates dynamic delegation code linking your module to the API Gateway.
-```
+This automatically aggregates the new schema, runs gqlgen, and generates custom resolver stitching files.
 
 ---
 
 ## 4. Bootstrapping & Registering the Module
 
-Hyperrr implements a dynamic, configuration-driven module registration pattern. Developers do **not** need to modify the core application bootstrapper [internal/app/app.go](internal/app/app.go) or main entry points to register, load, or activate their modules.
+Hyperrr implements a dynamic, configuration-driven module registration pattern. Developers do **not** need to modify the core application bootstrapper or main entry points to load modules.
 
-Instead, module registration requires three steps:
-
-### Step A: Register the Module Factory
-Within the custom module package (e.g. `commerce/hotel/module.go` or a new `init.go`), define a Go package `init()` function that registers a `ModuleFactory` constructor to the global factory registry under **both** its short ID and its full Go import package path name:
+### Step A: Register the Module Constructor
+Within the custom module package (e.g. `commerce/hotel/module.go`), define a Go package `init()` function that registers the module factory:
 
 ```go
 func init() {
-	factory := func(options map[string]any) (registry.Module, error) {
-		// Instantiate and configure module using provided option variables
-		m := NewModule()
-		return m, nil
-	}
-	
-	// Register under the short ID and full package path
-	registry.RegisterFactory("commerce.hotel", factory)
-	registry.RegisterFactory("github.com/GoHyperrr/commerce/hotel", factory)
+	mdk.Register(func() mdk.Module {
+		return NewModule()
+	})
 }
 ```
 
@@ -445,14 +393,14 @@ If your module provides dynamic subcommands (such as user creation or key genera
 
 ```go
 func init() {
-	// ... factory registrations ...
-
-	registry.RegisterCommand(registry.CLICommand{
+	mdk.RegisterCommand(mdk.CLICommand{
+		Group:       "auth",
 		Name:        "hotel",
 		Usage:       "book <customer_id> <room_type>",
-		Description: "Book a hotel room dynamically via the CLI",
-		Run: func(deps *registry.Dependencies, args []string) error {
-			// Custom booking logic utilizing deps.DB
+		Short:       "Book a hotel room dynamically via the CLI",
+		NeedsDB:     true,
+		Run: func(rt mdk.Runtime, args []string) error {
+			// Custom booking logic utilizing rt.DB()
 			return nil
 		},
 	})
@@ -460,102 +408,61 @@ func init() {
 ```
 
 ### Step C: Configure Module Activation in the Config File
-Add the module definition and its key/value options to the application configuration (JSON or YAML) under the `modules` array. 
+Add the module definition and its key/value options to the application configuration:
 
-To keep secrets and credentials secure, options can dynamically load variables from the environment by using the `"env."` prefix. Hyperrr automatically resolves these at startup:
-
-# hyperrr.yaml (or hyperrr.yml / configs/hyperrr.json)
+```yaml
+# hyperrr.yml
 modules:
   - resolve: "github.com/GoHyperrr/commerce/hotel"
-    id: "hyperrr.hotel"            # Optional: Override lookup ID mapping manually
     options:
-      apiKey: "env.HOTEL_API_KEY"  # Resolves os.Getenv("HOTEL_API_KEY") at runtime
+      apiKey: "${HOTEL_API_KEY}" # Resolves environment variable at runtime
       apiUrl: "https://api.hotels.com"
 ```
 
-#### **How Path Matching & Normalization Work:**
-Hyperrr utilizes the `registry.NormalizeModuleID` function to match configured module paths to their registered factory IDs automatically:
-* **Manual Override (`id`)**: If specified, the system looks up the module factory exactly under this custom name (e.g. `hyperrr.hotel`).
-* **Fallback Normalization**: If `id` is omitted, the `resolve` import path is normalized automatically (e.g., `github.com/GoHyperrr/commerce/hotel` becomes `commerce.hotel`), mapping it seamlessly to the factory registered with that standard name inside the package `init()`.
-
 ### Step D: Run Code Generation
-To compile the package into the binary without manual code edits, run the built-in Go generator command in your terminal from the workspace root:
+To compile the package into the binary, run the built-in Go generator command:
 
 ```bash
 go generate ./...
 ```
-
-The generation script parses the configuration file, extracts the package paths in `resolve`, and automatically generates the blank imports registry file `internal/app/imports_generated.go`. This registers the constructors at compile-time.
-
-On launch, the Core OS runtime resolves the configured `modules` list, instantiates them with resolved options, and completes bootstrapping:
-
-1.  **Auto-Discovery & Schema Migrations**: The core auto-discovers GORM schemas registered in `Models()` and executes database schema migrations automatically.
-2.  **Workflow Task Handlers Hooking**: Task handler maps returned by `Handlers()` are registered with the Workflow Runner.
-3.  **Init & Dependency Resolution**: The core invokes `Init(...)` on each module, allowing them to look up dependent modules dynamically from the registry and prepare endpoints.
-4.  **GraphQL Gateway Integration**: The core resolves GQLGen resolver interfaces and delegates fields dynamically to modules implementing `GraphQLProvider`.
-5.  **Agent Gateway Exposure**: The MCP Gateway server registers resources and workflows dynamically, preparing tools and SSE notification channels.
+This parses the config file, resolves module paths, and automatically writes the blank imports registry file `internal/app/imports_generated.go`.
 
 ---
 
 ## 5. Production & Execution Configuration
 
 ### 5.1 Environmental Configurations
-Settings are parsed using `Viper` at boot. A configuration file (such as `hyperrr.yml`, `hyperrr.yaml`, or `hyperrr.json`) is automatically loaded if present in the workspace root or `configs/` directory, and is merged with environment variables loaded from `.env`:
-```bash
-# Event Bus and Distributed Locks
-EVENT_BUS_PROVIDER=nats
-NATS_URL=nats://localhost:4222
-WORKFLOW_STORE_TYPE=redis
-REDIS_URL=redis://localhost:6379
+Settings are parsed using `Viper` at boot. A configuration file (such as `hyperrr.yml`) is automatically loaded if present in the workspace root or `configs/` directory.
 
-# Secrets and Server Configs
-SERVER_PORT=8080
-LOG_LEVEL=info
+Standard environment variable substitution is supported anywhere inside `hyperrr.yml` using the `${VAR_NAME}` or `${env.VAR_NAME:fallback}` pattern.
 
-# MCP Gateway Security Providers (default: apikey)
-# In configuration files (hyperrr.yml):
-# MCP_AUTH_PROVIDERS: ["apikey"] (or ["none"] to bypass authentication during testing)
-MCP_AUTH_PROVIDERS=apikey
-```
+Strict schema validation is performed at startup, validating ports, event bus drivers, database drivers, and authentication settings before boot.
 
 ### 5.2 Auto-Recovery Loop
-If a node crashes mid-execution, workflows marked as `RUNNING` in the shared NATS/Redis database become stalled. Hyperrr runs a background monitoring loop at boot:
-
-```go
-stalled, _ := store.ListExecutions(ctx, workflow.StateRunning)
-for _, execID := range stalled {
-    states, _ := store.GetState(ctx, execID)
-    wfName := states["__wf_name"]
-    wf, _ := registryStore.Get(wfName)
-    
-// Resumes DAG execution from the last successfully completed step checkpoint
-    go runner.ResumeExecution(ctx, execID, wf)
-}
-```
-This guarantees transactional reliability for business logic without requiring complex manually-written recovery procedures.
+If a node crashes mid-execution, workflows marked as `RUNNING` in the shared state store become stalled. Hyperrr runs a background monitoring loop at boot, scanning the store for stalled runs and calling `ResumeExecution()` to pick up from the last checkpoint.
 
 ---
 
 ## 6. Handling Cross-Module Dependencies & Relations
 
-When building pluggable, independent modules (such as a `coupon` module that needs to access data or trigger actions inside `product` and `order` modules), maintaining a clean separation of concerns is vital. Hyperrr utilizes three design patterns to resolve cross-module coupling:
+When building pluggable, independent modules, maintaining boundary separation is vital. Hyperrr utilizes three design patterns to resolve cross-module coupling:
 
-### 6.1 Dynamic Service Locator (`registry.Get`)
-To prevent hardcoded compiler dependencies and initialization races, modules do not reference each other during instantiation. Instead, they resolve dependencies dynamically during their `Init` phase by querying the global registry.
+### 6.1 Dynamic Service Locator (`rt.Module`)
+To prevent hardcoded compiler dependencies and initialization races, modules do not reference each other during instantiation. Instead, they resolve dependencies dynamically during their `Init` phase by querying the shared runtime environment.
 
 For example, inside a `coupon.Module` struct:
 ```go
 type Module struct {
-	prodMod  product.ModuleInterface // resolved interface
-	orderMod order.ModuleInterface   // resolved interface
+	prodMod  product.ModuleInterface
+	orderMod order.ModuleInterface  
 }
 
-func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
-	// Look up peer modules from global registry
-	if prodVal, ok := registry.Get("commerce.product"); ok {
+func (m *Module) Init(ctx context.Context, rt mdk.Runtime) error {
+	// Look up peer modules from shared runtime context
+	if prodVal, ok := rt.Module("commerce.product"); ok {
 		m.prodMod = prodVal.(product.ModuleInterface)
 	}
-	if orderVal, ok := registry.Get("commerce.order"); ok {
+	if orderVal, ok := rt.Module("commerce.order"); ok {
 		m.orderMod = orderVal.(order.ModuleInterface)
 	}
 	return nil
@@ -563,36 +470,15 @@ func (m *Module) Init(ctx context.Context, deps *registry.Dependencies) error {
 ```
 
 ### 6.2 Soft Database Relations
-In a modular monolith or microservices architecture, hard foreign-key constraints across module databases (e.g. coupon database table hard-joining with the order table) are a major antipattern because they break boundary separation.
-
-Instead, use **soft relations**:
-1. Store foreign references as simple data types (e.g., `ProductID string` or `OrderID string` on your model).
-2. Avoid using GORM's automatic `BelongsTo` or `HasMany` relation pointers across module-owned structs.
-3. Fetch the linked entity data by calling the referenced module's repository/service interface at query time.
-
-```go
-type CouponApplied struct {
-	ID        string `gorm:"primaryKey"`
-	CouponID  string `json:"coupon_id"`
-	ProductID string `json:"product_id"` // Soft relation: simple string field
-}
-```
+Avoid using GORM's automatic `BelongsTo` or `HasMany` relation pointers across module-owned database structs. Instead, store foreign references as simple data types (e.g., `ProductID string`) and resolve references dynamically by invoking the referenced module's repository at query time.
 
 ### 6.3 Asynchronous Decoupling via Event Fabric
-Instead of calling a peer module's methods directly (which creates synchronous compile-time coupling), modules should publish and subscribe to events on the `EventBus`.
-
-* **Scenario**: A `coupon` module wants to mark a coupon code as used when an order is finalized.
-* **Solution**: 
-  - The `order` module publishes an `order.finalized` event containing the `order_id` and any applied coupon codes.
-  - The `coupon` module subscribes to `order.finalized` and updates its internal state asynchronously.
-  - Neither module requires compile-time references to the other.
+Instead of calling a peer module's methods directly (which creates synchronous compile-time coupling), publish and subscribe to events on the `EventBus`.
 
 ```go
 // Inside coupon module initialization:
-deps.EventBus.Subscribe(ctx, "order.finalized", func(ctx context.Context, event eventbus.Event) error {
-	// 1. Unmarshal order data
-	// 2. Mark corresponding coupon as applied
+rt.Bus().Subscribe(ctx, "order.finalized", func(ctx context.Context, event mdk.Event) error {
+	// Mark corresponding coupon as applied
 	return nil
 })
 ```
-
