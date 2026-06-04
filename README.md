@@ -80,6 +80,12 @@ Run a full diagnostic check on the system, active configuration, database connec
 ```
 Easily view, modify, and list all resolved configurations.
 
+### 5. Centralized Configuration
+Hyperrr loads its settings from `hyperrr.yml` at boot time.
+* **Environment Variable Expansion**: You can use `${VAR_NAME}` or `${env.VAR_NAME:fallback}` anywhere in `hyperrr.yml`.
+* **Strict Validation**: All settings (ports, database drivers, auth providers, etc.) are strictly validated on boot.
+* **Auth Providers**: Explicitly list active authentication methods for HTTP API and MCP agent gateways using the `auth_providers` and `mcp_auth_providers` configuration options.
+
 ---
 
 ## 🧪 GraphQL Seed Data Sandbox
