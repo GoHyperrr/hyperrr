@@ -1,6 +1,6 @@
-# ⚡ Hyperrr — AI-Observable Distributed Commerce OS
+# ⚡ Hyperrr — AI-Observable Distributed Commerce Engine
 
-Hyperrr is a modern, event-native commerce operating system designed as a modular monolith. It treats all commerce operations as deterministic, replayable DAG workflows connected by a robust event fabric, managed via a powerful and extensible Cobra-based Go CLI.
+Hyperrr is a modern, event-native commerce engine designed as a modular monolith. It treats all commerce operations as deterministic, replayable DAG workflows connected by a robust event fabric, managed via a powerful and extensible Cobra-based Go CLI.
 
 ---
 

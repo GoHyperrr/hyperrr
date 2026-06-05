@@ -1,6 +1,6 @@
-# Hyperrr Core OS: Developer & Consumer Guide
+# Hyperrr Core Engine: Developer & Consumer Guide
 
-Welcome to the **Hyperrr Core OS** Developer Guide. Hyperrr is an AI-native, modular "operating system" designed to run transaction-heavy workflows across multiple domains (such as Retail Commerce, Travel, Lodging, and Logistics).
+Welcome to the **Hyperrr Core Engine** Developer Guide. Hyperrr is an AI-native, modular engine designed to run transaction-heavy workflows across multiple domains (such as Retail Commerce, Travel, Lodging, and Logistics).
 
 This guide describes the core runtime architecture, the pluggable storage and locking kernel, the Event Fabric, and the Agent Gateway (MCP). It also provides a complete, step-by-step tutorial on how to develop, integrate, and deploy a custom module using the Module Development Kit (`mdk`) that is fully integrated with the GraphQL API and exposed to autonomous AI agents.
 
