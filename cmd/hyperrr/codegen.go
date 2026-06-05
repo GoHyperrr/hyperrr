@@ -78,19 +78,29 @@ func discoverModules() ([]ModuleInfo, error) {
 	}
 	var scanPaths []scanItem
 
-	// Dynamically discover external workspace modules using go.work and go.mod
-	if workDir, err := findWorkspaceRoot(); err == nil {
-		if wsModules, err := getWorkspaceModules(workDir); err == nil {
-			for _, mPath := range wsModules {
-				if filepath.Base(mPath) == "hyperrr" {
-					continue
-				}
-				modName, err := getModuleName(mPath)
-				if err == nil {
-					scanPaths = append(scanPaths, scanItem{
-						root:   mPath,
-						prefix: modName + "/",
-					})
+	// Discover Go modules via go list
+	if goMods, err := getGoModules(); err == nil && len(goMods) > 0 {
+		for _, mod := range goMods {
+			scanPaths = append(scanPaths, scanItem{
+				root:   mod.Dir,
+				prefix: mod.Path + "/",
+			})
+		}
+	} else {
+		// Fallback to go.work workspace parsing
+		if workDir, err := findWorkspaceRoot(); err == nil {
+			if wsModules, err := getWorkspaceModules(workDir); err == nil {
+				for _, mPath := range wsModules {
+					if filepath.Base(mPath) == "hyperrr" {
+						continue
+					}
+					modName, err := getModuleName(mPath)
+					if err == nil {
+						scanPaths = append(scanPaths, scanItem{
+							root:   mPath,
+							prefix: modName + "/",
+						})
+					}
 				}
 			}
 		}

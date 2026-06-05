@@ -142,7 +142,10 @@ func TestMCP_FullHandshake(t *testing.T) {
 	defer ts.Close()
 
 	// 1. Establish SSE Connection
-	resp, _ := http.Get(ts.URL)
+	resp, err := http.Get(ts.URL)
+	if err != nil {
+		t.Fatalf("failed to establish SSE connection: %v", err)
+	}
 	defer resp.Body.Close()
 
 	// The session ID is randomly generated, we'd need to parse the 'endpoint' event
@@ -161,7 +164,7 @@ func TestMCP_FullHandshake(t *testing.T) {
 
 	// 2. Dispatch a message to the agent via SendMessage
 	testMsg := map[string]string{"ping": "pong"}
-	err := server.SendMessage(sessionID, testMsg)
+	err = server.SendMessage(sessionID, testMsg)
 	if err != nil {
 		t.Fatalf("SendMessage failed: %v", err)
 	}

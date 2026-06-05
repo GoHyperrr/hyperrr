@@ -35,17 +35,27 @@ func runBuild() error {
 	}
 	var scanPaths []scanItem
 
-	// Dynamically discover external workspace modules using go.work
-	if workDir, err := findWorkspaceRoot(); err == nil {
-		if modules, err := getWorkspaceModules(workDir); err == nil {
-			for _, mPath := range modules {
-				if filepath.Base(mPath) == "hyperrr" {
-					continue
+	// Discover Go modules via go list
+	if goMods, err := getGoModules(); err == nil && len(goMods) > 0 {
+		for _, mod := range goMods {
+			scanPaths = append(scanPaths, scanItem{
+				src:  mod.Dir,
+				name: filepath.Base(mod.Path), // e.g. "auth", "commerce"
+			})
+		}
+	} else {
+		// Fallback to go.work workspace parsing if go list is not available or failed
+		if workDir, err := findWorkspaceRoot(); err == nil {
+			if modules, err := getWorkspaceModules(workDir); err == nil {
+				for _, mPath := range modules {
+					if filepath.Base(mPath) == "hyperrr" {
+						continue
+					}
+					scanPaths = append(scanPaths, scanItem{
+						src:  mPath,
+						name: filepath.Base(mPath),
+					})
 				}
-				scanPaths = append(scanPaths, scanItem{
-					src:  mPath,
-					name: filepath.Base(mPath),
-				})
 			}
 		}
 	}
