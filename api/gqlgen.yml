@@ -11,6 +11,8 @@ model:
 
 autobind:
   - github.com/GoHyperrr/commerce/product
+  - github.com/GoHyperrr/commerce/seo
+  - github.com/GoHyperrr/commerce/taxonomy
   - github.com/GoHyperrr/commerce/cart
   - github.com/GoHyperrr/commerce/order
   - github.com/GoHyperrr/commerce/customer

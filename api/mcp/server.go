@@ -925,14 +925,33 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 			content += `<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No products registered.</td></tr>`
 		} else {
 			for _, p := range list {
+				priceStr := "N/A"
+				if len(p.Variants) > 0 {
+					priceStr = fmt.Sprintf("$%.2f", p.Variants[0].Price)
+					if len(p.Variants) > 1 {
+						minP := p.Variants[0].Price
+						maxP := p.Variants[0].Price
+						for _, v := range p.Variants {
+							if v.Price < minP {
+								minP = v.Price
+							}
+							if v.Price > maxP {
+								maxP = v.Price
+							}
+						}
+						if minP != maxP {
+							priceStr = fmt.Sprintf("$%.2f - $%.2f", minP, maxP)
+						}
+					}
+				}
 				content += fmt.Sprintf(`
 					<tr>
 						<td><code>%s</code></td>
 						<td>%s</td>
 						<td>%s</td>
-						<td class="text-accent">$%.2f</td>
+						<td class="text-accent">%s</td>
 						<td>%s</td>
-					</tr>`, p.ID, p.Name, p.Description, p.Price, p.Currency)
+					</tr>`, p.ID, p.Name, p.Description, priceStr, "USD")
 			}
 		}
 		content += `
