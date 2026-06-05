@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/GoHyperrr/hyperrr/internal/builder"
 	"github.com/spf13/cobra"
 )
 
@@ -10,7 +11,7 @@ var codegenCmd = &cobra.Command{
 	Long:    `Scan modules implementing GraphQLProvider, aggregate their queries, mutations, and fields, and dynamically regenerate the resolver implementations.`,
 	GroupID: "engine",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runCodegen()
+		return builder.RunCodegen()
 	},
 }
 

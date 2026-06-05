@@ -1,4 +1,4 @@
-package main
+package builder
 
 import (
 	"bufio"
@@ -11,7 +11,8 @@ import (
 	"strings"
 )
 
-func runBuild() error {
+// RunBuild performs the full import generation, schema copying, gqlgen generation, custom resolver stitching, and core compilation.
+func RunBuild() error {
 	fmt.Println("=== Hyperrr Core Builder ===")
 
 	// 0. Generate imports_generated.go from hyperrr.yml
@@ -112,7 +113,7 @@ func runBuild() error {
 
 	// 3.5. Run custom resolver codegen
 	fmt.Println("Running custom resolver codegen...")
-	if err := runCodegen(); err != nil {
+	if err := RunCodegen(); err != nil {
 		return fmt.Errorf("custom resolver codegen failed: %w", err)
 	}
 	fmt.Println("Custom resolver code generated successfully!")
@@ -207,4 +208,3 @@ func generateImports() error {
 
 	return os.WriteFile(outPath, []byte(sb.String()), 0644)
 }
-

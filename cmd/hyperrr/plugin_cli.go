@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/GoHyperrr/hyperrr/internal/builder"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 )
 
@@ -354,5 +355,5 @@ func removeImport(filename, pkgPath string) error {
 
 func rebuildBinary(root string) error {
 	fmt.Println("Recompiling Hyperrr binary with updated imports...")
-	return runBuild()
+	return builder.RunBuild()
 }

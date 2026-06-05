@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
-      - run: go run ./cmd/hyperrr build
+      - run: go run ./cmd/builder
       - run: go vet ./...
       - run: go test -v -coverprofile=coverage.out ./...
       - name: Go Coverage Report

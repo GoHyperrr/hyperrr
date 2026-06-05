@@ -1,4 +1,4 @@
-package main
+package builder
 
 import (
 	"bytes"
@@ -33,7 +33,8 @@ type ResolverInterface struct {
 	Methods []ResolverMethod
 }
 
-func runCodegen() error {
+// RunCodegen scans modules implementing GraphQLProvider, aggregates queries/mutations/fields, and regenerates resolver implementations.
+func RunCodegen() error {
 	fmt.Println("Scanning for GraphQLProvider modules...")
 	modules, err := discoverModules()
 	if err != nil {
@@ -219,7 +220,6 @@ func parseModuleQueriesMutations(dir string) (map[string]string, map[string]stri
 						}
 						compLit, ok := retStmt.Results[0].(*ast.CompositeLit)
 						if !ok {
-							// Return nil is valid and does not warrant a warning
 							if id, isIdent := retStmt.Results[0].(*ast.Ident); isIdent && id.Name == "nil" {
 								continue
 							}
@@ -358,7 +358,6 @@ func generateResolverStruct(modules []ModuleInfo, interfaces []ResolverInterface
 		if mod.Name == "ctxengine" {
 			buf.WriteString("\tCtxEngineModule    *ctxengine.Module\n")
 		} else {
-			// Camel case field name
 			fieldName := strings.ToUpper(mod.Name[:1]) + mod.Name[1:] + "Module"
 			buf.WriteString(fmt.Sprintf("\t%s *%s.Module\n", fieldName, mod.Name))
 		}
@@ -383,7 +382,7 @@ func generateResolverStruct(modules []ModuleInfo, interfaces []ResolverInterface
 	}
 	buf.WriteString("\n")
 
-	// Write NewResolver constructor!
+	// Write NewResolver constructor
 	buf.WriteString("func NewResolver(modules []registry.Module, runner *workflow.Runner, registryStore *workflow.Registry, projector mdk.Projector) *Resolver {\n")
 	buf.WriteString("\tres := &Resolver{\n")
 	buf.WriteString("\t\tRunner:    runner,\n")
@@ -397,7 +396,6 @@ func generateResolverStruct(modules []ModuleInfo, interfaces []ResolverInterface
 			buf.WriteString("\t\tcase \"core.context\":\n")
 			buf.WriteString("\t\t\tres.CtxEngineModule = m.(*ctxengine.Module)\n")
 		} else {
-			// Determine module registration ID e.g. commerce.product or auth.emailpass
 			prefix := "commerce."
 			if strings.Contains(mod.ImportPath, "/auth/") {
 				prefix = "auth."
@@ -419,19 +417,16 @@ func generateResolverStruct(modules []ModuleInfo, interfaces []ResolverInterface
 func generateResolversImpl(modules []ModuleInfo, interfaces []ResolverInterface) error {
 	var methodsBuf bytes.Buffer
 
-	// For each resolver method of each interface, delegate to the corresponding module
 	for _, iface := range interfaces {
 		rootMethodName := strings.TrimSuffix(iface.Name, "Resolver")
 		resolverStructName := strings.ToLower(rootMethodName[:1]) + rootMethodName[1:] + "Resolver"
 
 		for _, method := range iface.Methods {
-			// Find module and method mapping
 			found := false
 			var targetMod ModuleInfo
 			var targetMethod string
 
 			if iface.Name == "QueryResolver" {
-				// Search queries
 				for _, mod := range modules {
 					for qKey, qVal := range mod.Queries {
 						if strings.EqualFold(qKey, method.Name) || (strings.HasPrefix(qKey, "_") && strings.EqualFold(qKey[1:], method.Name)) {
@@ -446,7 +441,6 @@ func generateResolversImpl(modules []ModuleInfo, interfaces []ResolverInterface)
 					}
 				}
 			} else if iface.Name == "MutationResolver" {
-				// Search mutations
 				for _, mod := range modules {
 					for mKey, mVal := range mod.Mutations {
 						if strings.EqualFold(mKey, method.Name) || (strings.HasPrefix(mKey, "_") && strings.EqualFold(mKey[1:], method.Name)) {
@@ -461,7 +455,6 @@ func generateResolversImpl(modules []ModuleInfo, interfaces []ResolverInterface)
 					}
 				}
 			} else {
-				// Nested resolver (e.g. WorkflowLineageResolver)
 				typeName := strings.TrimSuffix(iface.Name, "Resolver")
 				for _, mod := range modules {
 					if typeFields, ok := mod.Fields[typeName]; ok {
@@ -480,7 +473,6 @@ func generateResolversImpl(modules []ModuleInfo, interfaces []ResolverInterface)
 				}
 			}
 
-			// Generate delegation method signature
 			methodsBuf.WriteString(fmt.Sprintf("func (r *%s) %s(%s) %s {\n", resolverStructName, method.Name, method.Params, method.Results))
 
 			if found {
@@ -491,12 +483,9 @@ func generateResolversImpl(modules []ModuleInfo, interfaces []ResolverInterface)
 					moduleRef = "r." + strings.ToUpper(targetMod.Name[:1]) + targetMod.Name[1:] + "Module"
 				}
 
-				// Extract parameter names to pass
 				paramNames := extractParamNames(method.Params)
 
-				// Check if the module is nil (not loaded/initialized)
 				methodsBuf.WriteString(fmt.Sprintf("\tif %s == nil {\n", moduleRef))
-				// Return appropriate zero/error
 				if strings.Contains(method.Results, "error") {
 					zeroValsExceptError := getZeroReturnStringExceptLast(method.Results)
 					if zeroValsExceptError != "" {
@@ -509,10 +498,8 @@ func generateResolversImpl(modules []ModuleInfo, interfaces []ResolverInterface)
 				}
 				methodsBuf.WriteString("\t}\n")
 
-				// Delegate
 				methodsBuf.WriteString(fmt.Sprintf("\treturn %s.%s(%s)\n", moduleRef, targetMethod, paramNames))
 			} else {
-				// Stub for unclaimed
 				methodsBuf.WriteString(fmt.Sprintf("\tpanic(fmt.Errorf(\"not implemented: %s\"))\n", method.Name))
 			}
 
@@ -535,7 +522,6 @@ func generateResolversImpl(modules []ModuleInfo, interfaces []ResolverInterface)
 	buf.WriteString("\t\"github.com/GoHyperrr/mdk\"\n")
 	for _, mod := range modules {
 		if mod.Name != "ctxengine" {
-			// Only import if package-prefix is used in types (e.g. "product.Product" -> contains "product.")
 			if strings.Contains(methodsStr, mod.Name+".") {
 				buf.WriteString(fmt.Sprintf("\t%s \"%s\"\n", mod.Name, mod.ImportPath))
 			}
@@ -630,8 +616,8 @@ func formatFuncSig(fset *token.FileSet, params *ast.FieldList, results *ast.Fiel
 		Params:  params,
 		Results: results,
 	}
-	sigStr := formatNode(fset, dummyFunc) // Prints: "func(params) results"
-	sigStr = strings.TrimPrefix(sigStr, "func") // Leaves: "(params) results"
+	sigStr := formatNode(fset, dummyFunc)
+	sigStr = strings.TrimPrefix(sigStr, "func")
 
 	depth := 0
 	splitIdx := -1
