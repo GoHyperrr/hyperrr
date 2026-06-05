@@ -96,10 +96,10 @@ func TestMCP_SSE_Integration(t *testing.T) {
 }
 
 type mockActorResolver struct {
-	keyActorMap map[string]*ident.Actor
+	keyActorMap map[string]ident.Actor
 }
 
-func (m *mockActorResolver) GetActorByAPIKey(ctx context.Context, key string) (*ident.Actor, error) {
+func (m *mockActorResolver) GetActorByAPIKey(ctx context.Context, key string) (ident.Actor, error) {
 	if a, ok := m.keyActorMap[key]; ok {
 		return a, nil
 	}
@@ -108,8 +108,8 @@ func (m *mockActorResolver) GetActorByAPIKey(ctx context.Context, key string) (*
 
 func TestMCP_Authentication(t *testing.T) {
 	resolver := &mockActorResolver{
-		keyActorMap: map[string]*ident.Actor{
-			"valid-key": {
+		keyActorMap: map[string]ident.Actor{
+			"valid-key": &ident.BaseActor{
 				ID:   "act_test_agent",
 				Type: ident.ActorAIAgent,
 				Name: "Test Agent",

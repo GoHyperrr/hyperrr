@@ -12,12 +12,12 @@ import (
 
 // TokenValidator defines an interface for validating authentication tokens.
 type TokenValidator interface {
-	ValidateToken(ctx context.Context, token string) (*identity.Actor, error)
+	ValidateToken(ctx context.Context, token string) (identity.Actor, error)
 }
 
 // ActorResolver defines the interface for resolving API Keys.
 type ActorResolver interface {
-	GetActorByAPIKey(ctx context.Context, key string) (*identity.Actor, error)
+	GetActorByAPIKey(ctx context.Context, key string) (identity.Actor, error)
 }
 
 // AuthMiddleware extracts the credentials (JWT or API Key) and injects the Actor into the context.
@@ -28,7 +28,7 @@ func AuthMiddleware(providers []string, validator TokenValidator, resolver Actor
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			var actor *identity.Actor
+			var actor identity.Actor
 			var authErr error
 			authenticated := false
 			authAttempted := false
@@ -36,7 +36,7 @@ func AuthMiddleware(providers []string, validator TokenValidator, resolver Actor
 			for _, p := range providers {
 				switch p {
 				case "none":
-					actor = &identity.Actor{
+					actor = &identity.BaseActor{
 						ID:   "act_http_developer",
 						Type: identity.ActorAIAgent,
 						Name: "Developer User (No Auth)",
@@ -117,12 +117,12 @@ func AuthMiddleware(providers []string, validator TokenValidator, resolver Actor
 }
 
 // WithActor returns a new context with the given actor.
-func WithActor(ctx context.Context, actor *identity.Actor) context.Context {
+func WithActor(ctx context.Context, actor identity.Actor) context.Context {
 	return mdk.WithActor(ctx, actor)
 }
 
 // ForContext retrieves the Actor from the context and a boolean indicating success.
-func ForContext(ctx context.Context) (*identity.Actor, bool) {
+func ForContext(ctx context.Context) (identity.Actor, bool) {
 	return mdk.ActorFromContext(ctx)
 }
 

@@ -54,14 +54,16 @@ Hyperrr is a modern, event-native commerce engine designed as a modular monolith
 
 ## 🚥 Getting Started
 
-### 1. Compile the Unified Executable
-Compile the consolidated binary using Go:
+### 1. Run Schema Aggregation & Compile the Executable
+Discover GraphQL schemas, run `gqlgen` code generation, and compile the unified `hyperrr` server executable:
 ```bash
-# Using standard Go
-go build -o bin/hyperrr ./cmd/hyperrr
+go run ./cmd/builder
+```
+This writes the compiled binary to `bin/hyperrr` (or `bin/hyperrr.exe` on Windows).
 
-# Or using Makefile
-make build
+After compiling, you can also use the CLI's built-in build command to rebuild dynamically:
+```bash
+./bin/hyperrr build
 ```
 
 ### 2. Start the Backend Commerce Server
@@ -121,10 +123,10 @@ You can register users via GraphQL or directly from your terminal using the dyna
 
 ```bash
 # Register a user via the CLI
-go run ./cmd/hyperrr auth user register dev@example.com mypassword "Developer User"
+./bin/hyperrr auth user register dev@example.com mypassword "Developer User"
 
 # Generate an API Key for MCP AI Agents
-go run ./cmd/hyperrr auth apikey generate
+./bin/hyperrr auth apikey generate
 ```
 
 To register via the GraphQL Playground (which emits `identity.user_created` to automatically create a customer profile):

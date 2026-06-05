@@ -9,23 +9,57 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    env:
-      GOPRIVATE: github.com/GoHyperrr/*
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - name: Checkout hyperrr
+        uses: actions/checkout@v4
+        with:
+          path: hyperrr
+
+      - name: Checkout mdk
+        uses: actions/checkout@v4
+        with:
+          repository: GoHyperrr/mdk
+          path: mdk
+
+      - name: Checkout auth
+        uses: actions/checkout@v4
+        with:
+          repository: GoHyperrr/auth
+          path: auth
+
+      - name: Checkout commerce
+        uses: actions/checkout@v4
+        with:
+          repository: GoHyperrr/commerce
+          path: commerce
+
+      - name: Checkout file-storage
+        uses: actions/checkout@v4
+        with:
+          repository: GoHyperrr/file-storage
+          path: file-storage
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
           go-version: '1.25'
-      - run: go mod download
-      - run: go run ./cmd/builder
-      - run: go vet ./...
-      - run: go test -v -coverprofile=coverage.out ./...
-      - name: Go Coverage Report
-        uses: ncruces/go-coverage-report@v0
-        with:
-          report: 'true'
-          chart: 'true'
-          amend: 'true'
-        continue-on-error: true
+
+      - name: Setup Workspace
+        run: |
+          echo "go 1.25.5" > go.work
+          echo "use (" >> go.work
+          echo "    ./auth" >> go.work
+          echo "    ./commerce" >> go.work
+          echo "    ./file-storage" >> go.work
+          echo "    ./hyperrr" >> go.work
+          echo "    ./mdk" >> go.work
+          echo ")" >> go.work
+
+      - name: Go Vet
+        run: cd hyperrr && go vet ./...
+
+      - name: Go Test
+        run: cd hyperrr && go test -v ./...
+
+      - name: Go Build
+        run: cd hyperrr && go build ./cmd/hyperrr

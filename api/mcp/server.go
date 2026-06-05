@@ -146,7 +146,7 @@ func (s *Server) HandleMessages(w http.ResponseWriter, r *http.Request) {
 		providers = []string{"apikey"} // Default fallback
 	}
 
-	var actor *ident.Actor
+	var actor ident.Actor
 	var authErr error
 	authenticated := false
 
@@ -154,7 +154,7 @@ func (s *Server) HandleMessages(w http.ResponseWriter, r *http.Request) {
 		switch p {
 		case "none":
 			// Bypass authentication check entirely and mock a developer actor
-			actor = &ident.Actor{
+			actor = &ident.BaseActor{
 				ID:   "act_mcp_developer",
 				Type: ident.ActorAIAgent,
 				Name: "Developer Agent (No Auth)",
@@ -175,7 +175,7 @@ func (s *Server) HandleMessages(w http.ResponseWriter, r *http.Request) {
 				authErr = fmt.Errorf("invalid api key: %w", err)
 				continue
 			}
-			if resActor.Type != ident.ActorAIAgent {
+			if resActor.GetType() != ident.ActorAIAgent {
 				authErr = fmt.Errorf("actor is not an AI agent")
 				continue
 			}
@@ -214,7 +214,7 @@ func (s *Server) HandleMessages(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (s *Server) dispatch(ctx context.Context, sessionID string, actor *ident.Actor, req JSONRPCRequest) {
+func (s *Server) dispatch(ctx context.Context, sessionID string, actor ident.Actor, req JSONRPCRequest) {
 	var resp JSONRPCResponse
 	resp.JSONRPC = "2.0"
 	resp.ID = req.ID
@@ -483,7 +483,7 @@ func (s *Server) handleToolsList(ctx context.Context) *ListToolsResult {
 	return &ListToolsResult{Tools: tools}
 }
 
-func (s *Server) handleToolsCall(ctx context.Context, actor *ident.Actor, params map[string]any) (any, *Error) {
+func (s *Server) handleToolsCall(ctx context.Context, actor ident.Actor, params map[string]any) (any, *Error) {
 	name, ok := params["name"].(string)
 	if !ok {
 		return nil, &Error{Code: CodeInvalidParams, Message: "Tool name required"}
