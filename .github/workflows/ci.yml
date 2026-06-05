@@ -9,11 +9,20 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
       - run: go vet ./...
-      - run: go test ./...
+      - run: go test -v -coverprofile=coverage.out ./...
       - run: go build ./...
+      - name: Go Coverage Report
+        uses: ncruces/go-coverage-report@v0
+        with:
+          report: 'true'
+          chart: 'true'
+          amend: 'true'
+        continue-on-error: true

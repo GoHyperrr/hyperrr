@@ -1,5 +1,8 @@
 # ⚡ Hyperrr — AI-Observable Distributed Commerce Engine
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/GoHyperrr/hyperrr.svg)](https://pkg.go.dev/github.com/GoHyperrr/hyperrr)
+[![Go Coverage](https://github.com/GoHyperrr/hyperrr/wiki/coverage.svg)](https://raw.githack.com/wiki/GoHyperrr/hyperrr/coverage.html)
+
 Hyperrr is a modern, event-native commerce engine designed as a modular monolith. It treats all commerce operations as deterministic, replayable DAG workflows connected by a robust event fabric, managed via a powerful and extensible Cobra-based Go CLI.
 
 ---
