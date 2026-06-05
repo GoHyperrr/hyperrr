@@ -202,8 +202,8 @@ func (r *Runner) ExecuteSyncWorkflow(ctx context.Context, id string, wf *Workflo
 						time.Sleep(100 * time.Millisecond)
 					}
 
-					handler := s.Handler
-					if handler == nil && s.Uses != "" {
+					var handler mdk.StepHandler
+					if s.Uses != "" {
 						r.mu.RLock()
 						h, ok := r.handlers[s.Uses]
 						r.mu.RUnlock()
@@ -433,8 +433,8 @@ func (r *Runner) ResumeExecution(ctx context.Context, id string, wf *Workflow) (
 						time.Sleep(100 * time.Millisecond)
 					}
 
-					handler := s.Handler
-					if handler == nil && s.Uses != "" {
+					var handler mdk.StepHandler
+					if s.Uses != "" {
 						r.mu.RLock()
 						h, ok := r.handlers[s.Uses]
 						r.mu.RUnlock()
@@ -669,8 +669,8 @@ func (r *Runner) ExecuteSync(ctx context.Context, id string, workflowID string, 
 						time.Sleep(100 * time.Millisecond) // Static backoff
 					}
 
-					handler := s.Handler
-					if handler == nil && s.Uses != "" {
+					var handler mdk.StepHandler
+					if s.Uses != "" {
 						r.mu.RLock()
 						h, ok := r.handlers[s.Uses]
 						r.mu.RUnlock()
@@ -767,8 +767,8 @@ func (r *Runner) compensate(ctx context.Context, id string, history []mdk.Step, 
 	r.emit(ctx, EventWorkflowCompensating, map[string]any{"id": id, "steps_count": len(history)})
 	for i := len(history) - 1; i >= 0; i-- {
 		step := history[i]
-		compensate := step.Compensate
-		if compensate == nil && step.Saga != nil && step.Saga.Uses != "" {
+		var compensate mdk.StepHandler
+		if step.Saga != nil && step.Saga.Uses != "" {
 			r.mu.RLock()
 			h, ok := r.handlers[step.Saga.Uses]
 			r.mu.RUnlock()

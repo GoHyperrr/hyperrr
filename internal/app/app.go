@@ -251,6 +251,23 @@ func RunWithConfig(cfg *config.Config) error {
 	}
 
 	// 9. Register system.about workflow for AI agent context
+	_ = runner.RegisterHandler("system.about_handler", func(sCtx mdk.StepContext) mdk.StepResult {
+		var activeModules []string
+		for _, m := range registry.List() {
+			activeModules = append(activeModules, m.ID())
+		}
+
+		info := map[string]any{
+			"version":        internal.Version,
+			"environment":    cfg.AppEnv,
+			"current_time":   time.Now().Format(time.RFC3339),
+			"active_modules": activeModules,
+			"event_bus":      cfg.EventBusProvider,
+			"state_store":    cfg.WorkflowStoreType,
+		}
+		return mdk.StepResult{Output: info}
+	})
+
 	_ = registryStore.Register(&workflow.Workflow{
 		Name:        "system.about",
 		Description: "Returns metadata about the running system, including active modules, version, current server time, and environment configurations.",
@@ -262,22 +279,7 @@ func RunWithConfig(cfg *config.Config) error {
 			{
 				ID:   "about",
 				Name: "About System",
-				Handler: func(sCtx mdk.StepContext) mdk.StepResult {
-					var activeModules []string
-					for _, m := range registry.List() {
-						activeModules = append(activeModules, m.ID())
-					}
-
-					info := map[string]any{
-						"version":        internal.Version,
-						"environment":    cfg.AppEnv,
-						"current_time":   time.Now().Format(time.RFC3339),
-						"active_modules": activeModules,
-						"event_bus":      cfg.EventBusProvider,
-						"state_store":    cfg.WorkflowStoreType,
-					}
-					return mdk.StepResult{Output: info}
-				},
+				Uses: "system.about_handler",
 			},
 		},
 	})
