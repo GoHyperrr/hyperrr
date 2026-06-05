@@ -12,7 +12,7 @@ jobs:
     permissions:
       contents: write
     env:
-      GOPROXY: direct
+      GOPRIVATE: github.com/GoHyperrr/*
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
