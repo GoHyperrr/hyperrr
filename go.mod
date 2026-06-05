@@ -6,7 +6,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.3
 	github.com/99designs/gqlgen v0.17.90
 	github.com/GoHyperrr/auth v0.0.0-20260605044914-36c40a774fca
-	github.com/GoHyperrr/commerce v0.0.0-20260605044921-2054e1560938
+	github.com/GoHyperrr/commerce v0.0.0-20260605045145-ef7fc66628c7
 	github.com/GoHyperrr/mdk v0.0.0-20260605044506-3d2ab0d97ca9
 	github.com/glebarez/sqlite v1.11.0
 	github.com/google/uuid v1.6.0
