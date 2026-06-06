@@ -5,8 +5,8 @@ go 1.25.5
 require (
 	charm.land/lipgloss/v2 v2.0.3
 	github.com/99designs/gqlgen v0.17.90
-	github.com/GoHyperrr/auth v0.0.0-20260605044914-36c40a774fca
-	github.com/GoHyperrr/commerce v0.0.0-20260605045145-ef7fc66628c7
+	github.com/GoHyperrr/auth v0.2.0
+	github.com/GoHyperrr/commerce v0.2.0
 	github.com/GoHyperrr/mdk v0.2.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/google/uuid v1.6.0
