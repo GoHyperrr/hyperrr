@@ -3,6 +3,7 @@ package locking
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 )
 
@@ -10,6 +11,26 @@ var (
 	ErrLockAcquisitionTimeout = errors.New("lock acquisition timed out")
 	ErrLockNotHeld           = errors.New("lock not held")
 )
+
+type LockerProvider func(url string, bucketOrPrefix string) (Locker, error)
+
+var (
+	lockersMu sync.RWMutex
+	lockers   = make(map[string]LockerProvider)
+)
+
+func RegisterLocker(name string, provider LockerProvider) {
+	lockersMu.Lock()
+	defer lockersMu.Unlock()
+	lockers[name] = provider
+}
+
+func GetLocker(name string) (LockerProvider, bool) {
+	lockersMu.RLock()
+	defer lockersMu.RUnlock()
+	l, ok := lockers[name]
+	return l, ok
+}
 
 type contextKey string
 

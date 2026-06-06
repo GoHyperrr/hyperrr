@@ -9,16 +9,36 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/utils"
 	"github.com/glebarez/sqlite"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 )
+
+type DialectProvider func(dsn string) gorm.Dialector
+
+var (
+	dialectsMu sync.RWMutex
+	dialects   = make(map[string]DialectProvider)
+)
+
+func RegisterDialect(name string, provider DialectProvider) {
+	dialectsMu.Lock()
+	defer dialectsMu.Unlock()
+	dialects[name] = provider
+}
+
+func GetDialect(name string) (DialectProvider, bool) {
+	dialectsMu.RLock()
+	defer dialectsMu.RUnlock()
+	d, ok := dialects[name]
+	return d, ok
+}
 
 // JSONMap is a custom type for map[string]string that implements GORM scanner/valuer.
 type JSONMap map[string]string
@@ -113,10 +133,12 @@ func Connect(cfg *config.Config) (*DB, error) {
 			dsn = filepath.Join(workspace, dsn)
 		}
 		dialect = sqlite.Open(dsn)
-	case "postgres":
-		dialect = postgres.Open(cfg.DBDSN)
 	default:
-		return nil, fmt.Errorf("unsupported database driver: %s", cfg.DBDriver)
+		provider, ok := GetDialect(cfg.DBDriver)
+		if !ok {
+			return nil, fmt.Errorf("unsupported database driver: %s (did you register the database module?)", cfg.DBDriver)
+		}
+		dialect = provider(cfg.DBDSN)
 	}
 
 	gBridge := &gormLoggerBridge{LogLevel: gormlogger.Info}

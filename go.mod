@@ -5,18 +5,15 @@ go 1.25.5
 require (
 	charm.land/lipgloss/v2 v2.0.3
 	github.com/99designs/gqlgen v0.17.90
-	github.com/GoHyperrr/auth v0.0.0-20260605044914-36c40a774fca
-	github.com/GoHyperrr/commerce v0.0.0-20260605045145-ef7fc66628c7
-	github.com/GoHyperrr/mdk v0.0.0-20260605044506-3d2ab0d97ca9
+	github.com/GoHyperrr/auth v0.2.0
+	github.com/GoHyperrr/commerce v0.2.0
+	github.com/GoHyperrr/mdk v0.2.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/google/uuid v1.6.0
-	github.com/nats-io/nats.go v1.52.0
-	github.com/redis/go-redis/v9 v9.20.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.21.0
 	github.com/vektah/gqlparser/v2 v2.5.33
 	gopkg.in/yaml.v3 v3.0.1
-	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
 )
 
@@ -83,8 +80,4 @@ require (
 	modernc.org/sqlite v1.23.1 // indirect
 )
 
-replace (
-	github.com/GoHyperrr/auth => ../auth
-	github.com/GoHyperrr/commerce => ../commerce
-	github.com/GoHyperrr/mdk => ../mdk
-)
+
