@@ -925,9 +925,19 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 			content += `<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No products registered.</td></tr>`
 		} else {
 			for _, p := range list {
+				currencyCode := "USD"
+				if s.deps.Config != nil && s.deps.Config.Currency != "" {
+					currencyCode = s.deps.Config.Currency
+				}
+				if p.Metadata != nil {
+					if curr, ok := p.Metadata["currency"].(string); ok {
+						currencyCode = curr
+					}
+				}
+
 				priceStr := "N/A"
 				if len(p.Variants) > 0 {
-					priceStr = fmt.Sprintf("$%.2f", p.Variants[0].Price)
+					priceStr = formatPrice(p.Variants[0].Price, currencyCode)
 					if len(p.Variants) > 1 {
 						minP := p.Variants[0].Price
 						maxP := p.Variants[0].Price
@@ -940,7 +950,7 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 							}
 						}
 						if minP != maxP {
-							priceStr = fmt.Sprintf("$%.2f - $%.2f", minP, maxP)
+							priceStr = fmt.Sprintf("%s - %s", formatPrice(minP, currencyCode), formatPrice(maxP, currencyCode))
 						}
 					}
 				}
@@ -951,7 +961,7 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 						<td>%s</td>
 						<td class="text-accent">%s</td>
 						<td>%s</td>
-					</tr>`, p.ID, p.Name, p.Description, priceStr, "USD")
+					</tr>`, p.ID, p.Name, p.Description, priceStr, currencyCode)
 			}
 		}
 		content += `
@@ -1860,4 +1870,21 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 </html>`
 
 	return fmt.Sprintf(htmlSkeleton, title, accent, accentGlow, title, content)
+}
+
+func formatPrice(price float64, currencyCode string) string {
+	switch strings.ToUpper(currencyCode) {
+	case "USD":
+		return fmt.Sprintf("$%.2f", price)
+	case "EUR":
+		return fmt.Sprintf("€%.2f", price)
+	case "GBP":
+		return fmt.Sprintf("£%.2f", price)
+	case "JPY":
+		return fmt.Sprintf("¥%.0f", price)
+	case "INR":
+		return fmt.Sprintf("₹%.2f", price)
+	default:
+		return fmt.Sprintf("%.2f %s", price, currencyCode)
+	}
 }

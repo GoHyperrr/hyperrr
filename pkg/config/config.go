@@ -27,6 +27,7 @@ const (
 	DefaultStorageProvider   = "cloud"
 	DefaultStorageBucketURL  = "mem://"
 	DefaultNatsURL           = "nats://localhost:4222"
+	DefaultCurrency          = "USD"
 )
 
 // ModuleConfig represents registration info for a dynamic module.
@@ -53,6 +54,7 @@ type Config struct {
 	StoragePath       string         `mapstructure:"STORAGE_PATH"`
 	StorageBucketURL  string         `mapstructure:"STORAGE_BUCKET_URL"`
 	NATSURL           string         `mapstructure:"NATS_URL"`
+	Currency          string         `mapstructure:"CURRENCY"`
 	MCPAuthProviders  []string       `mapstructure:"MCP_AUTH_PROVIDERS"`
 	AuthProviders     []string       `mapstructure:"AUTH_PROVIDERS"`
 	Modules           []ModuleConfig `mapstructure:"modules"`
@@ -126,6 +128,7 @@ func LoadWithFile(filename string) (*Config, error) {
 	v.SetDefault("STORAGE_PROVIDER", DefaultStorageProvider)
 	v.SetDefault("STORAGE_BUCKET_URL", DefaultStorageBucketURL)
 	v.SetDefault("NATS_URL", DefaultNatsURL)
+	v.SetDefault("CURRENCY", DefaultCurrency)
 	v.SetDefault("MCP_AUTH_PROVIDERS", []string{"apikey"})
 	v.SetDefault("AUTH_PROVIDERS", []string{"jwt"})
 

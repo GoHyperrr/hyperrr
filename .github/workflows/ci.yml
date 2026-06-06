@@ -19,24 +19,28 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: GoHyperrr/mdk
+          ref: ${{ github.head_ref || github.ref_name }}
           path: mdk
 
       - name: Checkout auth
         uses: actions/checkout@v4
         with:
           repository: GoHyperrr/auth
+          ref: ${{ github.head_ref || github.ref_name }}
           path: auth
 
       - name: Checkout commerce
         uses: actions/checkout@v4
         with:
           repository: GoHyperrr/commerce
+          ref: ${{ github.head_ref || github.ref_name }}
           path: commerce
 
       - name: Checkout file-storage
         uses: actions/checkout@v4
         with:
           repository: GoHyperrr/file-storage
+          ref: ${{ github.head_ref || github.ref_name }}
           path: file-storage
 
       - name: Setup Go
