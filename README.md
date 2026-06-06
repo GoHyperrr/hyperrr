@@ -44,6 +44,7 @@ Hyperrr is a modern, event-native commerce engine designed as a modular monolith
 
 ## 🚀 Key Features
 
+* **🔌 Pluggable Out-of-Tree Infrastructure**: Decoupled PostgreSQL (GORM dialect) and NATS JetStream (EventBus/Locker/State Store) into pluggable modules (`database` and `event-bus` repositories). The core engine retains zero external dependencies, defaulting to SQLite and in-memory pub-sub.
 * **Consolidated Developer Tooling**: A single compiled binary (`hyperrr`) controls the entire commerce engine, configuration, diagnostics, and modules.
 * **Unified GraphQL API Gateway**: Merges schema definitions and dynamic module resolvers dynamically.
 * **Extensible CLI Command Structure**: A clean, structured Cobra CLI command layout featuring resource-based groupings, self-documenting commands, and diagnostic health checks.

@@ -43,6 +43,20 @@ jobs:
           ref: ${{ github.head_ref || github.ref_name }}
           path: file-storage
 
+      - name: Checkout database
+        uses: actions/checkout@v4
+        with:
+          repository: GoHyperrr/database
+          ref: ${{ github.head_ref || github.ref_name }}
+          path: database
+
+      - name: Checkout event-bus
+        uses: actions/checkout@v4
+        with:
+          repository: GoHyperrr/event-bus
+          ref: ${{ github.head_ref || github.ref_name }}
+          path: event-bus
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -54,6 +68,8 @@ jobs:
           echo "use (" >> go.work
           echo "    ./auth" >> go.work
           echo "    ./commerce" >> go.work
+          echo "    ./database" >> go.work
+          echo "    ./event-bus" >> go.work
           echo "    ./file-storage" >> go.work
           echo "    ./hyperrr" >> go.work
           echo "    ./mdk" >> go.work

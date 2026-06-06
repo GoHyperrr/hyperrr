@@ -2,8 +2,29 @@ package workflow
 
 import (
 	"context"
+	"sync"
 	"time"
 )
+
+type StoreProvider func(url string, bucketOrPrefix string) (StateStore, error)
+
+var (
+	storesMu sync.RWMutex
+	stores   = make(map[string]StoreProvider)
+)
+
+func RegisterStore(name string, provider StoreProvider) {
+	storesMu.Lock()
+	defer storesMu.Unlock()
+	stores[name] = provider
+}
+
+func GetStore(name string) (StoreProvider, bool) {
+	storesMu.RLock()
+	defer storesMu.RUnlock()
+	s, ok := stores[name]
+	return s, ok
+}
 
 // StateStore defines the interface for checkpointing workflow states.
 type StateStore interface {

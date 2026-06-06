@@ -34,8 +34,8 @@ Hyperrr is organized as a modular, multi-workspace monolith. The core kernel eng
              +---------------------+---------------------+
              |                     |                     |
              v                     v                     v
-      [Event Fabric]         [Lock Provider]       [State Store]
-      (In-Memory/NATS)       (In-Memory/Redis)     (Redis/NATS JS)
+       [Event Fabric]         [Lock Provider]       [State Store]
+     (In-Mem/Pluggable)     (In-Mem/Pluggable)    (In-Mem/Pluggable)
 ```
 
 ### The Core Modules & Interfaces
@@ -65,7 +65,7 @@ type Workflow struct {
 *   **Saga Compensation Transactions**: Each step can register a `Saga` rollback handler. If a step fails, the engine halts execution, rolls back through the execution history, and executes compensating actions in reverse order to ensure eventual consistency.
 
 ### 2.2 Pluggable State Stores & Lockers
-Hyperrr maintains three lock and store drivers: **In-Memory** (for local development and testing), **NATS JetStream KV**, and **Redis**. All drivers implement standard `StateStore` and `Locker` interfaces, ensuring transactional invariants are preserved.
+Hyperrr maintains an extensible provider interface for state stores and lockers. By default, **In-Memory** implementations (for local development and testing) are compiled directly into the core engine. Cloud-native or clustered providers (such as **NATS JetStream KeyValue** event-bus, locking, and workflow state stores) are packaged as separate out-of-tree plugins (like the `event-bus` module) that inject themselves into the core registries at startup. All drivers implement standard `StateStore` and `Locker` interfaces, ensuring transactional invariants are preserved.
 
 ### 2.3 Reactive Event Fabric
 The Event Fabric propagates domain events asynchronously. On publishing an event, the system maps structural metadata to track request lineage across goroutines, enabling full traceability in the workflow projection logs.

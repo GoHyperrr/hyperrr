@@ -63,17 +63,21 @@ func RunWithConfig(cfg *config.Config) error {
 
 	// 4. Initialize Event Fabric
 	var bus eventbus.EventBus
-	if cfg.EventBusProvider == "nats" {
-		var err error
-		bus, err = eventbus.NewNATSBus(cfg.NATSURL)
-		if err != nil {
-			return fmt.Errorf("failed to connect to NATS: %w", err)
-		}
-		if natsBus, ok := bus.(*eventbus.NATSBus); ok {
-			natsBus.SetContext(context.Background())
-		}
-	} else {
+	if cfg.EventBusProvider == "inmem" || cfg.EventBusProvider == "" {
 		bus = eventbus.NewInMemBus()
+	} else {
+		provider, ok := eventbus.GetProvider(cfg.EventBusProvider)
+		if !ok {
+			return fmt.Errorf("unsupported event bus provider: %s (did you register the event-bus module?)", cfg.EventBusProvider)
+		}
+		var err error
+		bus, err = provider(cfg.NATSURL)
+		if err != nil {
+			return fmt.Errorf("failed to connect to event bus %s: %w", cfg.EventBusProvider, err)
+		}
+		if tiedBus, ok := bus.(eventbus.ContextTiedBus); ok {
+			tiedBus.SetContext(context.Background())
+		}
 	}
 	defer bus.Close()
 
@@ -81,22 +85,36 @@ func RunWithConfig(cfg *config.Config) error {
 	var wfStore workflow.StateStore
 	var wfLocker locking.Locker
 
-	if natsBus, ok := bus.(*eventbus.NATSBus); ok && cfg.WorkflowStoreType == "nats" {
-		natsConn := natsBus.Conn()
-		natsStore, err := workflow.NewNATSStore(context.Background(), natsConn, cfg.NATSStateBucket)
-		if err != nil {
-			return fmt.Errorf("failed to initialize NATS state store: %w", err)
-		}
-		wfStore = natsStore
-		
-		natsLocker, err := locking.NewNATSLocker(context.Background(), natsConn, cfg.NATSLocksBucket)
-		if err != nil {
-			return fmt.Errorf("failed to initialize NATS locker: %w", err)
-		}
-		wfLocker = natsLocker
-	} else {
+	if cfg.WorkflowStoreType == "mem" || cfg.WorkflowStoreType == "" {
 		wfStore = workflow.NewInMemStore()
+	} else {
+		provider, ok := workflow.GetStore(cfg.WorkflowStoreType)
+		if ok {
+			var err error
+			wfStore, err = provider(cfg.NATSURL, cfg.NATSStateBucket)
+			if err != nil {
+				return fmt.Errorf("failed to initialize %s workflow store: %w", cfg.WorkflowStoreType, err)
+			}
+		} else {
+			logger.Warn("Workflow store provider not found, falling back to in-memory store", "provider", cfg.WorkflowStoreType)
+			wfStore = workflow.NewInMemStore()
+		}
+	}
+
+	if cfg.EventBusProvider == "inmem" || cfg.EventBusProvider == "" {
 		wfLocker = locking.NewInMemLocker()
+	} else {
+		provider, ok := locking.GetLocker(cfg.EventBusProvider)
+		if ok {
+			var err error
+			wfLocker, err = provider(cfg.NATSURL, cfg.NATSLocksBucket)
+			if err != nil {
+				return fmt.Errorf("failed to initialize %s locker: %w", cfg.EventBusProvider, err)
+			}
+		} else {
+			logger.Warn("Locker provider not found, falling back to in-memory locker", "provider", cfg.EventBusProvider)
+			wfLocker = locking.NewInMemLocker()
+		}
 	}
 
 	runner := workflow.NewRunner(bus, wfStore, wfLocker)

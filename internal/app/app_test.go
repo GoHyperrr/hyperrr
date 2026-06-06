@@ -2,11 +2,13 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/GoHyperrr/hyperrr/pkg/config"
+	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 	"github.com/GoHyperrr/mdk"
 )
@@ -98,6 +100,10 @@ func TestRun(t *testing.T) {
 	})
 
 	t.Run("RunWithConfig NATS Failure", func(t *testing.T) {
+		eventbus.RegisterProvider("nats", func(url string) (eventbus.EventBus, error) {
+			return nil, fmt.Errorf("failed to connect to NATS: connection refused")
+		})
+
 		cfg := &config.Config{
 			AppEnv:           "test",
 			DBDriver:         "sqlite",
