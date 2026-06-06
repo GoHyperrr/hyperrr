@@ -59,6 +59,9 @@ jobs:
           echo "    ./mdk" >> go.work
           echo ")" >> go.work
 
+      - name: Generate Code
+        run: cd hyperrr && go run ./cmd/hyperrr codegen
+
       - name: Go Vet
         run: cd hyperrr && go vet ./...
 
