@@ -60,7 +60,7 @@ jobs:
           echo ")" >> go.work
 
       - name: Generate Code
-        run: cd hyperrr && go run ./cmd/hyperrr codegen
+        run: cd hyperrr && go run build_ci.go
 
       - name: Go Vet
         run: cd hyperrr && go vet ./...
