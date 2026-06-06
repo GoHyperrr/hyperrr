@@ -475,7 +475,17 @@ func generateResolversImpl(modules []ModuleInfo, interfaces []ResolverInterface)
 
 			methodsBuf.WriteString(fmt.Sprintf("func (r *%s) %s(%s) %s {\n", resolverStructName, method.Name, method.Params, method.Results))
 
-			if found {
+			if iface.Name == "ActorResolver" {
+				if method.Name == "ID" {
+					methodsBuf.WriteString("\treturn obj.GetID(), nil\n")
+				} else if method.Name == "Type" {
+					methodsBuf.WriteString("\treturn string(obj.GetType()), nil\n")
+				} else if method.Name == "Name" {
+					methodsBuf.WriteString("\treturn obj.GetName(), nil\n")
+				} else {
+					methodsBuf.WriteString(fmt.Sprintf("\tpanic(fmt.Errorf(\"not implemented: %s\"))\n", method.Name))
+				}
+			} else if found {
 				var moduleRef string
 				if targetMod.Name == "ctxengine" {
 					moduleRef = "r.CtxEngineModule"
@@ -587,7 +597,7 @@ func getZeroReturnStringInternal(resultsStr string, exceptLast bool) string {
 			continue
 		}
 
-		if strings.HasPrefix(part, "*") || strings.HasPrefix(part, "[]") || strings.HasPrefix(part, "map[") {
+		if strings.HasPrefix(part, "*") || strings.HasPrefix(part, "[]") || strings.HasPrefix(part, "map[") || part == "mdk.Actor" {
 			zeroVals = append(zeroVals, "nil")
 		} else if part == "string" {
 			zeroVals = append(zeroVals, `""`)

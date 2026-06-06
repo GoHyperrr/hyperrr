@@ -4,7 +4,7 @@ import (
 	"github.com/GoHyperrr/mdk"
 )
 
-// Re-export/alias mdk actor types for backward compatibility inside hyperrr.
+// ActorType represents the type of security principal.
 type ActorType = mdk.ActorType
 
 const (
@@ -15,3 +15,4 @@ const (
 
 type Actor = mdk.Actor
 
+type BaseActor = mdk.BaseActor

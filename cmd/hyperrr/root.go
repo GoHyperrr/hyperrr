@@ -5,8 +5,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/spf13/cobra"
+	"github.com/GoHyperrr/auth/apikey"
+	"github.com/GoHyperrr/auth/emailpass"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"github.com/spf13/cobra"
 	"gorm.io/gorm"
 )
 
@@ -70,6 +72,28 @@ func findOrCreateGroupCmd(groupName string) *cobra.Command {
 }
 
 func registerPluginCommands() {
+	// Register built-in dynamic commands from auth packages
+	registry.RegisterCommand(registry.CLICommand{
+		Group:       "auth",
+		Name:        "apikey",
+		Aliases:     []string{"key"},
+		Short:       "Generate a new secure API key on-demand",
+		Long:        "Generate a new secure API key on-demand and write it to the database.",
+		Usage:       "generate",
+		NeedsDB:     true,
+		Run:         apikey.RunAPIKeyCmd,
+	})
+
+	registry.RegisterCommand(registry.CLICommand{
+		Group:       "auth",
+		Name:        "user",
+		Usage:       "register <email> <password> <name>",
+		Short:       "Register a new user via email/password",
+		Long:        "Register a new user dynamically via email/password and write it to the database.",
+		NeedsDB:     true,
+		Run:         emailpass.RunEmailPassCmd,
+	})
+
 	for _, c := range registry.ListCommands() {
 		var parent *cobra.Command
 		if c.Group != "" {

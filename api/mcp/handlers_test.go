@@ -42,7 +42,7 @@ func (m *mockWorkflowRegistry) List() []*workflow.Workflow {
 type mockWorkflowRunner struct {
 	lastExecuted string
 	lastInput    any
-	lastActor    *ident.Actor
+	lastActor    ident.Actor
 }
 
 func (m *mockWorkflowRunner) ExecuteSyncWorkflow(ctx context.Context, id string, wf *workflow.Workflow, input any) (map[string]any, error) {
@@ -88,7 +88,7 @@ func TestMCP_DiscoveryAndExecution(t *testing.T) {
 	})
 
 	t.Run("Tools Call Execution", func(t *testing.T) {
-		actor := &ident.Actor{ID: "agent_1", Type: ident.ActorAIAgent}
+		actor := &ident.BaseActor{ID: "agent_1", Type: ident.ActorAIAgent}
 		params := map[string]any{
 			"name":      "public-tool",
 			"arguments": map[string]any{"id": "123"},
@@ -108,7 +108,7 @@ func TestMCP_DiscoveryAndExecution(t *testing.T) {
 			t.Error("runner was not invoked with the correct tool")
 		}
 
-		if runner.lastActor == nil || runner.lastActor.ID != "agent_1" {
+		if runner.lastActor == nil || runner.lastActor.GetID() != "agent_1" {
 			t.Errorf("expected actor ID agent_1, got %v", runner.lastActor)
 		}
 
@@ -119,7 +119,7 @@ func TestMCP_DiscoveryAndExecution(t *testing.T) {
 	})
 
 	t.Run("Tools Call Unauthorized Tool", func(t *testing.T) {
-		actor := &ident.Actor{ID: "agent_1", Type: ident.ActorAIAgent}
+		actor := &ident.BaseActor{ID: "agent_1", Type: ident.ActorAIAgent}
 		params := map[string]any{"name": "private-tool"}
 
 		_, errRPC := server.handleToolsCall(context.Background(), actor, params)

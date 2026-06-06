@@ -10,32 +10,32 @@ import (
 )
 
 type mockValidator struct {
-	actor *identity.Actor
+	actor identity.Actor
 	err   error
 }
 
-func (m *mockValidator) ValidateToken(ctx context.Context, token string) (*identity.Actor, error) {
+func (m *mockValidator) ValidateToken(ctx context.Context, token string) (identity.Actor, error) {
 	return m.actor, m.err
 }
 
 type mockResolver struct {
-	actor *identity.Actor
+	actor identity.Actor
 	err   error
 }
 
-func (m *mockResolver) GetActorByAPIKey(ctx context.Context, key string) (*identity.Actor, error) {
+func (m *mockResolver) GetActorByAPIKey(ctx context.Context, key string) (identity.Actor, error) {
 	return m.actor, m.err
 }
 
 func TestAuthMiddleware_Scenarios(t *testing.T) {
 	t.Run("Valid JWT Token", func(t *testing.T) {
-		expectedActor := &identity.Actor{ID: "act_1", Type: identity.ActorHuman}
+		expectedActor := &identity.BaseActor{ID: "act_1", Type: identity.ActorHuman}
 		validator := &mockValidator{actor: expectedActor}
 		mw := AuthMiddleware([]string{"jwt"}, validator, nil)
 
 		h := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			actor, ok := ForContext(r.Context())
-			if !ok || actor.ID != "act_1" {
+			if !ok || actor.GetID() != "act_1" {
 				t.Errorf("expected actor act_1, got %v", actor)
 			}
 		}))
@@ -80,13 +80,13 @@ func TestAuthMiddleware_Scenarios(t *testing.T) {
 	})
 
 	t.Run("Valid API Key", func(t *testing.T) {
-		expectedActor := &identity.Actor{ID: "agent_1", Type: identity.ActorAIAgent}
+		expectedActor := &identity.BaseActor{ID: "agent_1", Type: identity.ActorAIAgent}
 		resolver := &mockResolver{actor: expectedActor}
 		mw := AuthMiddleware([]string{"apikey"}, nil, resolver)
 
 		h := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			actor, ok := ForContext(r.Context())
-			if !ok || actor.ID != "agent_1" {
+			if !ok || actor.GetID() != "agent_1" {
 				t.Errorf("expected actor agent_1, got %v", actor)
 			}
 		}))
@@ -106,7 +106,7 @@ func TestAuthMiddleware_Scenarios(t *testing.T) {
 
 		h := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			actor, ok := ForContext(r.Context())
-			if !ok || actor.ID != "act_http_developer" {
+			if !ok || actor.GetID() != "act_http_developer" {
 				t.Errorf("expected actor act_http_developer, got %v", actor)
 			}
 		}))
@@ -127,12 +127,12 @@ func TestAuthMiddleware_Scenarios(t *testing.T) {
 			t.Error("expected no actor")
 		}
 	})
-	
+
 	t.Run("WithActor helper", func(t *testing.T) {
-		actor := &identity.Actor{ID: "test"}
+		actor := &identity.BaseActor{ID: "test"}
 		ctx := WithActor(context.Background(), actor)
 		got, ok := ForContext(ctx)
-		if !ok || got.ID != "test" {
+		if !ok || got.GetID() != "test" {
 			t.Error("WithActor failed")
 		}
 	})

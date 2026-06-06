@@ -146,7 +146,7 @@ func (s *Server) HandleMessages(w http.ResponseWriter, r *http.Request) {
 		providers = []string{"apikey"} // Default fallback
 	}
 
-	var actor *ident.Actor
+	var actor ident.Actor
 	var authErr error
 	authenticated := false
 
@@ -154,7 +154,7 @@ func (s *Server) HandleMessages(w http.ResponseWriter, r *http.Request) {
 		switch p {
 		case "none":
 			// Bypass authentication check entirely and mock a developer actor
-			actor = &ident.Actor{
+			actor = &ident.BaseActor{
 				ID:   "act_mcp_developer",
 				Type: ident.ActorAIAgent,
 				Name: "Developer Agent (No Auth)",
@@ -175,7 +175,7 @@ func (s *Server) HandleMessages(w http.ResponseWriter, r *http.Request) {
 				authErr = fmt.Errorf("invalid api key: %w", err)
 				continue
 			}
-			if resActor.Type != ident.ActorAIAgent {
+			if resActor.GetType() != ident.ActorAIAgent {
 				authErr = fmt.Errorf("actor is not an AI agent")
 				continue
 			}
@@ -214,7 +214,7 @@ func (s *Server) HandleMessages(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (s *Server) dispatch(ctx context.Context, sessionID string, actor *ident.Actor, req JSONRPCRequest) {
+func (s *Server) dispatch(ctx context.Context, sessionID string, actor ident.Actor, req JSONRPCRequest) {
 	var resp JSONRPCResponse
 	resp.JSONRPC = "2.0"
 	resp.ID = req.ID
@@ -483,7 +483,7 @@ func (s *Server) handleToolsList(ctx context.Context) *ListToolsResult {
 	return &ListToolsResult{Tools: tools}
 }
 
-func (s *Server) handleToolsCall(ctx context.Context, actor *ident.Actor, params map[string]any) (any, *Error) {
+func (s *Server) handleToolsCall(ctx context.Context, actor ident.Actor, params map[string]any) (any, *Error) {
 	name, ok := params["name"].(string)
 	if !ok {
 		return nil, &Error{Code: CodeInvalidParams, Message: "Tool name required"}
@@ -925,14 +925,43 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 			content += `<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No products registered.</td></tr>`
 		} else {
 			for _, p := range list {
+				currencyCode := "USD"
+				if s.deps.Config != nil && s.deps.Config.Currency != "" {
+					currencyCode = s.deps.Config.Currency
+				}
+				if p.Metadata != nil {
+					if curr, ok := p.Metadata["currency"].(string); ok {
+						currencyCode = curr
+					}
+				}
+
+				priceStr := "N/A"
+				if len(p.Variants) > 0 {
+					priceStr = formatPrice(p.Variants[0].Price, currencyCode)
+					if len(p.Variants) > 1 {
+						minP := p.Variants[0].Price
+						maxP := p.Variants[0].Price
+						for _, v := range p.Variants {
+							if v.Price < minP {
+								minP = v.Price
+							}
+							if v.Price > maxP {
+								maxP = v.Price
+							}
+						}
+						if minP != maxP {
+							priceStr = fmt.Sprintf("%s - %s", formatPrice(minP, currencyCode), formatPrice(maxP, currencyCode))
+						}
+					}
+				}
 				content += fmt.Sprintf(`
 					<tr>
 						<td><code>%s</code></td>
 						<td>%s</td>
 						<td>%s</td>
-						<td class="text-accent">$%.2f</td>
+						<td class="text-accent">%s</td>
 						<td>%s</td>
-					</tr>`, p.ID, p.Name, p.Description, p.Price, p.Currency)
+					</tr>`, p.ID, p.Name, p.Description, priceStr, currencyCode)
 			}
 		}
 		content += `
@@ -1841,4 +1870,21 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 </html>`
 
 	return fmt.Sprintf(htmlSkeleton, title, accent, accentGlow, title, content)
+}
+
+func formatPrice(price float64, currencyCode string) string {
+	switch strings.ToUpper(currencyCode) {
+	case "USD":
+		return fmt.Sprintf("$%.2f", price)
+	case "EUR":
+		return fmt.Sprintf("€%.2f", price)
+	case "GBP":
+		return fmt.Sprintf("£%.2f", price)
+	case "JPY":
+		return fmt.Sprintf("¥%.0f", price)
+	case "INR":
+		return fmt.Sprintf("₹%.2f", price)
+	default:
+		return fmt.Sprintf("%.2f %s", price, currencyCode)
+	}
 }

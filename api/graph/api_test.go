@@ -153,7 +153,14 @@ func TestResolvers(t *testing.T) {
 
 	t.Run("Product Resolvers", func(t *testing.T) {
 		// Create a product
-		p := &product.Product{ID: "p1", Name: "Product 1", Price: 10.0}
+		p := &product.Product{
+			ID:     "p1",
+			Name:   "Product 1",
+			Handle: "product-1",
+			Variants: []product.ProductVariant{
+				{ID: "v1", Title: "Default", Price: 10.0},
+			},
+		}
 		prodMod.Repo().Save(ctx, p)
 
 		res, err := resolver.Query().GetProduct(ctx, "p1")
@@ -176,9 +183,12 @@ func TestResolvers(t *testing.T) {
 	t.Run("Product Mutations", func(t *testing.T) {
 		// Create
 		createInput := product.CreateProductInput{
-			ID:    "p_new",
-			Name:  "New Product",
-			Price: 50.0,
+			ID:     "p_new",
+			Name:   "New Product",
+			Handle: "new-product",
+			Variants: []product.CreateProductVariantInput{
+				{Title: "Default", Price: 50.0},
+			},
 		}
 		res, err := resolver.Mutation().CreateProduct(ctx, createInput)
 		if err != nil || res.Name != "New Product" {
@@ -199,8 +209,8 @@ func TestResolvers(t *testing.T) {
 			t.Fatalf("DeleteProduct failed: %v", err)
 		}
 
-		// Create failure (missing name)
-		_, err = resolver.Mutation().CreateProduct(ctx, product.CreateProductInput{ID: "fail", Price: 10.0})
+		// Create failure (missing required fields: name and handle)
+		_, err = resolver.Mutation().CreateProduct(ctx, product.CreateProductInput{ID: "fail", Handle: ""})
 		if err == nil {
 			t.Error("expected error for invalid product create")
 		}
@@ -742,7 +752,14 @@ func TestResolvers(t *testing.T) {
 		})
 		badResolver3 := *resolver
 		badResolver3.ProductModule = badProductMod3
-		_, err = badResolver3.Mutation().CreateProduct(ctx, product.CreateProductInput{ID: "p_fail", Name: "Fail", Price: 10})
+		_, err = badResolver3.Mutation().CreateProduct(ctx, product.CreateProductInput{
+			ID:     "p_fail",
+			Name:   "Fail",
+			Handle: "fail",
+			Variants: []product.CreateProductVariantInput{
+				{Title: "Default", Price: 10.0},
+			},
+		})
 		if err == nil || !strings.Contains(err.Error(), "failed to retrieve created product") {
 			t.Errorf("expected 'failed to retrieve created product' error, got %v", err)
 		}

@@ -1,17 +1,16 @@
 # CodeRabbit Configuration File
 # Reference: https://docs.coderabbit.ai/spec/configuration
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 
 language: "en-US"
-tone_instruction: "Review code as a senior Go software engineer with a focus on concurrency safety, modular monolithic design boundaries, and clear error propagation."
 
 reviews:
   profile: "assertive"
+  tone_instructions: "Review code as a senior Go software engineer with a focus on concurrency safety, modular monolithic design boundaries, and clear error propagation."
   auto_review:
     enabled: true
     drafts: false
   high_level_summary: true
-  reviews_per_file: true
-  collapse_dependency_reviews: true
 
 chat:
   auto_reply: true

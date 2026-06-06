@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/GoHyperrr/auth"
 	"github.com/GoHyperrr/hyperrr/api/graph"
 	"github.com/GoHyperrr/hyperrr/api/middleware"
 	"github.com/GoHyperrr/commerce/customer"
@@ -84,7 +85,7 @@ func TestAuthFlow(t *testing.T) {
 		}
 
 		// 3. Verify Customer created via event
-		c, err := custMod.Repo().GetByUserID(ctx, loginRes.Actor.ID)
+		c, err := custMod.Repo().GetByUserID(ctx, loginRes.Actor.GetID())
 		if err != nil {
 			t.Fatalf("customer not found: %v", err)
 		}
@@ -93,14 +94,14 @@ func TestAuthFlow(t *testing.T) {
 		}
 
 		// 4. Test 'me' query
-		actor := &ident.Actor{ID: loginRes.Actor.ID, Type: ident.ActorType(loginRes.Actor.Type), Name: loginRes.Actor.Name}
+		actor := &ident.BaseActor{ID: loginRes.Actor.GetID(), Type: ident.ActorType(loginRes.Actor.GetType()), Name: loginRes.Actor.GetName()}
 		meCtx := middleware.WithActor(ctx, actor)
 		meRes, err := resolver.Query().Me(meCtx)
 		if err != nil {
 			t.Fatalf("me query failed: %v", err)
 		}
-		if meRes.ID != loginRes.Actor.ID {
-			t.Errorf("expected ID %s, got %s", loginRes.Actor.ID, meRes.ID)
+		if meRes.GetID() != loginRes.Actor.GetID() {
+			t.Errorf("expected ID %s, got %s", loginRes.Actor.GetID(), meRes.GetID())
 		}
 	})
 
@@ -119,7 +120,7 @@ func TestAuthFlow(t *testing.T) {
 	})
 
 	t.Run("API Key CRUD Operations", func(t *testing.T) {
-		actor := &ident.Actor{ID: "act_test_key_owner", Type: ident.ActorHuman, Name: "Key Owner"}
+		actor := &auth.Actor{ID: "act_test_key_owner", Type: ident.ActorHuman, Name: "Key Owner"}
 		if err := database.Create(actor).Error; err != nil {
 			t.Fatalf("failed to seed test actor: %v", err)
 		}
@@ -160,8 +161,8 @@ func TestAuthFlow(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to resolve actor by key: %v", err)
 		}
-		if resolvedActor.ID != actor.ID {
-			t.Errorf("expected resolved actor ID %s, got %s", actor.ID, resolvedActor.ID)
+		if resolvedActor.GetID() != actor.ID {
+			t.Errorf("expected resolved actor ID %s, got %s", actor.ID, resolvedActor.GetID())
 		}
 
 		// 5. Authorized revoke

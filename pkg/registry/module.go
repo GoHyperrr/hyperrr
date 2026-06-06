@@ -20,7 +20,7 @@ import (
 
 // ActorResolver defines the interface for resolving identities.
 type ActorResolver interface {
-	GetActorByAPIKey(ctx context.Context, key string) (*identity.Actor, error)
+	GetActorByAPIKey(ctx context.Context, key string) (identity.Actor, error)
 }
 
 // WorkflowRunner defines the interface for executing workflows.
