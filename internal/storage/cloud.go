@@ -66,12 +66,11 @@ func NewCloudProvider(ctx context.Context, bucketURL string) (*CloudProvider, er
 
 // Upload saves a file to storage and returns its path or URL.
 func (p *CloudProvider) Upload(ctx context.Context, path string, data io.Reader) (string, error) {
-	buf, err := io.ReadAll(data)
-	if err != nil {
-		return "", err
-	}
-
 	if p.isMem {
+		buf, err := io.ReadAll(data)
+		if err != nil {
+			return "", err
+		}
 		p.mu.Lock()
 		p.mem[path] = buf
 		p.mu.Unlock()
@@ -83,7 +82,13 @@ func (p *CloudProvider) Upload(ctx context.Context, path string, data io.Reader)
 		return "", err
 	}
 
-	if err := os.WriteFile(fullPath, buf, 0644); err != nil {
+	f, err := os.Create(fullPath)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	if _, err := io.Copy(f, data); err != nil {
 		return "", err
 	}
 
@@ -129,7 +134,13 @@ func (p *CloudProvider) Delete(ctx context.Context, path string) error {
 
 // GetURL returns a public or signed URL for a file.
 func (p *CloudProvider) GetURL(ctx context.Context, path string) (string, error) {
-	return fmt.Sprintf("%s/%s", strings.TrimSuffix(p.url, "/"), path), nil
+	u, err := url.Parse(p.url)
+	if err != nil {
+		return "", err
+	}
+	normalizedPath := filepath.ToSlash(path)
+	u.Path = strings.TrimSuffix(u.Path, "/") + "/" + strings.TrimPrefix(normalizedPath, "/")
+	return u.String(), nil
 }
 
 // Close releases any resources.

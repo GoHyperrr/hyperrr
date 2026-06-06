@@ -209,7 +209,7 @@ func TestResolvers(t *testing.T) {
 			t.Fatalf("DeleteProduct failed: %v", err)
 		}
 
-		// Create failure (missing name)
+		// Create failure (missing required fields: name and handle)
 		_, err = resolver.Mutation().CreateProduct(ctx, product.CreateProductInput{ID: "fail", Handle: ""})
 		if err == nil {
 			t.Error("expected error for invalid product create")

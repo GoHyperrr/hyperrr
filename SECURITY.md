@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-We currently support and patch security vulnerabilities on the latest major release branch.
+For pre-1.0 releases we support the latest release or the latest patch series (e.g., 0.1.x), and for 1.0+ we support the latest major release branch.
 
 ## Reporting a Vulnerability
 
