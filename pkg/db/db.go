@@ -9,35 +9,25 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/utils"
+	"github.com/GoHyperrr/mdk"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 )
 
-type DialectProvider func(dsn string) gorm.Dialector
-
-var (
-	dialectsMu sync.RWMutex
-	dialects   = make(map[string]DialectProvider)
-)
+type DialectProvider = mdk.DialectProvider
 
 func RegisterDialect(name string, provider DialectProvider) {
-	dialectsMu.Lock()
-	defer dialectsMu.Unlock()
-	dialects[name] = provider
+	mdk.RegisterDialect(name, provider)
 }
 
 func GetDialect(name string) (DialectProvider, bool) {
-	dialectsMu.RLock()
-	defer dialectsMu.RUnlock()
-	d, ok := dialects[name]
-	return d, ok
+	return mdk.GetDialect(name)
 }
 
 // JSONMap is a custom type for map[string]string that implements GORM scanner/valuer.
