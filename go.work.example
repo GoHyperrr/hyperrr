@@ -1,0 +1,10 @@
+go 1.25
+
+use (
+	.
+	../auth
+	../database
+	../event-bus
+	../file-storage
+	../mdk
+)

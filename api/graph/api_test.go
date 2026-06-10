@@ -39,6 +39,7 @@ func TestResolvers(t *testing.T) {
 	cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
 	database, _ := db.Connect(cfg)
 	defer func() {
+		time.Sleep(200 * time.Millisecond)
 		// underlying sqlite close
 		d, _ := database.DB.DB()
 		d.Close()
@@ -394,7 +395,7 @@ func TestResolvers(t *testing.T) {
 				"name":     "Notif User",
 			},
 		})
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(300 * time.Millisecond)
 
 		// 12. List Notifications
 		notifs, _ := resolver.Query().ListNotifications(ctx, nil)
@@ -619,7 +620,7 @@ func TestResolvers(t *testing.T) {
 				})
 			}
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(300 * time.Millisecond)
 
 		stats, err := resolver.Query().GetSystemStats(ctx)
 		if err != nil {
@@ -671,7 +672,7 @@ func TestResolvers(t *testing.T) {
 		}
 		orderMod.Repo().Save(ctx, dbOrder)
 
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(300 * time.Millisecond)
 
 		sales, err := resolver.Query().GetSalesStats(ctx)
 		if err != nil {

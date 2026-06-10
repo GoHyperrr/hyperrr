@@ -269,7 +269,7 @@ func RunWithConfig(cfg *config.Config) error {
 	}
 
 	// 9. Register system.about workflow for AI agent context
-	_ = runner.RegisterHandler("system.about_handler", func(sCtx mdk.StepContext) mdk.StepResult {
+	if err := runner.RegisterHandler("system.about_handler", func(sCtx mdk.StepContext) mdk.StepResult {
 		var activeModules []string
 		for _, m := range registry.List() {
 			activeModules = append(activeModules, m.ID())
@@ -284,9 +284,11 @@ func RunWithConfig(cfg *config.Config) error {
 			"state_store":    cfg.WorkflowStoreType,
 		}
 		return mdk.StepResult{Output: info}
-	})
+	}); err != nil {
+		return fmt.Errorf("failed to register system.about handler: %w", err)
+	}
 
-	_ = registryStore.Register(&workflow.Workflow{
+	if err := registryStore.Register(&workflow.Workflow{
 		Name:        "system.about",
 		Description: "Returns metadata about the running system, including active modules, version, current server time, and environment configurations.",
 		ExposeToAI:  true,
@@ -300,7 +302,9 @@ func RunWithConfig(cfg *config.Config) error {
 				Uses: "system.about_handler",
 			},
 		},
-	})
+	}); err != nil {
+		return fmt.Errorf("failed to register system.about workflow: %w", err)
+	}
 
 	close(initDone)
 

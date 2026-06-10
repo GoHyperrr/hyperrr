@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 // CloudProvider implements ObjectStorage using local filesystem and memory fallbacks,
@@ -132,8 +133,8 @@ func (p *CloudProvider) Delete(ctx context.Context, path string) error {
 	return err
 }
 
-// GetURL returns a public or signed URL for a file.
-func (p *CloudProvider) GetURL(ctx context.Context, path string) (string, error) {
+// GetURL returns a public or signed URL for a file with the given expiration duration.
+func (p *CloudProvider) GetURL(ctx context.Context, path string, expiry time.Duration) (string, error) {
 	u, err := url.Parse(p.url)
 	if err != nil {
 		return "", err

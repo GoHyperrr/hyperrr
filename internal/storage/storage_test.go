@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/config"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
@@ -72,7 +73,7 @@ func TestStorage(t *testing.T) {
 			t.Fatalf("init failed: %v", err)
 		}
 		
-		url, _ := mod.Provider().GetURL(ctx, "test")
+		url, _ := mod.Provider().GetURL(ctx, "test", time.Hour)
 		if !strings.HasPrefix(url, "mem://") {
 			t.Errorf("expected mem:// prefix for default storage, got %s", url)
 		}

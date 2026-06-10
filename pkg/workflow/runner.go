@@ -75,8 +75,18 @@ func (r *Runner) RegisterHandler(name string, handler mdk.StepHandler) error {
 // Execute starts an asynchronous workflow run and returns the run ID.
 func (r *Runner) Execute(ctx context.Context, workflowID string, input map[string]any) (string, error) {
 	runID := "wf_run_" + uuid.New().String()
+	r.mu.RLock()
+	_, exists := r.workflows[workflowID]
+	r.mu.RUnlock()
+	if !exists {
+		return "", mdk.ErrWorkflowNotFound
+	}
+
 	go func() {
-		_, _ = r.ExecuteSync(context.Background(), runID, workflowID, input)
+		detachedCtx := context.WithoutCancel(ctx)
+		if _, err := r.ExecuteSync(detachedCtx, runID, workflowID, input); err != nil {
+			logger.Error("async workflow execution failed", "run_id", runID, "workflow_id", workflowID, "error", err)
+		}
 	}()
 	return runID, nil
 }
@@ -268,6 +278,7 @@ func (r *Runner) ExecuteSyncWorkflow(ctx context.Context, id string, wf *Workflo
 				r.compensate(context.WithoutCancel(ctx), id, history, results)
 				if r.store != nil {
 					_ = r.store.SaveState(context.Background(), id, "", StateFailed)
+					_ = r.store.SaveState(context.Background(), id, "__error", err.Error())
 				}
 				return results, err
 			}
@@ -278,6 +289,7 @@ func (r *Runner) ExecuteSyncWorkflow(ctx context.Context, id string, wf *Workflo
 			}
 			if r.store != nil {
 				_ = r.store.SaveState(context.Background(), id, "", StateFailed)
+				_ = r.store.SaveState(context.Background(), id, "__error", ctx.Err().Error())
 			}
 			return results, ctx.Err()
 		}
@@ -524,28 +536,47 @@ func (r *Runner) ResumeExecution(ctx context.Context, id string, wf *Workflow) (
 }
 
 // Status returns the current execution status of a run.
-func (r *Runner) Status(ctx context.Context, runID string) (mdk.StepStatus, error) {
+func (r *Runner) Status(ctx context.Context, runID string) (mdk.WorkflowStatus, error) {
 	if r.store == nil {
-		return mdk.StepPending, nil
+		return mdk.WorkflowStatus{State: mdk.StepPending}, nil
 	}
 	states, err := r.store.GetState(ctx, runID)
 	if err != nil {
-		return mdk.StepFailed, err
+		return mdk.WorkflowStatus{State: mdk.StepFailed, Error: err.Error()}, err
 	}
 	state, ok := states[""]
 	if !ok {
-		return mdk.StepPending, nil
+		return mdk.WorkflowStatus{State: mdk.StepPending}, nil
 	}
+
+	var stepStatus mdk.StepStatus
 	switch state {
 	case "COMPLETED":
-		return mdk.StepCompleted, nil
+		stepStatus = mdk.StepCompleted
 	case "FAILED":
-		return mdk.StepFailed, nil
+		stepStatus = mdk.StepFailed
 	case "RUNNING":
-		return mdk.StepRunning, nil
+		stepStatus = mdk.StepRunning
 	default:
-		return mdk.StepPending, nil
+		stepStatus = mdk.StepPending
 	}
+
+	var errStr string
+	steps := make(map[string]string)
+	for k, v := range states {
+		if k != "" && !strings.HasPrefix(k, "__") {
+			steps[k] = v
+		}
+		if k == "__error" {
+			errStr = v
+		}
+	}
+
+	return mdk.WorkflowStatus{
+		State:     stepStatus,
+		Steps:     steps,
+		Error:     errStr,
+	}, nil
 }
 
 // Cancel cancels a running workflow.
@@ -735,6 +766,7 @@ func (r *Runner) ExecuteSync(ctx context.Context, id string, workflowID string, 
 				r.compensate(context.WithoutCancel(ctx), id, history, results)
 				if r.store != nil {
 					_ = r.store.SaveState(context.Background(), id, "", StateFailed)
+					_ = r.store.SaveState(context.Background(), id, "__error", err.Error())
 				}
 				return results, err
 			}
@@ -745,6 +777,7 @@ func (r *Runner) ExecuteSync(ctx context.Context, id string, workflowID string, 
 			}
 			if r.store != nil {
 				_ = r.store.SaveState(context.Background(), id, "", StateFailed)
+				_ = r.store.SaveState(context.Background(), id, "__error", ctx.Err().Error())
 			}
 			return results, ctx.Err()
 		}

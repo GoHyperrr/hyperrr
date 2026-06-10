@@ -1,6 +1,6 @@
 module github.com/GoHyperrr/hyperrr
 
-go 1.25.5
+go 1.25
 
 require (
 	charm.land/lipgloss/v2 v2.0.3

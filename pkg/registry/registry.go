@@ -1,9 +1,10 @@
 package registry
 
 import (
-	"fmt"
 	"strings"
 	"sync"
+
+	"github.com/GoHyperrr/hyperrr/pkg/logger"
 )
 
 // Registry manages the set of available hyperrr modules.
@@ -42,7 +43,7 @@ func (r *Registry) Register(m Module) {
 	defer r.mu.Unlock()
 	normalizedID := NormalizeModuleID(m.ID())
 	if _, exists := r.modules[normalizedID]; exists {
-		fmt.Printf("WARNING: overwriting module registration for ID: %s\n", normalizedID)
+		logger.Warn("overwriting module registration", "id", normalizedID)
 	}
 	r.modules[normalizedID] = m
 }

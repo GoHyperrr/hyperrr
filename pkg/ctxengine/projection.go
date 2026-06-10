@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/GoHyperrr/hyperrr/pkg/workflow"
-	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
 	"github.com/GoHyperrr/hyperrr/pkg/utils"
@@ -20,27 +19,26 @@ import (
 
 // Lineage represents the execution history of a workflow.
 type Lineage struct {
-	ID        string           `json:"id"`
-	Name      string           `json:"name"`
-	Version   string           `json:"version"`
-	State     string           `json:"state"`
-	StartedAt time.Time        `json:"started_at"`
-	EndedAt   *time.Time       `json:"ended_at,omitempty"`
-	Steps     []*StepLineage   `json:"steps"`
-	Events    []eventbus.Event `json:"events"`
-	Error     string           `json:"error,omitempty"`
+	ID        string         `json:"id"`
+	Name      string         `json:"name"`
+	Version   string         `json:"version"`
+	State     string         `json:"state"`
+	StartedAt time.Time      `json:"started_at"`
+	EndedAt   *time.Time     `json:"ended_at,omitempty"`
+	Steps     []*StepLineage `json:"steps"`
+	Events    []mdk.Event    `json:"events"`
+	Error     string         `json:"error,omitempty"`
 }
 
-func (l *Lineage) GetID() string         { return l.ID }
-func (l *Lineage) GetName() string       { return l.Name }
-func (l *Lineage) GetState() string      { return l.State }
-func (l *Lineage) GetError() string      { return l.Error }
+func (l *Lineage) GetID() string          { return l.ID }
+func (l *Lineage) GetName() string        { return l.Name }
+func (l *Lineage) GetState() string       { return l.State }
+func (l *Lineage) GetError() string       { return l.Error }
 func (l *Lineage) GetStartedAt() time.Time { return l.StartedAt }
-func (l *Lineage) GetEndedAt() *time.Time  { return l.EndedAt }
-func (l *Lineage) GetEvents() []eventbus.Event { return l.Events }
+func (l *Lineage) GetEndedAt() *time.Time   { return l.EndedAt }
+func (l *Lineage) GetEvents() []mdk.Event  { return l.Events }
 
 // StepLineage represents a single step in the lineage.
-
 type StepLineage struct {
 	ID        string     `json:"id"`
 	StepID    string     `json:"step_id"`
@@ -61,7 +59,7 @@ type LineageModel struct {
 	EndedAt   *time.Time
 	Error     string
 	Steps     string    `gorm:"type:text"` // Serialized JSON of []*StepLineage
-	Events    string    `gorm:"type:text"` // Serialized JSON of []eventbus.Event
+	Events    string    `gorm:"type:text"` // Serialized JSON of []mdk.Event
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -72,10 +70,12 @@ func (LineageModel) TableName() string {
 
 // Projector listens to events and maintains execution lineage.
 type Projector struct {
-	mu       sync.RWMutex
-	lineages map[string]*Lineage
-	bus      mdk.EventBus
-	db       *gorm.DB
+	mu         sync.RWMutex
+	lineages   map[string]*Lineage
+	bus        mdk.EventBus
+	db         *gorm.DB
+	unsubs     []func()
+	subscribed map[string]bool
 }
 
 // SetDB sets the database connection for the projector.
@@ -86,8 +86,9 @@ func (p *Projector) SetDB(database *gorm.DB) {
 // NewProjector creates a new Projector.
 func NewProjector(bus mdk.EventBus) *Projector {
 	return &Projector{
-		lineages: make(map[string]*Lineage),
-		bus:      bus,
+		lineages:   make(map[string]*Lineage),
+		bus:        bus,
+		subscribed: make(map[string]bool),
 	}
 }
 
@@ -96,38 +97,66 @@ func (p *Projector) Start(ctx context.Context) error {
 	if p.bus == nil {
 		return nil
 	}
-	eventTypes := []string{
-		workflow.EventWorkflowStarted,
-		workflow.EventStepStarted,
-		workflow.EventStepCompleted,
-		workflow.EventStepFailed,
-		workflow.EventStepRetrying,
-		workflow.EventStepFallback,
-		workflow.EventWaitingHuman,
-		workflow.EventWorkflowCompleted,
-		workflow.EventWorkflowFailed,
-		"order.created",
-		"order.paid",
+
+	// 1. Subscribe to existing lineage events
+	for _, t := range mdk.GetLineageEvents() {
+		if err := p.subscribe(t); err != nil {
+			return fmt.Errorf("failed to subscribe to initial lineage event %s: %w", t, err)
+		}
 	}
 
-	for _, t := range eventTypes {
-		parts := strings.SplitN(t, ".", 2)
-		var ns, et string
-		if len(parts) == 2 {
-			ns, et = parts[0], parts[1]
-		} else {
-			ns, et = "", t
+	// 2. Set callback to dynamically subscribe to future lineage events
+	mdk.OnRegisterLineageEvent(func(eventType string) {
+		if err := p.subscribe(eventType); err != nil {
+			logger.Error("failed to dynamically subscribe to lineage event", "event_type", eventType, "error", err)
 		}
-		_, err := p.bus.Subscribe(ns, et, p.handleEvent)
-		if err != nil {
-			return fmt.Errorf("failed to subscribe to %s: %w", t, err)
-		}
-	}
+	})
 
 	return nil
 }
 
-func (p *Projector) handleEvent(ctx context.Context, event eventbus.Event) error {
+// subscribe handles registering a subscription for a given event type.
+func (p *Projector) subscribe(t string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.subscribed[t] {
+		return nil
+	}
+
+	parts := strings.SplitN(t, ".", 2)
+	var ns, et string
+	if len(parts) == 2 {
+		ns, et = parts[0], parts[1]
+	} else {
+		ns, et = "", t
+	}
+
+	unsub, err := p.bus.Subscribe(ns, et, p.handleEvent)
+	if err != nil {
+		return err
+	}
+	p.unsubs = append(p.unsubs, unsub)
+	p.subscribed[t] = true
+	return nil
+}
+
+// Stop unsubscribes from all event subscriptions.
+func (p *Projector) Stop() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	for _, unsub := range p.unsubs {
+		if unsub != nil {
+			unsub()
+		}
+	}
+	p.unsubs = nil
+	p.subscribed = make(map[string]bool)
+	mdk.OnRegisterLineageEvent(nil)
+}
+
+func (p *Projector) handleEvent(ctx context.Context, event mdk.Event) error {
 	p.mu.Lock()
 
 	rawPayload := event.Payload
@@ -231,7 +260,7 @@ func (p *Projector) handleEvent(ctx context.Context, event eventbus.Event) error
 		saveLineage.Steps[i] = &stepCopy
 	}
 
-	saveLineage.Events = make([]eventbus.Event, len(lineage.Events))
+	saveLineage.Events = make([]mdk.Event, len(lineage.Events))
 	copy(saveLineage.Events, lineage.Events)
 	
 	p.mu.Unlock()
@@ -271,7 +300,7 @@ func (p *Projector) saveToDB(ctx context.Context, l *Lineage) {
 		Events:    string(eventsJSON),
 	}
 
-	if err := p.db.WithContext(ctx).Save(model).Error; err != nil {
+	if err := p.db.WithContext(context.WithoutCancel(ctx)).Save(model).Error; err != nil {
 		logger.Error("failed to save lineage to database", "id", l.ID, "error", err)
 	}
 }
@@ -303,7 +332,7 @@ func (p *Projector) GetLineage(id string) (*Lineage, error) {
 			var steps []*StepLineage
 			_ = json.Unmarshal([]byte(model.Steps), &steps)
 
-			var events []eventbus.Event
+			var events []mdk.Event
 			_ = json.Unmarshal([]byte(model.Events), &events)
 
 			l := &Lineage{
@@ -350,7 +379,7 @@ func (p *Projector) ListLineages() []registry.LineageData {
 				if _, exists := inMem[model.ID]; !exists {
 					var steps []*StepLineage
 					_ = json.Unmarshal([]byte(model.Steps), &steps)
-					var events []eventbus.Event
+					var events []mdk.Event
 					_ = json.Unmarshal([]byte(model.Events), &events)
 					inMem[model.ID] = &Lineage{
 						ID:        model.ID,

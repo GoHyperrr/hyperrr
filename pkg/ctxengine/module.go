@@ -25,6 +25,9 @@ func (m *Module) Init(ctx context.Context, rt mdk.Runtime) error {
 }
 
 func (m *Module) Shutdown(ctx context.Context) error {
+	if m.projector != nil {
+		m.projector.Stop()
+	}
 	return nil
 }
 

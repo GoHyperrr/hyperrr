@@ -11,9 +11,13 @@ import (
 	"github.com/GoHyperrr/hyperrr/pkg/db"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"github.com/GoHyperrr/mdk"
 )
 
 func TestProjector(t *testing.T) {
+	mdk.RegisterLineageEvent("order.created")
+	mdk.RegisterLineageEvent("order.paid")
+
 	bus := eventbus.NewInMemBus()
 	projector := NewProjector(bus)
 	

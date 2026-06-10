@@ -425,7 +425,14 @@ To compile the package into the binary, run the built-in Go generator command:
 ```bash
 go generate ./...
 ```
-This parses the config file, resolves module paths, and automatically writes the blank imports registry file `internal/app/imports_generated.go`.
+This parses the config file, resolves module paths, and automatically writes the blank imports registry file `cmd/hyperrr/imports_generated.go` under package `main`.
+
+### Step E: Multi-Module Go Workspace Setup
+For local development where you are modifying the core engine (`hyperrr`) alongside pluggable modules, you can use a Go Workspace (`go.work`) at the parent directory or copy `go.work.example` to `go.work` in your development directory:
+
+```bash
+cp go.work.example go.work
+```
 
 ---
 
