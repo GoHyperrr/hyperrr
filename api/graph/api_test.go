@@ -319,31 +319,74 @@ func TestResolvers(t *testing.T) {
 	})
 
 	t.Run("Customer Mutations", func(t *testing.T) {
-		// Create a customer first
-		c := &customer.Customer{ID: "c1", Name: "John Doe", Email: "john@example.com"}
-		custMod.Repo().Save(ctx, c)
+		// 1. Create Customer
+		c, err := resolver.Mutation().CreateCustomer(ctx, customer.CreateCustomerInput{
+			Name:  "John Doe",
+			Email: "john@example.com",
+		})
+		if err != nil {
+			t.Fatalf("CreateCustomer failed: %v", err)
+		}
+		if c.Name != "John Doe" {
+			t.Errorf("expected Name 'John Doe', got %s", c.Name)
+		}
 
-		// Update
+		// 2. Add Address
+		recName := "John Doe"
+		phone := "5551234"
+		line2 := "Suite 100"
+		addr, err := resolver.Mutation().AddCustomerAddress(ctx, c.ID, customer.CreateAddressInput{
+			ReceiverName: &recName,
+			Phone:        &phone,
+			Line1:        "123 Main St",
+			Line2:        &line2,
+			City:         "New York",
+			State:        "NY",
+			Zip:          "10001",
+			Country:      "USA",
+		})
+		if err != nil {
+			t.Fatalf("AddCustomerAddress failed: %v", err)
+		}
+		if addr.Line1 != "123 Main St" {
+			t.Errorf("expected Line1 '123 Main St', got %s", addr.Line1)
+		}
+
+		// 3. Update Customer & Set default address
 		newName := "Jane Doe"
-		updateInput := customer.UpdateCustomerInput{Name: &newName}
-		upRes, err := resolver.Mutation().UpdateCustomer(ctx, "c1", updateInput)
-		if err != nil || upRes.Name != newName {
-			t.Fatalf("UpdateCustomer failed: %v", err)
+		upRes, err := resolver.Mutation().UpdateCustomer(ctx, c.ID, customer.UpdateCustomerInput{
+			Name:                     &newName,
+			DefaultShippingAddressID: &addr.ID,
+		})
+		if err != nil || upRes.Name != newName || upRes.DefaultShippingAddressID == nil || *upRes.DefaultShippingAddressID != addr.ID {
+			t.Fatalf("UpdateCustomer failed: %v (upRes: %+v)", err, upRes)
 		}
 
-		// GetCustomer with addresses
-		c.Addresses = []customer.Address{{ID: "a1", Line1: "123 Main St", City: "NY", State: "NY", Zip: "10001", Country: "USA"}}
-		custMod.Repo().Save(ctx, c)
-
-		custRes, err := resolver.Query().GetCustomer(ctx, "c1")
-		if err != nil || len(custRes.Addresses) != 1 {
-			t.Fatalf("GetCustomer with addresses failed: %v", err)
+		// 4. Get Customer Addresses
+		addrs, err := resolver.Query().GetCustomerAddresses(ctx, c.ID)
+		if err != nil || len(addrs) != 1 || addrs[0].ID != addr.ID {
+			t.Fatalf("GetCustomerAddresses failed: %v (addrs: %+v)", err, addrs)
 		}
 
-		// Update failure (non-existent customer)
-		_, err = resolver.Mutation().UpdateCustomer(ctx, "ghost", updateInput)
-		if err == nil {
-			t.Error("expected error for non-existent customer update")
+		// 5. Update Address
+		newLine1 := "456 Oak Ave"
+		upAddr, err := resolver.Mutation().UpdateCustomerAddress(ctx, addr.ID, customer.UpdateAddressInput{
+			Line1: &newLine1,
+		})
+		if err != nil || upAddr.Line1 != newLine1 {
+			t.Fatalf("UpdateCustomerAddress failed: %v", err)
+		}
+
+		// 6. Delete Address
+		delAddr, err := resolver.Mutation().DeleteCustomerAddress(ctx, addr.ID)
+		if err != nil || !delAddr {
+			t.Fatalf("DeleteCustomerAddress failed: %v", err)
+		}
+
+		// 7. Delete Customer
+		deleted, err := resolver.Mutation().DeleteCustomer(ctx, c.ID)
+		if err != nil || !deleted {
+			t.Fatalf("DeleteCustomer failed: %v", err)
 		}
 	})
 

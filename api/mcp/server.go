@@ -1001,7 +1001,7 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 								<th>ID</th>
 								<th>Name</th>
 								<th>Email</th>
-								<th>Persona (AI Segment)</th>
+								<th>Type</th>
 							</tr>
 						</thead>
 						<tbody>`, count)
@@ -1010,9 +1010,9 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 			content += `<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">No customers registered.</td></tr>`
 		} else {
 			for _, c := range list {
-				persona := c.Persona
-				if persona == "" {
-					persona = "N/A"
+				custType := "Registered"
+				if c.IsGuest {
+					custType = "Guest"
 				}
 				content += fmt.Sprintf(`
 					<tr>
@@ -1020,7 +1020,7 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 						<td>%s</td>
 						<td>%s</td>
 						<td><span class="badge" style="background: rgba(245, 158, 11, 0.1); border: 1px solid var(--accent-color);">%s</span></td>
-					</tr>`, c.ID, c.Name, c.Email, persona)
+					</tr>`, c.ID, c.Name, c.Email, custType)
 			}
 		}
 		content += `
