@@ -78,4 +78,31 @@ func HandleEvent(ctx context.Context, event eventbus.Event) error {
     return processOrder(tracedCtx, event.Payload)
 }
 ```
+
 This enables tracing a transaction from an agent's initial request to workflow steps, database migrations, and eventual resource status modifications.
+
+---
+
+## 4. Event Subscription Visibility & Reflection
+
+To enable AI agents and system diagnostics to inspect event mappings dynamically, the `EventBus` interface supports listing active subscribers:
+
+```go
+type SubscriptionInfo struct {
+	Namespace string `json:"namespace"`
+	Type      string `json:"type"`
+	Handler   string `json:"handler"`
+}
+
+type EventBus interface {
+	Publish(ctx context.Context, e Event) error
+	Subscribe(namespace, eventType string, handler EventHandler) (unsubscribe func(), err error)
+	Subscribers() []SubscriptionInfo
+}
+```
+
+### 4.1 Reflection-Based Handler Inspection
+In both the in-memory bus (`InMemBus`) and mock testing bus (`TestEventBus`), subscription mapping automatically extracts the underlying Go function name using runtime reflection:
+*   `runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name()`
+
+This yields clean, fully qualified handler names (e.g., `github.com/GoHyperrr/commerce/customer.(*Module).Init.func1`), allowing AI agents and diagnostics to pinpoint exactly what triggers when a specific event (like `product.created`) is published.

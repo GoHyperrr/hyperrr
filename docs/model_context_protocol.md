@@ -59,6 +59,26 @@ Subscriptions use a dual-endpoint HTTP structure:
 1.  **`/mcp/sse`**: Establishes a persistent Server-Sent Events stream from Hyperrr to the client. This stream transmits JSON-RPC notifications and events.
 2.  **`/mcp/messages`**: An HTTP POST endpoint where the client sends JSON-RPC requests (e.g., calling tools, subscribing to resources).
 
+### 3.3 Event Listener & Workflow Subscriptions Visibility
+To ensure that autonomous AI agents have full visibility into the event-driven routing rules (e.g., understanding that when `product.create` is invoked and publishes `product.created`, what other workflows or notification handlers are triggered), the MCP server exposes the system-wide subscription registry:
+
+*   **System Diagnostics Tool**: Agents can invoke the `system.list_event_listeners` tool to query all active event bus subscriptions dynamically.
+*   **System Diagnostics Resource**: The URI `system://event_listeners` is exposed as a read-only JSON resource. Reading this URI returns the complete mapping array of namespaces, event types, and fully qualified Go handler paths:
+    ```json
+    [
+      {
+        "namespace": "identity",
+        "type": "user_created",
+        "handler": "github.com/GoHyperrr/commerce/customer.(*Module).Init.func1"
+      },
+      {
+        "namespace": "workflow",
+        "type": "completed",
+        "handler": "github.com/GoHyperrr/commerce/notification.(*Module).Init.func2"
+      }
+    ]
+    ```
+
 ---
 
 ## 4. Session Cancellation and Resource Lifecycles
