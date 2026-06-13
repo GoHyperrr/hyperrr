@@ -5,6 +5,7 @@ import (
 	_ "github.com/GoHyperrr/auth/apikey"
 	_ "github.com/GoHyperrr/auth/emailpass"
 	_ "github.com/GoHyperrr/commerce/product"
+	_ "github.com/GoHyperrr/commerce/store"
 	_ "github.com/GoHyperrr/commerce/customer"
 	_ "github.com/GoHyperrr/commerce/cart"
 	_ "github.com/GoHyperrr/commerce/order"

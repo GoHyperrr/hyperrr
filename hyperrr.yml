@@ -28,6 +28,8 @@ modules:
   # Commerce functional domain packages
   - resolve: "github.com/GoHyperrr/commerce/product"
     id: "commerce.product"
+  - resolve: "github.com/GoHyperrr/commerce/store"
+    id: "commerce.store"
   - resolve: "github.com/GoHyperrr/commerce/customer"
     id: "commerce.customer"
   - resolve: "github.com/GoHyperrr/commerce/cart"

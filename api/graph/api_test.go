@@ -19,6 +19,7 @@ import (
 	"github.com/GoHyperrr/commerce/marketing"
 	"github.com/GoHyperrr/commerce/search"
 	analytics "github.com/GoHyperrr/commerce/analytics"
+	"github.com/GoHyperrr/commerce/store"
 	domain "github.com/GoHyperrr/hyperrr/pkg/ctxengine"
 	"github.com/GoHyperrr/auth/emailpass"
 	"github.com/GoHyperrr/auth/apikey"
@@ -122,6 +123,11 @@ func TestResolvers(t *testing.T) {
 	analyticsMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore}))
 	registry.Register(analyticsMod)
 
+	storeMod := store.NewModule()
+	storeMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore}))
+	registry.Register(storeMod)
+	db.Register(storeMod.Models()...)
+
 	database.AutoMigrateAll()
 
 	resolver := &Resolver{
@@ -137,6 +143,7 @@ func TestResolvers(t *testing.T) {
 		MarketingModule:    marketingMod,
 		SearchModule:       searchMod,
 		AnalyticsModule:    analyticsMod,
+		StoreModule:        storeMod,
 		EmailpassModule:    emailpassMod,
 		ApikeyModule:       apikeyMod,
 		CtxEngineModule:    ctxMod,
@@ -149,6 +156,29 @@ func TestResolvers(t *testing.T) {
 		res, err := resolver.Query().Health(ctx)
 		if err != nil || res != "OK" {
 			t.Errorf("Health failed: %v", err)
+		}
+	})
+
+	t.Run("Store Settings Resolvers", func(t *testing.T) {
+		settings, err := resolver.Query().StoreSettings(ctx)
+		if err != nil {
+			t.Fatalf("StoreSettings query failed: %v", err)
+		}
+		if settings.Name != "My Hyperrr Store" {
+			t.Errorf("expected 'My Hyperrr Store', got %s", settings.Name)
+		}
+
+		name := "Updated Store Name"
+		currency := "EUR"
+		updated, err := resolver.Mutation().UpdateStoreSettings(ctx, store.UpdateStoreSettingsInput{
+			Name:     &name,
+			Currency: &currency,
+		})
+		if err != nil {
+			t.Fatalf("UpdateStoreSettings mutation failed: %v", err)
+		}
+		if updated.Name != "Updated Store Name" || updated.Currency != "EUR" {
+			t.Errorf("unexpected updated settings: %+v", updated)
 		}
 	})
 
