@@ -48,5 +48,7 @@ modules:
     id: "commerce.marketing"
   - resolve: "github.com/GoHyperrr/commerce/search"
     id: "commerce.search"
+  - resolve: "github.com/GoHyperrr/commerce/taxonomy"
+    id: "commerce.taxonomy"
   - resolve: "github.com/GoHyperrr/commerce/analytics"
     id: "commerce.analytics"

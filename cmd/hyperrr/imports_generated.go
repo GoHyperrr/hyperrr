@@ -15,5 +15,6 @@ import (
 	_ "github.com/GoHyperrr/commerce/support"
 	_ "github.com/GoHyperrr/commerce/marketing"
 	_ "github.com/GoHyperrr/commerce/search"
+	_ "github.com/GoHyperrr/commerce/taxonomy"
 	_ "github.com/GoHyperrr/commerce/analytics"
 )

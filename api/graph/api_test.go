@@ -20,6 +20,7 @@ import (
 	"github.com/GoHyperrr/commerce/search"
 	analytics "github.com/GoHyperrr/commerce/analytics"
 	"github.com/GoHyperrr/commerce/store"
+	"github.com/GoHyperrr/commerce/taxonomy"
 	domain "github.com/GoHyperrr/hyperrr/pkg/ctxengine"
 	"github.com/GoHyperrr/auth/emailpass"
 	"github.com/GoHyperrr/auth/apikey"
@@ -128,6 +129,11 @@ func TestResolvers(t *testing.T) {
 	registry.Register(storeMod)
 	db.Register(storeMod.Models()...)
 
+	taxonomyMod := taxonomy.NewModule()
+	taxonomyMod.Init(ctx, registry.NewRuntime(&registry.Dependencies{DB: database, EventBus: bus, Runner: runner, Registry: registryStore}))
+	registry.Register(taxonomyMod)
+	db.Register(taxonomyMod.Models()...)
+
 	database.AutoMigrateAll()
 
 	resolver := &Resolver{
@@ -144,6 +150,7 @@ func TestResolvers(t *testing.T) {
 		SearchModule:       searchMod,
 		AnalyticsModule:    analyticsMod,
 		StoreModule:        storeMod,
+		TaxonomyModule:     taxonomyMod,
 		EmailpassModule:    emailpassMod,
 		ApikeyModule:       apikeyMod,
 		CtxEngineModule:    ctxMod,
@@ -179,6 +186,70 @@ func TestResolvers(t *testing.T) {
 		}
 		if updated.Name != "Updated Store Name" || updated.Currency != "EUR" {
 			t.Errorf("unexpected updated settings: %+v", updated)
+		}
+	})
+
+	t.Run("Taxonomy Resolvers", func(t *testing.T) {
+		// 1. Create a taxonomy
+		tax, err := resolver.Mutation().CreateTaxonomy(ctx, taxonomy.CreateTaxonomyInput{
+			Name: "Product Categories",
+			Code: "product_categories",
+			Type: "category",
+		})
+		if err != nil {
+			t.Fatalf("CreateTaxonomy failed: %v", err)
+		}
+		if tax.Code != "product_categories" {
+			t.Errorf("expected code 'product_categories', got %s", tax.Code)
+		}
+
+		// 2. Create a term
+		desc := "Electronics goods"
+		term, err := resolver.Mutation().CreateTaxonomyTerm(ctx, taxonomy.CreateTaxonomyTermInput{
+			TaxonomyID:  tax.ID,
+			Name:        "Electronics",
+			Slug:        "electronics",
+			Description: &desc,
+		})
+		if err != nil {
+			t.Fatalf("CreateTaxonomyTerm failed: %v", err)
+		}
+		if term.Name != "Electronics" || term.Slug != "electronics" {
+			t.Errorf("expected term 'Electronics', got %+v", term)
+		}
+
+		// 3. Link resource
+		linked, err := resolver.Mutation().LinkResource(ctx, taxonomy.LinkResourceInput{
+			TermID:       term.ID,
+			ResourceID:   "p1",
+			ResourceType: "product",
+		})
+		if err != nil || !linked {
+			t.Fatalf("LinkResource failed: %v (linked: %t)", err, linked)
+		}
+
+		// 4. Query taxonomy
+		fetchedTax, err := resolver.Query().Taxonomy(ctx, "product_categories")
+		if err != nil || fetchedTax == nil {
+			t.Fatalf("Query Taxonomy failed: %v", err)
+		}
+
+		// 5. Query term
+		fetchedTerm, err := resolver.Query().Term(ctx, "electronics")
+		if err != nil || fetchedTerm.Name != "Electronics" {
+			t.Errorf("Query Term failed: %v (term: %+v)", err, fetchedTerm)
+		}
+
+		// 6. Query terms for resource
+		terms, err := resolver.Query().TermsForResource(ctx, "p1", "product")
+		if err != nil || len(terms) != 1 || terms[0].ID != term.ID {
+			t.Errorf("Query TermsForResource failed: %v", err)
+		}
+
+		// 7. Query resource IDs for term
+		ids, err := resolver.Query().ResourceIdsForTerm(ctx, term.ID, "product")
+		if err != nil || len(ids) != 1 || ids[0] != "p1" {
+			t.Errorf("Query ResourceIdsForTerm failed: %v", err)
 		}
 	})
 
