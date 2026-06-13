@@ -2,10 +2,14 @@ package eventbus
 
 import (
 	"context"
+	"reflect"
+	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/google/uuid"
+	"github.com/GoHyperrr/mdk"
 )
 
 // InMemBus is a thread-safe in-memory implementation of EventBus.
@@ -114,4 +118,30 @@ func (b *InMemBus) Close() error {
 		close(b.closed)
 	})
 	return nil
+}
+
+// Subscribers returns all active subscriptions on this bus.
+func (b *InMemBus) Subscribers() []mdk.SubscriptionInfo {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	var list []mdk.SubscriptionInfo
+	for key, subMap := range b.handlers {
+		parts := strings.SplitN(key, ".", 2)
+		var ns, et string
+		if len(parts) == 2 {
+			ns, et = parts[0], parts[1]
+		} else {
+			et = key
+		}
+		for _, handler := range subMap {
+			funcName := runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name()
+			list = append(list, mdk.SubscriptionInfo{
+				Namespace: ns,
+				Type:      et,
+				Handler:   funcName,
+			})
+		}
+	}
+	return list
 }

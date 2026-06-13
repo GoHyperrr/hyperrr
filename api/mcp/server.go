@@ -24,6 +24,7 @@ import (
 	ident "github.com/GoHyperrr/hyperrr/pkg/identity"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"github.com/GoHyperrr/mdk"
 )
 
 type session struct {
@@ -480,6 +481,13 @@ func (s *Server) handleToolsList(ctx context.Context) *ListToolsResult {
 		})
 	}
 
+	// Expose system event listener tracking tool
+	tools = append(tools, Tool{
+		Name:        "system.list_event_listeners",
+		Description: "Retrieve a list of all registered event subscriptions, their namespaces, event types, and the handlers that process them.",
+		InputSchema: map[string]any{"type": "object"},
+	})
+
 	return &ListToolsResult{Tools: tools}
 }
 
@@ -487,6 +495,25 @@ func (s *Server) handleToolsCall(ctx context.Context, actor ident.Actor, params 
 	name, ok := params["name"].(string)
 	if !ok {
 		return nil, &Error{Code: CodeInvalidParams, Message: "Tool name required"}
+	}
+
+	if name == "system.list_event_listeners" {
+		subs := []mdk.SubscriptionInfo{}
+		if s.deps.EventBus != nil {
+			subs = s.deps.EventBus.Subscribers()
+		}
+		dataBytes, err := json.MarshalIndent(subs, "", "  ")
+		if err != nil {
+			return nil, &Error{Code: CodeInternalError, Message: "failed to marshal event listeners: " + err.Error()}
+		}
+		return CallToolResult{
+			Content: []Content{
+				{
+					Type: "text",
+					Text: string(dataBytes),
+				},
+			},
+		}, nil
 	}
 
 	if strings.HasPrefix(name, "app.") {
@@ -598,6 +625,12 @@ func (s *Server) handleResourcesList(ctx context.Context) *ListResourcesResult {
 		Description: "Orchestration status tracker for the fulfillment saga.",
 		MimeType:    "text/html;profile=mcp-app",
 	})
+	list = append(list, Resource{
+		URI:         "system://event_listeners",
+		Name:        "System Event Listeners",
+		Description: "A registry map of all active event subscriptions, namespaces, event types, and their handlers.",
+		MimeType:    "application/json",
+	})
 
 	mods := registry.List()
 	for _, m := range mods {
@@ -624,6 +657,26 @@ func (s *Server) handleResourcesRead(ctx context.Context, params map[string]any)
 	uri, ok := params["uri"].(string)
 	if !ok {
 		return nil, &Error{Code: CodeInvalidParams, Message: "Resource URI required"}
+	}
+
+	if uri == "system://event_listeners" {
+		subs := []mdk.SubscriptionInfo{}
+		if s.deps.EventBus != nil {
+			subs = s.deps.EventBus.Subscribers()
+		}
+		dataBytes, err := json.MarshalIndent(subs, "", "  ")
+		if err != nil {
+			return nil, &Error{Code: CodeInternalError, Message: "failed to marshal event listeners: " + err.Error()}
+		}
+		return &ReadResourceResult{
+			Contents: []ResourceContent{
+				{
+					URI:      uri,
+					MimeType: "application/json",
+					Text:     string(dataBytes),
+				},
+			},
+		}, nil
 	}
 
 	// Intercept UI resource requests to perform SSR rendering

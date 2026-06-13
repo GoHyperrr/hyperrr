@@ -72,18 +72,24 @@ func TestMCP_DiscoveryAndExecution(t *testing.T) {
 
 	t.Run("Tools List Discovery", func(t *testing.T) {
 		result := server.handleToolsList(context.Background())
-		if len(result.Tools) != 12 {
-			t.Errorf("expected 12 tools, got %d", len(result.Tools))
+		if len(result.Tools) != 13 {
+			t.Errorf("expected 13 tools, got %d", len(result.Tools))
 		}
 		foundPublic := false
+		foundListeners := false
 		for _, tool := range result.Tools {
 			if tool.Name == "public-tool" {
 				foundPublic = true
-				break
+			}
+			if tool.Name == "system.list_event_listeners" {
+				foundListeners = true
 			}
 		}
 		if !foundPublic {
 			t.Errorf("expected public-tool in the list of tools")
+		}
+		if !foundListeners {
+			t.Errorf("expected system.list_event_listeners in the list of tools")
 		}
 	})
 
@@ -115,6 +121,24 @@ func TestMCP_DiscoveryAndExecution(t *testing.T) {
 		// Verify result contains the expected content
 		if !strings.Contains(res.Content[0].Text, "ok") {
 			t.Errorf("unexpected result text: %s", res.Content[0].Text)
+		}
+	})
+
+	t.Run("Tools Call System Event Listeners", func(t *testing.T) {
+		actor := &ident.BaseActor{ID: "agent_1", Type: ident.ActorAIAgent}
+		params := map[string]any{
+			"name": "system.list_event_listeners",
+		}
+		resRaw, errRPC := server.handleToolsCall(context.Background(), actor, params)
+		if errRPC != nil {
+			t.Fatalf("handleToolsCall failed: %v", errRPC)
+		}
+		res := resRaw.(CallToolResult)
+		if res.IsError {
+			t.Errorf("expected success, got error: %s", res.Content[0].Text)
+		}
+		if !strings.Contains(res.Content[0].Text, "[]") {
+			t.Errorf("expected empty array JSON, got: %s", res.Content[0].Text)
 		}
 	})
 
@@ -208,15 +232,21 @@ func TestMCP_Resources(t *testing.T) {
 
 	t.Run("Resources List", func(t *testing.T) {
 		resList := server.handleResourcesList(context.Background())
-		found := false
+		foundMock := false
+		foundListeners := false
 		for _, r := range resList.Resources {
 			if r.URI == "mock://test-resource" {
-				found = true
-				break
+				foundMock = true
+			}
+			if r.URI == "system://event_listeners" {
+				foundListeners = true
 			}
 		}
-		if !found {
+		if !foundMock {
 			t.Error("expected mock://test-resource in resources list")
+		}
+		if !foundListeners {
+			t.Error("expected system://event_listeners in resources list")
 		}
 	})
 
@@ -229,6 +259,19 @@ func TestMCP_Resources(t *testing.T) {
 		res := resRaw.(*ReadResourceResult)
 		if len(res.Contents) != 1 || res.Contents[0].Text != `{"value":"hello"}` {
 			t.Errorf("unexpected content: %v", res.Contents)
+		}
+	})
+
+	t.Run("Resources Read System Event Listeners", func(t *testing.T) {
+		params := map[string]any{"uri": "system://event_listeners"}
+		resRaw, errRPC := server.handleResourcesRead(context.Background(), params)
+		if errRPC != nil {
+			t.Fatalf("unexpected error: %v", errRPC)
+		}
+		res := resRaw.(*ReadResourceResult)
+		trimmed := strings.TrimSpace(res.Contents[0].Text)
+		if len(res.Contents) != 1 || !strings.HasPrefix(trimmed, "[") {
+			t.Errorf("unexpected content (not a JSON array): %s", trimmed)
 		}
 	})
 

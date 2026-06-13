@@ -280,6 +280,16 @@ func TestResolvers(t *testing.T) {
 		if err != nil || len(list) == 0 {
 			t.Errorf("ListProducts failed: %v", err)
 		}
+
+		terms, err := resolver.Query().TermsForResource(ctx, "p1", "product")
+		if err != nil || len(terms) == 0 {
+			t.Errorf("TermsForResource failed: %v", err)
+		} else {
+			prods, err := resolver.Query().GetProductsByTaxonomy(ctx, terms[0].ID)
+			if err != nil || len(prods) != 1 || prods[0].ID != "p1" {
+				t.Errorf("GetProductsByTaxonomy failed: %v (expected 1 prod, got %v)", err, prods)
+			}
+		}
 	})
 
 	t.Run("Product Mutations", func(t *testing.T) {
@@ -417,7 +427,7 @@ func TestResolvers(t *testing.T) {
 
 		// 4. Checkout (add item back first)
 		resolver.Mutation().AddItemToCart(ctx, c.ID, addInput)
-		ok, err := resolver.Mutation().CheckoutCart(ctx, c.ID)
+		ok, err := resolver.Mutation().CheckoutCart(ctx, c.ID, nil)
 		if err != nil || !ok {
 			t.Fatalf("CheckoutCart failed: %v", err)
 		}
@@ -446,7 +456,7 @@ func TestResolvers(t *testing.T) {
 		}
 
 		// 8. Checkout failure (non-existent cart)
-		_, err = resolver.Mutation().CheckoutCart(ctx, "ghost_cart")
+		_, err = resolver.Mutation().CheckoutCart(ctx, "ghost_cart", nil)
 		if err == nil {
 			t.Error("expected error for non-existent cart checkout")
 		}
@@ -458,7 +468,7 @@ func TestResolvers(t *testing.T) {
 		resolver.Mutation().AddItemToCart(ctx, cartRes.ID, cart.AddItemInput{ProductID: "p3", Quantity: 1, Price: 150.0})
 
 		// 2. Create Order from Cart
-		o, err := resolver.Mutation().CreateOrderFromCart(ctx, cartRes.ID)
+		o, err := resolver.Mutation().CreateOrderFromCart(ctx, cartRes.ID, nil)
 		if err != nil {
 			t.Fatalf("CreateOrderFromCart failed: %v", err)
 		}
@@ -622,20 +632,20 @@ func TestResolvers(t *testing.T) {
 
 		badResolver := *resolver
 		badResolver.OrderModule = badOrderMod
-		_, err = badResolver.Mutation().CreateOrderFromCart(ctx, cartRes.ID)
+		_, err = badResolver.Mutation().CreateOrderFromCart(ctx, cartRes.ID, nil)
 		if err == nil {
 			t.Error("expected error for missing workflow in CreateOrderFromCart")
 		}
 
 		// 25. CreateOrderFromCart - Empty Cart
 		emptyCart, _ := resolver.Query().GetActiveCart(ctx, "c_empty")
-		_, err = resolver.Mutation().CreateOrderFromCart(ctx, emptyCart.ID)
+		_, err = resolver.Mutation().CreateOrderFromCart(ctx, emptyCart.ID, nil)
 		if err == nil || !strings.Contains(err.Error(), "cart is empty") {
 			t.Errorf("expected cart is empty error, got %v", err)
 		}
 
 		// 26. CreateOrderFromCart - Non-existent Cart
-		_, err = resolver.Mutation().CreateOrderFromCart(ctx, "ghost_cart")
+		_, err = resolver.Mutation().CreateOrderFromCart(ctx, "ghost_cart", nil)
 		if err == nil || !strings.Contains(err.Error(), "cart not found") {
 			t.Errorf("expected cart not found error, got %v", err)
 		}
