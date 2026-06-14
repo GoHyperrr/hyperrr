@@ -19,6 +19,7 @@ autobind:
   - github.com/GoHyperrr/commerce/customer
   - github.com/GoHyperrr/commerce/fulfillment
   - github.com/GoHyperrr/commerce/finance
+  - github.com/GoHyperrr/commerce/payments
   - github.com/GoHyperrr/commerce/analytics
   - github.com/GoHyperrr/commerce/marketing
   - github.com/GoHyperrr/commerce/notification
