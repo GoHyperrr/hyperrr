@@ -1,14 +1,14 @@
 module github.com/GoHyperrr/hyperrr
 
-go 1.25
+go 1.26
 
 require (
 	charm.land/lipgloss/v2 v2.0.3
 	github.com/99designs/gqlgen v0.17.90
 	github.com/GoHyperrr/auth v0.3.0
 	github.com/GoHyperrr/commerce v0.3.0
-	github.com/GoHyperrr/notification v0.0.0
 	github.com/GoHyperrr/mdk v0.3.0
+	github.com/GoHyperrr/notification v0.0.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/google/uuid v1.6.0
 	github.com/spf13/cobra v1.8.0
