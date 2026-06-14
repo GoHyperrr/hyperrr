@@ -7,6 +7,7 @@ require (
 	github.com/99designs/gqlgen v0.17.90
 	github.com/GoHyperrr/auth v0.3.0
 	github.com/GoHyperrr/commerce v0.3.0
+	github.com/GoHyperrr/notification v0.0.0
 	github.com/GoHyperrr/mdk v0.3.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/google/uuid v1.6.0
@@ -71,3 +72,5 @@ require (
 	modernc.org/memory v1.5.0 // indirect
 	modernc.org/sqlite v1.23.1 // indirect
 )
+
+replace github.com/GoHyperrr/notification => ../notification

@@ -2,6 +2,7 @@ package graph
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -14,7 +15,7 @@ import (
 	"github.com/GoHyperrr/commerce/order"
 	"github.com/GoHyperrr/commerce/finance"
 	"github.com/GoHyperrr/commerce/fulfillment"
-	"github.com/GoHyperrr/commerce/notification"
+	"github.com/GoHyperrr/notification"
 	"github.com/GoHyperrr/commerce/support"
 	"github.com/GoHyperrr/commerce/marketing"
 	"github.com/GoHyperrr/commerce/search"
@@ -39,7 +40,14 @@ func TestResolvers(t *testing.T) {
 	registryStore := workflow.NewRegistry()
 	// Setup DB for Product module
 	cfg := &config.Config{DBDriver: "sqlite", DBDSN: ":memory:"}
-	database, _ := db.Connect(cfg)
+	database, err := db.Connect(cfg)
+	if err != nil {
+		t.Fatalf("failed to connect to db: %v", err)
+	}
+	if sqlDB, err := database.DB.DB(); err == nil {
+		sqlDB.SetMaxOpenConns(1)
+		sqlDB.SetMaxIdleConns(1)
+	}
 	defer func() {
 		time.Sleep(200 * time.Millisecond)
 		// underlying sqlite close
@@ -134,7 +142,9 @@ func TestResolvers(t *testing.T) {
 	registry.Register(taxonomyMod)
 	db.Register(taxonomyMod.Models()...)
 
-	database.AutoMigrateAll()
+	if err := database.AutoMigrateAll(); err != nil {
+		t.Fatalf("failed to auto-migrate: %v", err)
+	}
 
 	resolver := &Resolver{
 		Projector:          projector,

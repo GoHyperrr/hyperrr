@@ -118,7 +118,7 @@ func discoverModules() ([]ModuleInfo, error) {
 			continue
 		}
 
-		// Check if the root itself is a package (e.g. pkg/ctxengine)
+		// Check if the root itself is a package (e.g. flat modules or pkg/ctxengine)
 		if scan.root == "pkg" {
 			// Special-case ctxengine
 			dirPath := filepath.Join(scan.root, "ctxengine")
@@ -136,6 +136,21 @@ func discoverModules() ([]ModuleInfo, error) {
 				}
 			}
 			continue
+		}
+
+		// Check if the root itself contains queries/mutations (for flat modules)
+		queries, mutations, fields, err := parseModuleQueriesMutations(scan.root)
+		if err == nil && (len(queries) > 0 || len(mutations) > 0 || len(fields) > 0) {
+			pkgName := filepath.Base(scan.root)
+			importPath := strings.TrimSuffix(scan.prefix, "/")
+			modules = append(modules, ModuleInfo{
+				Name:       pkgName,
+				ImportPath: importPath,
+				StructName: "Module",
+				Queries:    queries,
+				Mutations:  mutations,
+				Fields:     fields,
+			})
 		}
 
 		infos, err := os.ReadDir(scan.root)
@@ -399,6 +414,8 @@ func generateResolverStruct(modules []ModuleInfo, interfaces []ResolverInterface
 			prefix := "commerce."
 			if strings.Contains(mod.ImportPath, "/auth/") {
 				prefix = "auth."
+			} else if !strings.Contains(mod.ImportPath, "/commerce/") {
+				prefix = ""
 			}
 			moduleID := prefix + mod.Name
 			fieldName := strings.ToUpper(mod.Name[:1]) + mod.Name[1:] + "Module"

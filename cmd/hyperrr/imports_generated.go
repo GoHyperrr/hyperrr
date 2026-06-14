@@ -10,7 +10,7 @@ import (
 	_ "github.com/GoHyperrr/commerce/cart"
 	_ "github.com/GoHyperrr/commerce/order"
 	_ "github.com/GoHyperrr/commerce/finance"
-	_ "github.com/GoHyperrr/commerce/notification"
+	_ "github.com/GoHyperrr/notification"
 	_ "github.com/GoHyperrr/commerce/fulfillment"
 	_ "github.com/GoHyperrr/commerce/support"
 	_ "github.com/GoHyperrr/commerce/marketing"

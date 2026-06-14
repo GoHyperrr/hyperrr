@@ -16,7 +16,7 @@ import (
 	"github.com/GoHyperrr/commerce/finance"
 	"github.com/GoHyperrr/commerce/fulfillment"
 	"github.com/GoHyperrr/commerce/marketing"
-	"github.com/GoHyperrr/commerce/notification"
+	"github.com/GoHyperrr/notification"
 	"github.com/GoHyperrr/commerce/order"
 	"github.com/GoHyperrr/commerce/product"
 	"github.com/GoHyperrr/commerce/support"
@@ -476,7 +476,7 @@ func (s *Server) handleToolsList(ctx context.Context) *ListToolsResult {
 		"commerce.cart",
 		"commerce.order",
 		"commerce.finance",
-		"commerce.notification",
+		"notification",
 		"commerce.fulfillment",
 		"commerce.support",
 		"commerce.marketing",
@@ -635,7 +635,7 @@ func (s *Server) handleResourcesList(ctx context.Context) *ListResourcesResult {
 		"commerce.cart",
 		"commerce.order",
 		"commerce.finance",
-		"commerce.notification",
+		"notification",
 		"commerce.fulfillment",
 		"commerce.support",
 		"commerce.marketing",
@@ -1358,7 +1358,7 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 				</div>
 			</div>`
 
-	case "commerce.notification":
+	case "notification":
 		accent = "#f97316" // Orange
 		accentGlow = "rgba(249, 115, 22, 0.15)"
 		title = "Notifications Hub"
