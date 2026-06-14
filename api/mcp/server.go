@@ -306,6 +306,10 @@ func (s *Server) handlePromptsList(ctx context.Context) (any, *Error) {
 			Name:        "Customer Churn Risk Analysis",
 			Description: "Analyze customer segments, personas, and identify high-risk profiles.",
 		},
+		{
+			Name:        "Workflow & Event Map Auditing",
+			Description: "Examine the dynamic DAG workflows and event subscription maps of the commerce application to understand the ripple effects of actions.",
+		},
 	}
 	for _, mod := range registry.List() {
 		if provider, ok := mod.(registry.PromptProvider); ok {
@@ -387,6 +391,19 @@ func (s *Server) handlePromptsGet(ctx context.Context, params map[string]any) (a
 					Content: registry.MCPPromptMessageContent{
 						Type: "text",
 						Text: "Check customer profiles. Pay special attention to their ML-calculated personas and highlight any churn risks or high-value VIP segments.",
+					},
+				},
+			},
+		}, nil
+	case "Workflow & Event Map Auditing":
+		return &registry.GetPromptResult{
+			Description: "Workflow & Event Map Auditing",
+			Messages: []registry.MCPPromptMessage{
+				{
+					Role: "user",
+					Content: registry.MCPPromptMessageContent{
+						Type: "text",
+						Text: "Please call system.list_event_listeners and system.list_workflows. Audit the entire system architecture, explaining how different modules interact via events and what workflows trigger as a result.",
 					},
 				},
 			},
@@ -488,6 +505,13 @@ func (s *Server) handleToolsList(ctx context.Context) *ListToolsResult {
 		InputSchema: map[string]any{"type": "object"},
 	})
 
+	// Expose system workflows list tool
+	tools = append(tools, Tool{
+		Name:        "system.list_workflows",
+		Description: "Retrieve a list of all registered workflows, their detailed step sequences, step dependencies, and saga compensations.",
+		InputSchema: map[string]any{"type": "object"},
+	})
+
 	return &ListToolsResult{Tools: tools}
 }
 
@@ -505,6 +529,22 @@ func (s *Server) handleToolsCall(ctx context.Context, actor ident.Actor, params 
 		dataBytes, err := json.MarshalIndent(subs, "", "  ")
 		if err != nil {
 			return nil, &Error{Code: CodeInternalError, Message: "failed to marshal event listeners: " + err.Error()}
+		}
+		return CallToolResult{
+			Content: []Content{
+				{
+					Type: "text",
+					Text: string(dataBytes),
+				},
+			},
+		}, nil
+	}
+
+	if name == "system.list_workflows" {
+		workflows := s.deps.Registry.List()
+		dataBytes, err := json.MarshalIndent(workflows, "", "  ")
+		if err != nil {
+			return nil, &Error{Code: CodeInternalError, Message: "failed to marshal workflows: " + err.Error()}
 		}
 		return CallToolResult{
 			Content: []Content{
@@ -631,6 +671,12 @@ func (s *Server) handleResourcesList(ctx context.Context) *ListResourcesResult {
 		Description: "A registry map of all active event subscriptions, namespaces, event types, and their handlers.",
 		MimeType:    "application/json",
 	})
+	list = append(list, Resource{
+		URI:         "system://workflows",
+		Name:        "System Workflows",
+		Description: "A list of all registered workflows, including their steps, dependencies, and saga compensation tasks.",
+		MimeType:    "application/json",
+	})
 
 	mods := registry.List()
 	for _, m := range mods {
@@ -667,6 +713,23 @@ func (s *Server) handleResourcesRead(ctx context.Context, params map[string]any)
 		dataBytes, err := json.MarshalIndent(subs, "", "  ")
 		if err != nil {
 			return nil, &Error{Code: CodeInternalError, Message: "failed to marshal event listeners: " + err.Error()}
+		}
+		return &ReadResourceResult{
+			Contents: []ResourceContent{
+				{
+					URI:      uri,
+					MimeType: "application/json",
+					Text:     string(dataBytes),
+				},
+			},
+		}, nil
+	}
+
+	if uri == "system://workflows" {
+		workflows := s.deps.Registry.List()
+		dataBytes, err := json.MarshalIndent(workflows, "", "  ")
+		if err != nil {
+			return nil, &Error{Code: CodeInternalError, Message: "failed to marshal workflows: " + err.Error()}
 		}
 		return &ReadResourceResult{
 			Contents: []ResourceContent{
