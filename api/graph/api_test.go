@@ -1141,4 +1141,56 @@ func TestResolvers(t *testing.T) {
 			t.Errorf("expected sender INVALID_SENDER, got %s", res.Sender)
 		}
 	})
+
+	t.Run("Advanced Notification Resolvers", func(t *testing.T) {
+		sender := "alerts@mango.in"
+		subject := "Alert: {{payload.title}}"
+		trig, err := resolver.Mutation().CreateEventTrigger(ctx, notification.CreateEventTriggerInput{
+			Namespace:         "system",
+			Event:             "alert",
+			Channel:           "EMAIL",
+			Sender:            &sender,
+			RecipientTemplate: "admin@mango.in",
+			SubjectTemplate:   &subject,
+			BodyTemplate:      "Details: {{payload.details}}",
+		})
+		if err != nil {
+			t.Fatalf("CreateEventTrigger failed: %v", err)
+		}
+		if trig.Namespace != "system" || trig.Event != "alert" {
+			t.Errorf("unexpected trigger properties: %+v", trig)
+		}
+
+		trigs, err := resolver.Query().ListEventTriggers(ctx)
+		if err != nil || len(trigs) == 0 {
+			t.Errorf("ListEventTriggers empty or failed: %v", err)
+		}
+
+		cronExpr := "0 9 * * 1"
+		job, err := resolver.Mutation().ScheduleNotification(ctx, notification.ScheduleNotificationInput{
+			Recipient:      "weekly_recipient@example.com",
+			Channel:        "EMAIL",
+			Body:           "Weekly digest body",
+			ScheduledAt:    time.Now(),
+			CronExpression: &cronExpr,
+		})
+		if err != nil {
+			t.Fatalf("ScheduleNotification failed: %v", err)
+		}
+
+		jobs, err := resolver.Query().ListScheduledNotifications(ctx)
+		if err != nil || len(jobs) == 0 {
+			t.Errorf("ListScheduledNotifications empty or failed: %v", err)
+		}
+
+		cancelOk, err := resolver.Mutation().CancelScheduledNotification(ctx, job.ID)
+		if err != nil || !cancelOk {
+			t.Errorf("CancelScheduledNotification failed: err=%v, ok=%t", err, cancelOk)
+		}
+
+		delOk, err := resolver.Mutation().DeleteEventTrigger(ctx, trig.ID)
+		if err != nil || !delOk {
+			t.Errorf("DeleteEventTrigger failed: err=%v, ok=%t", err, delOk)
+		}
+	})
 }
