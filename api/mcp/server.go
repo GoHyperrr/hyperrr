@@ -11,15 +11,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/GoHyperrr/hyperrr/api/middleware"
-	"github.com/GoHyperrr/commerce/cart"
 	"github.com/GoHyperrr/commerce/customer"
-	"github.com/GoHyperrr/commerce/finance"
-	"github.com/GoHyperrr/commerce/fulfillment"
-	"github.com/GoHyperrr/commerce/marketing"
+	"github.com/GoHyperrr/commerce/cart"
 	"github.com/GoHyperrr/notification"
 	"github.com/GoHyperrr/commerce/order"
 	"github.com/GoHyperrr/commerce/product"
-	"github.com/GoHyperrr/commerce/support"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	ident "github.com/GoHyperrr/hyperrr/pkg/identity"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
@@ -475,13 +471,11 @@ func (s *Server) handleToolsList(ctx context.Context) *ListToolsResult {
 		"commerce.customer",
 		"commerce.cart",
 		"commerce.order",
-		"commerce.finance",
+		"commerce.payments",
+		"commerce.taxonomy",
+		"commerce.seo",
+		"commerce.store",
 		"notification",
-		"commerce.fulfillment",
-		"commerce.support",
-		"commerce.marketing",
-		"commerce.search",
-		"commerce.analytics",
 	}
 
 	for _, modID := range modules {
@@ -634,13 +628,11 @@ func (s *Server) handleResourcesList(ctx context.Context) *ListResourcesResult {
 		"commerce.customer",
 		"commerce.cart",
 		"commerce.order",
-		"commerce.finance",
+		"commerce.payments",
+		"commerce.taxonomy",
+		"commerce.seo",
+		"commerce.store",
 		"notification",
-		"commerce.fulfillment",
-		"commerce.support",
-		"commerce.marketing",
-		"commerce.search",
-		"commerce.analytics",
 	}
 
 	for _, modID := range modules {
@@ -657,12 +649,6 @@ func (s *Server) handleResourcesList(ctx context.Context) *ListResourcesResult {
 		URI:         "ui://system.about",
 		Name:        "App: system.about",
 		Description: "Interactive dashboard for system metadata and system logs.",
-		MimeType:    "text/html;profile=mcp-app",
-	})
-	list = append(list, Resource{
-		URI:         "ui://fulfillment.v1",
-		Name:        "App: fulfillment.v1",
-		Description: "Orchestration status tracker for the fulfillment saga.",
 		MimeType:    "text/html;profile=mcp-app",
 	})
 	list = append(list, Resource{
@@ -1145,6 +1131,61 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 				</div>
 			</div>`
 
+	case "commerce.cart":
+		accent = "#60a5fa" // Light Blue
+		accentGlow = "rgba(96, 165, 250, 0.15)"
+		title = "Active Shopping Carts"
+		var list []cart.Cart
+		var count int64
+		if s.deps.DB != nil {
+			s.deps.DB.Find(&list)
+			s.deps.DB.Model(&cart.Cart{}).Count(&count)
+		}
+
+		content = fmt.Sprintf(`
+			<div class="grid-container">
+				<div class="glass-card stat-card">
+					<span class="stat-label">Total Carts</span>
+					<span class="stat-value">%d</span>
+				</div>
+				<div class="glass-card stat-card">
+					<span class="stat-label">Cart Engine</span>
+					<span class="stat-value text-accent">Active</span>
+				</div>
+			</div>
+			<div class="glass-card">
+				<h2>Carts List</h2>
+				<div class="table-wrapper">
+					<table>
+						<thead>
+							<tr>
+								<th>Cart ID</th>
+								<th>Customer ID</th>
+								<th>Status</th>
+								<th>Items Count</th>
+							</tr>
+						</thead>
+						<tbody>`, count)
+
+		if len(list) == 0 {
+			content += `<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">No shopping carts registered.</td></tr>`
+		} else {
+			for _, c := range list {
+				content += fmt.Sprintf(`
+					<tr>
+						<td><code>%s</code></td>
+						<td><code>%s</code></td>
+						<td><span class="badge" style="background: rgba(96, 165, 250, 0.1); border: 1px solid var(--accent-color);">%s</span></td>
+						<td>%d items</td>
+					</tr>`, c.ID, c.CustomerID, c.Status, len(c.Items))
+			}
+		}
+		content += `
+						</tbody>
+					</table>
+				</div>
+			</div>`
+
 	case "commerce.order":
 		accent = "#10b981" // Emerald
 		accentGlow = "rgba(16, 185, 129, 0.15)"
@@ -1211,152 +1252,7 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 				</div>
 			</div>`
 
-	case "commerce.cart":
-		accent = "#06b6d4" // Cyan
-		accentGlow = "rgba(6, 182, 212, 0.15)"
-		title = "Shopping Carts"
-		var list []cart.Cart
-		var activeCount, abandonedCount, completedCount int
-		if s.deps.DB != nil {
-			s.deps.DB.Preload("Items").Find(&list)
-			for _, c := range list {
-				switch c.Status {
-				case cart.CartActive:
-					activeCount++
-				case cart.CartAbandoned:
-					abandonedCount++
-				case cart.CartCompleted:
-					completedCount++
-				}
-			}
-		}
 
-		content = fmt.Sprintf(`
-			<div class="grid-container">
-				<div class="glass-card stat-card">
-					<span class="stat-label">Active Carts</span>
-					<span class="stat-value">%d</span>
-				</div>
-				<div class="glass-card stat-card">
-					<span class="stat-label">Abandoned Carts</span>
-					<span class="stat-value" style="color: #ef4444">%d</span>
-				</div>
-				<div class="glass-card stat-card">
-					<span class="stat-label">Converted</span>
-					<span class="stat-value text-accent">%d</span>
-				</div>
-			</div>
-			<div class="glass-card">
-				<h2>All Cart Sessions</h2>
-				<div class="table-wrapper">
-					<table>
-						<thead>
-							<tr>
-								<th>Cart ID</th>
-								<th>Customer ID</th>
-								<th>Status</th>
-								<th>Items Count</th>
-							</tr>
-						</thead>
-						<tbody>`, activeCount, abandonedCount, completedCount)
-
-		if len(list) == 0 {
-			content += `<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">No carts found.</td></tr>`
-		} else {
-			for _, c := range list {
-				statusColor := "#06b6d4"
-				if c.Status == cart.CartAbandoned {
-					statusColor = "#ef4444"
-				} else if c.Status == cart.CartCompleted {
-					statusColor = "#10b981"
-				}
-				content += fmt.Sprintf(`
-					<tr>
-						<td><code>%s</code></td>
-						<td><code>%s</code></td>
-						<td><span class="badge" style="background: rgba(6, 182, 212, 0.05); border: 1px solid %s; color: %s">%s</span></td>
-						<td>%d items</td>
-					</tr>`, c.ID, c.CustomerID, statusColor, statusColor, c.Status, len(c.Items))
-			}
-		}
-		content += `
-						</tbody>
-					</table>
-				</div>
-			</div>`
-
-	case "commerce.finance":
-		accent = "#f43f5e" // Rose
-		accentGlow = "rgba(244, 63, 94, 0.15)"
-		title = "Finance Dashboard"
-		var list []finance.Payment
-		var totalBilling float64
-		var successCount, failedCount int
-		if s.deps.DB != nil {
-			s.deps.DB.Find(&list)
-			for _, p := range list {
-				if p.Status == finance.PaymentSuccess {
-					totalBilling += p.Amount
-					successCount++
-				} else if p.Status == finance.PaymentFailed {
-					failedCount++
-				}
-			}
-		}
-
-		content = fmt.Sprintf(`
-			<div class="grid-container">
-				<div class="glass-card stat-card">
-					<span class="stat-label">Net Sales</span>
-					<span class="stat-value text-accent">$%.2f</span>
-				</div>
-				<div class="glass-card stat-card">
-					<span class="stat-label">Successful Charges</span>
-					<span class="stat-value">%d</span>
-				</div>
-				<div class="glass-card stat-card">
-					<span class="stat-label">Failed Payments</span>
-					<span class="stat-value" style="color: #ef4444">%d</span>
-				</div>
-			</div>
-			<div class="glass-card">
-				<h2>Transaction Ledger</h2>
-				<div class="table-wrapper">
-					<table>
-						<thead>
-							<tr>
-								<th>Transaction ID</th>
-								<th>Order ID</th>
-								<th>Amount</th>
-								<th>Status</th>
-							</tr>
-						</thead>
-						<tbody>`, totalBilling, successCount, failedCount)
-
-		if len(list) == 0 {
-			content += `<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">No transactions recorded.</td></tr>`
-		} else {
-			for _, p := range list {
-				statusColor := "#f59e0b"
-				if p.Status == finance.PaymentSuccess {
-					statusColor = "#10b981"
-				} else if p.Status == finance.PaymentFailed {
-					statusColor = "#ef4444"
-				}
-				content += fmt.Sprintf(`
-					<tr>
-						<td><code>%s</code></td>
-						<td><code>%s</code></td>
-						<td class="text-accent">$%.2f</td>
-						<td><span class="badge" style="background: rgba(244, 63, 94, 0.05); border: 1px solid %s; color: %s">%s</span></td>
-					</tr>`, p.ID, p.OrderID, p.Amount, statusColor, statusColor, p.Status)
-			}
-		}
-		content += `
-						</tbody>
-					</table>
-				</div>
-			</div>`
 
 	case "notification":
 		accent = "#f97316" // Orange
@@ -1415,310 +1311,7 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 				</div>
 			</div>`
 
-	case "commerce.fulfillment":
-		accent = "#0ea5e9" // Sky Blue
-		accentGlow = "rgba(14, 165, 233, 0.15)"
-		title = "Logistics & Stock"
-		var shipments []fulfillment.Shipment
-		var inventory []fulfillment.Inventory
-		if s.deps.DB != nil {
-			s.deps.DB.Find(&shipments)
-			s.deps.DB.Find(&inventory)
-		}
 
-		content = fmt.Sprintf(`
-			<div class="grid-container">
-				<div class="glass-card stat-card">
-					<span class="stat-label">Active Shipments</span>
-					<span class="stat-value">%d</span>
-				</div>
-				<div class="glass-card stat-card">
-					<span class="stat-label">In-Stock SKUs</span>
-					<span class="stat-value text-accent">%d</span>
-				</div>
-			</div>
-			<div class="glass-card" style="margin-bottom: 24px;">
-				<h2>Active Shipments</h2>
-				<div class="table-wrapper">
-					<table>
-						<thead>
-							<tr>
-								<th>Shipment ID</th>
-								<th>Order ID</th>
-								<th>Status</th>
-								<th>Tracking No</th>
-							</tr>
-						</thead>
-						<tbody>`, len(shipments), len(inventory))
-
-		if len(shipments) == 0 {
-			content += `<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">No active shipments.</td></tr>`
-		} else {
-			for _, s := range shipments {
-				content += fmt.Sprintf(`
-					<tr>
-						<td><code>%s</code></td>
-						<td><code>%s</code></td>
-						<td><span class="badge" style="background: rgba(14, 165, 233, 0.1); border: 1px solid var(--accent-color);">%s</span></td>
-						<td><code>%s</code></td>
-					</tr>`, s.ID, s.OrderID, s.Status, s.TrackingNumber)
-			}
-		}
-
-		content += `
-						</tbody>
-					</table>
-				</div>
-			</div>
-			<div class="glass-card">
-				<h2>Inventory Stock Levels</h2>
-				<div class="table-wrapper">
-					<table>
-						<thead>
-							<tr>
-								<th>Product SKU</th>
-								<th>Available Qty</th>
-								<th>Status</th>
-							</tr>
-						</thead>
-						<tbody>`
-
-		if len(inventory) == 0 {
-			content += `<tr><td colspan="3" style="text-align: center; color: var(--text-secondary);">No inventory levels initialized.</td></tr>`
-		} else {
-			for _, i := range inventory {
-				statusStr := "In Stock"
-				statusColor := "#10b981"
-				if i.AvailableQuantity == 0 {
-					statusStr = "Out of Stock"
-					statusColor = "#ef4444"
-				} else if i.AvailableQuantity < 5 {
-					statusStr = "Low Stock"
-					statusColor = "#f59e0b"
-				}
-				content += fmt.Sprintf(`
-					<tr>
-						<td><code>%s</code></td>
-						<td class="text-accent">%d</td>
-						<td><span class="badge" style="background: rgba(14, 165, 233, 0.05); border: 1px solid %s; color: %s">%s</span></td>
-					</tr>`, i.ProductID, i.AvailableQuantity, statusColor, statusColor, statusStr)
-			}
-		}
-		content += `
-						</tbody>
-					</table>
-				</div>
-			</div>`
-
-	case "commerce.support":
-		accent = "#14b8a6" // Teal
-		accentGlow = "rgba(20, 184, 166, 0.15)"
-		title = "Support Tickets"
-		var list []support.Ticket
-		var count int64
-		if s.deps.DB != nil {
-			s.deps.DB.Find(&list)
-			s.deps.DB.Model(&support.Ticket{}).Count(&count)
-		}
-
-		content = fmt.Sprintf(`
-			<div class="grid-container">
-				<div class="glass-card stat-card">
-					<span class="stat-label">Support Tickets</span>
-					<span class="stat-value">%d</span>
-				</div>
-				<div class="glass-card stat-card">
-					<span class="stat-label">Copilot Assistance</span>
-					<span class="stat-value text-accent">Online</span>
-				</div>
-			</div>
-			<div class="glass-card">
-				<h2>Active Helpdesk Tickets</h2>
-				<div class="table-wrapper">
-					<table>
-						<thead>
-							<tr>
-								<th>Ticket ID</th>
-								<th>Customer ID</th>
-								<th>Subject</th>
-								<th>Status</th>
-							</tr>
-						</thead>
-						<tbody>`, count)
-
-		if len(list) == 0 {
-			content += `<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">No support tickets opened.</td></tr>`
-		} else {
-			for _, t := range list {
-				content += fmt.Sprintf(`
-					<tr>
-						<td><code>%s</code></td>
-						<td><code>%s</code></td>
-						<td>%s</td>
-						<td><span class="badge" style="background: rgba(20, 184, 166, 0.1); border: 1px solid var(--accent-color);">%s</span></td>
-					</tr>`, t.ID, t.CustomerID, t.Subject, t.Status)
-			}
-		}
-		content += `
-						</tbody>
-					</table>
-				</div>
-			</div>`
-
-	case "commerce.marketing":
-		accent = "#d946ef" // Fuchsia
-		accentGlow = "rgba(217, 70, 239, 0.15)"
-		title = "Marketing Hub"
-		var coupons []marketing.Coupon
-		var points []marketing.LoyaltyPoints
-		if s.deps.DB != nil {
-			s.deps.DB.Find(&coupons)
-			s.deps.DB.Find(&points)
-		}
-
-		content = fmt.Sprintf(`
-			<div class="grid-container">
-				<div class="glass-card stat-card">
-					<span class="stat-label">Coupons Configured</span>
-					<span class="stat-value">%d</span>
-				</div>
-				<div class="glass-card stat-card">
-					<span class="stat-label">Loyalty Enrollees</span>
-					<span class="stat-value text-accent">%d</span>
-				</div>
-			</div>
-			<div class="glass-card">
-				<h2>Discounts & Campaign Promo Codes</h2>
-				<div class="table-wrapper">
-					<table>
-						<thead>
-							<tr>
-								<th>ID</th>
-								<th>Promo Code</th>
-								<th>Discount</th>
-								<th>Status</th>
-							</tr>
-						</thead>
-						<tbody>`, len(coupons), len(points))
-
-		if len(coupons) == 0 {
-			content += `<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">No coupons configured.</td></tr>`
-		} else {
-			for _, c := range coupons {
-				statusStr := "Inactive"
-				statusColor := "#ef4444"
-				if c.Active {
-					statusStr = "Active"
-					statusColor = "#10b981"
-				}
-				content += fmt.Sprintf(`
-					<tr>
-						<td><code>%s</code></td>
-						<td><strong>%s</strong></td>
-						<td class="text-accent">%.0f%% OFF</td>
-						<td><span class="badge" style="background: rgba(217, 70, 239, 0.05); border: 1px solid %s; color: %s">%s</span></td>
-					</tr>`, c.ID, c.Code, c.DiscountPercentage, statusColor, statusColor, statusStr)
-			}
-		}
-		content += `
-						</tbody>
-					</table>
-				</div>
-			</div>`
-
-	case "commerce.search":
-		accent = "#6366f1" // Indigo
-		accentGlow = "rgba(99, 102, 241, 0.15)"
-		title = "Search Optimization"
-		content = `
-			<div class="grid-container">
-				<div class="glass-card stat-card">
-					<span class="stat-label">Search Index Status</span>
-					<span class="stat-value text-accent">Healthy</span>
-				</div>
-				<div class="glass-card stat-card">
-					<span class="stat-label">Search Latency</span>
-					<span class="stat-value">12ms</span>
-				</div>
-			</div>
-			<div class="glass-card">
-				<h2>Top Searched Keywords</h2>
-				<div class="table-wrapper">
-					<table>
-						<thead>
-							<tr>
-								<th>Term</th>
-								<th>Frequency</th>
-								<th>Type</th>
-							</tr>
-						</thead>
-						<tbody>
-							<tr>
-								<td><code>organic coffee beans</code></td>
-								<td class="text-accent">1,204 searches</td>
-								<td>Product Catalog</td>
-							</tr>
-							<tr>
-								<td><code>wireless charging dock</code></td>
-								<td class="text-accent">982 searches</td>
-								<td>Electronics</td>
-							</tr>
-							<tr>
-								<td><code>running shoes size 10</code></td>
-								<td class="text-accent">712 searches</td>
-								<td>Footwear</td>
-							</tr>
-						</tbody>
-					</table>
-				</div>
-			</div>`
-
-	case "commerce.analytics":
-		accent = "#ef4444" // Red/Orange
-		accentGlow = "rgba(239, 68, 68, 0.15)"
-		title = "Analytics Engine"
-		content = `
-			<div class="grid-container">
-				<div class="glass-card stat-card">
-					<span class="stat-label">Global Conversion Rate</span>
-					<span class="stat-value text-accent">3.4%%</span>
-				</div>
-				<div class="glass-card stat-card">
-					<span class="stat-label">Checkout Abandonment</span>
-					<span class="stat-value" style="color: #f59e0b">24%%</span>
-				</div>
-			</div>
-			<div class="glass-card">
-				<h2>Module Performance Reports</h2>
-				<div class="table-wrapper">
-					<table>
-						<thead>
-							<tr>
-								<th>Metric</th>
-								<th>Trend</th>
-								<th>Status</th>
-							</tr>
-						</thead>
-						<tbody>
-							<tr>
-								<td>Fulfillment SLA Guarantee</td>
-								<td class="text-accent">98.2%% on-time</td>
-								<td>Normal</td>
-							</tr>
-							<tr>
-								<td>Mean Time to Saga Completion</td>
-								<td class="text-accent">125ms</td>
-								<td>Normal</td>
-							</tr>
-							<tr>
-								<td>Loyalty Points Accrual Velocity</td>
-								<td class="text-accent">+15%% week-over-week</td>
-								<td>High Growth</td>
-							</tr>
-						</tbody>
-					</table>
-				</div>
-			</div>`
 
 	case "system.about":
 		accent = "#a3e635" // Lime Green
@@ -1746,67 +1339,7 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 				</ul>
 			</div>`, strings.Join(activeMods, "\n"))
 
-	case "fulfillment.v1":
-		accent = "#a3e635" // Lime Green
-		accentGlow = "rgba(163, 230, 53, 0.15)"
-		title = "Fulfillment Saga Orchestrator"
-		content = `
-			<div class="grid-container">
-				<div class="glass-card stat-card">
-					<span class="stat-label">Saga Definition</span>
-					<span class="stat-value text-accent">fulfillment.v1</span>
-				</div>
-				<div class="glass-card stat-card">
-					<span class="stat-label">Active Workflows</span>
-					<span class="stat-value">1</span>
-				</div>
-			</div>
-			<div class="glass-card">
-				<h2>Orchestration Workflow Steps</h2>
-				<div class="table-wrapper">
-					<table>
-						<thead>
-							<tr>
-								<th>Step Sequence</th>
-								<th>Action Name</th>
-								<th>Compensating Action (Saga Rollback)</th>
-							</tr>
-						</thead>
-						<tbody>
-							<tr>
-								<td>1. Reserve Inventory</td>
-								<td><code>fulfillment.reserve_inventory</code></td>
-								<td><code>fulfillment.release_inventory</code></td>
-							</tr>
-							<tr>
-								<td>2. Create Order Record</td>
-								<td><code>order.create_order</code></td>
-								<td><code>order.compensate_payment</code></td>
-							</tr>
-							<tr>
-								<td>3. Process Charge</td>
-								<td><code>finance.process_payment</code></td>
-								<td><code>finance.compensate_payment</code></td>
-							</tr>
-							<tr>
-								<td>4. Log Logistics Shipment</td>
-								<td><code>fulfillment.create_shipment</code></td>
-								<td>None</td>
-							</tr>
-							<tr>
-								<td>5. Finalize Transaction</td>
-								<td><code>order.finalize_order</code></td>
-								<td>None</td>
-							</tr>
-							<tr>
-								<td>6. Add Loyalty Rewards</td>
-								<td><code>marketing.add_loyalty_points</code></td>
-								<td>None</td>
-							</tr>
-						</tbody>
-					</table>
-				</div>
-			</div>`
+
 
 	default:
 		content = `

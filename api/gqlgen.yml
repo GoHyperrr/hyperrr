@@ -14,17 +14,11 @@ autobind:
   - github.com/GoHyperrr/commerce/store
   - github.com/GoHyperrr/commerce/seo
   - github.com/GoHyperrr/commerce/taxonomy
-  - github.com/GoHyperrr/commerce/cart
   - github.com/GoHyperrr/commerce/order
+  - github.com/GoHyperrr/commerce/cart
   - github.com/GoHyperrr/commerce/customer
-  - github.com/GoHyperrr/commerce/fulfillment
-  - github.com/GoHyperrr/commerce/finance
   - github.com/GoHyperrr/commerce/payments
-  - github.com/GoHyperrr/commerce/analytics
-  - github.com/GoHyperrr/commerce/marketing
   - github.com/GoHyperrr/notification
-  - github.com/GoHyperrr/commerce/search
-  - github.com/GoHyperrr/commerce/support
   - github.com/GoHyperrr/auth/apikey
   - github.com/GoHyperrr/auth/emailpass
   - github.com/GoHyperrr/auth/jwt

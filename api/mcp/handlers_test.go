@@ -72,8 +72,8 @@ func TestMCP_DiscoveryAndExecution(t *testing.T) {
 
 	t.Run("Tools List Discovery", func(t *testing.T) {
 		result := server.handleToolsList(context.Background())
-		if len(result.Tools) != 14 {
-			t.Errorf("expected 14 tools, got %d", len(result.Tools))
+		if len(result.Tools) != 12 {
+			t.Errorf("expected 12 tools, got %d", len(result.Tools))
 		}
 		foundPublic := false
 		foundListeners := false
