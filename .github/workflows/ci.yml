@@ -100,7 +100,7 @@ jobs:
           fi
         shell: bash
 
-       - name: Checkout event-bus
+      - name: Checkout event-bus
         uses: actions/checkout@v4
         with:
           repository: GoHyperrr/event-bus
