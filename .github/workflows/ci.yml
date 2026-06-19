@@ -119,11 +119,11 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.26'
 
       - name: Setup Workspace
         run: |
-          echo "go 1.25.5" > go.work
+          echo "go 1.26" > go.work
           echo "use (" >> go.work
           echo "    ./auth" >> go.work
           echo "    ./commerce" >> go.work
@@ -133,6 +133,7 @@ jobs:
           echo "    ./hyperrr" >> go.work
           echo "    ./mdk" >> go.work
           echo ")" >> go.work
+
 
       - name: Generate Code
         run: cd hyperrr && go run build_ci.go
