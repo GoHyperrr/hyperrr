@@ -7,7 +7,7 @@ import (
 var moduleCmd = &cobra.Command{
 	Use:     "module",
 	Short:   "Module Management",
-	Long:    `Manage Hyperrr plugin modules including listing, creating new skeletons, installing remote modules, or uninstalling existing modules.`,
+	Long:    `Manage Hyperrr plugin modules including listing, creating new skeletons, adding remote modules, or removing existing modules.`,
 	GroupID: "module",
 }
 
@@ -30,27 +30,29 @@ var moduleCreateCmd = &cobra.Command{
 	},
 }
 
-var moduleInstallCmd = &cobra.Command{
-	Use:   "install <package>",
-	Short: "Download a plugin and compile it into the binary",
-	Long:  `Download a remote plugin module repository, import it into the local project structure, and trigger a binary rebuild.`,
-	Args:  cobra.ExactArgs(1),
+var moduleAddCmd = &cobra.Command{
+	Use:     "add <module-name>",
+	Aliases: []string{"install"},
+	Short:   "Download a plugin and compile it into the binary",
+	Long:    `Download a remote plugin module repository, import it into the local project structure, and trigger a binary rebuild.`,
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runInstall(args)
 	},
 }
 
-var moduleUninstallCmd = &cobra.Command{
-	Use:   "uninstall <package>",
-	Short: "Remove a plugin and rebuild",
-	Long:  `Remove a plugin module dependency from imports, remove references, and rebuild the server binary.`,
-	Args:  cobra.ExactArgs(1),
+var moduleRemoveCmd = &cobra.Command{
+	Use:     "remove <module-name>",
+	Aliases: []string{"uninstall"},
+	Short:   "Remove a plugin and rebuild",
+	Long:    `Remove a plugin module dependency from imports, remove references, and rebuild the server binary.`,
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runUninstall(args)
 	},
 }
 
 func init() {
-	moduleCmd.AddCommand(moduleListCmd, moduleCreateCmd, moduleInstallCmd, moduleUninstallCmd)
+	moduleCmd.AddCommand(moduleListCmd, moduleCreateCmd, moduleAddCmd, moduleRemoveCmd)
 	rootCmd.AddCommand(moduleCmd)
 }

@@ -124,7 +124,11 @@ func RunBuild() error {
 	if os.PathSeparator == '\\' {
 		binaryPath += ".exe"
 	}
-	cmdBuild := exec.Command("go", "build", "-o", binaryPath, "./cmd/hyperrr")
+	buildPath := "./cmd/hyperrr"
+	if _, err := os.Stat(filepath.Join("cmd", "server", "main.go")); err == nil {
+		buildPath = "./cmd/server"
+	}
+	cmdBuild := exec.Command("go", "build", "-o", binaryPath, buildPath)
 	cmdBuild.Stdout = os.Stdout
 	cmdBuild.Stderr = os.Stderr
 	if err := cmdBuild.Run(); err != nil {
@@ -133,6 +137,7 @@ func RunBuild() error {
 	fmt.Printf("Build successful! Binary written to: %s\n", binaryPath)
 	return nil
 }
+
 
 func copyFile(src, dst string) error {
 	in, err := os.Open(src)

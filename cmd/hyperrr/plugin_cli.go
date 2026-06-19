@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,7 +11,9 @@ import (
 	"strings"
 
 	"github.com/GoHyperrr/hyperrr/internal/builder"
+	"github.com/GoHyperrr/hyperrr/internal/scaffold"
 	"github.com/GoHyperrr/hyperrr/pkg/registry"
+	"gopkg.in/yaml.v3"
 )
 
 func runList() error {
@@ -35,210 +38,123 @@ func runList() error {
 
 func runCreate(args []string) error {
 	if len(args) < 2 || args[0] != "module" {
-		fmt.Println("Usage: hyperrr create module <name>")
+		fmt.Println("Usage: hyperrr module create <name>")
 		return fmt.Errorf("invalid arguments")
 	}
 
 	moduleName := args[1]
-	// Standardize names: e.g. "hotel"
-	pkgName := strings.ToLower(filepath.Base(moduleName))
-	
-	fmt.Printf("Scaffolding new module '%s' in './%s'...\n", moduleName, pkgName)
-
-	if err := os.MkdirAll(pkgName, 0755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	// 1. Write go.mod
-	goModContent := fmt.Sprintf(`module github.com/GoHyperrr/%s
-
-go 1.25.5
-
-require (
-	github.com/GoHyperrr/mdk v0.1.0
-)
-`, pkgName)
-	if err := os.WriteFile(filepath.Join(pkgName, "go.mod"), []byte(goModContent), 0644); err != nil {
+	root, err := findProjectRoot()
+	if err != nil {
 		return err
 	}
 
-	// 2. Write module.go
-	moduleContent := fmt.Sprintf(`package %s
-
-import (
-	"context"
-
-	"github.com/GoHyperrr/mdk"
-)
-
-// Module implements the mdk.Module interface.
-type Module struct{}
-
-func NewModule() *Module {
-	return &Module{}
-}
-
-func init() {
-	mdk.Register(func() mdk.Module { return NewModule() })
-}
-
-func (m *Module) ID() string {
-	return "plugin.%s"
-}
-
-func (m *Module) Init(ctx context.Context, rt mdk.Runtime) error {
-	// Initialize resources and hooks here
-	return nil
-}
-
-func (m *Module) Shutdown(ctx context.Context) error {
-	return nil
-}
-
-func (m *Module) Models() []any {
-	return []any{}
-}
-
-func (m *Module) Routes() []mdk.Route {
-	return nil
-}
-`, pkgName, pkgName)
-	if err := os.WriteFile(filepath.Join(pkgName, "module.go"), []byte(moduleContent), 0644); err != nil {
-		return err
+	// Check if go.work exists at project root to determine if it is core workspace
+	isWorkspace := false
+	if _, err := os.Stat(filepath.Join(root, "go.work")); err == nil {
+		isWorkspace = true
 	}
 
-	// 3. Write models.go
-	modelsContent := fmt.Sprintf(`package %s
-
-// Define your GORM Database tables here.
-// E.g.:
-// type CustomEntity struct {
-//     ID   string ` + "`" + `gorm:"primaryKey"` + "`" + `
-//     Name string
-// }
-`, pkgName)
-	if err := os.WriteFile(filepath.Join(pkgName, "models.go"), []byte(modelsContent), 0644); err != nil {
-		return err
+	scConfig := &scaffold.ModuleScaffoldConfig{
+		ModuleName:  moduleName,
+		ProjectRoot: root,
+		IsWorkspace: isWorkspace,
 	}
 
-	// 5. Write graphql.go
-	titlePkg := strings.ToUpper(pkgName[:1]) + pkgName[1:]
-	graphqlContent := fmt.Sprintf(`package %s
-
-func (m *Module) Queries() map[string]any {
-	return map[string]any{
-		// "myQueryField": m.MyQueryResolver,
-	}
-}
-
-func (m *Module) Mutations() map[string]any {
-	return map[string]any{
-		// "myMutationField": m.MyMutationResolver,
-	}
-}
-
-func (m *Module) FieldResolvers() map[string]any {
-	return nil
-}
-`, pkgName)
-	if err := os.WriteFile(filepath.Join(pkgName, "graphql.go"), []byte(graphqlContent), 0644); err != nil {
-		return err
-	}
-
-	// 6. Write <pkgName>.graphqls
-	schemaContent := fmt.Sprintf(`# GraphQL schema for the %s module
-
-# extend type Query {
-#   hello%s: String!
-# }
-`, pkgName, titlePkg)
-	if err := os.WriteFile(filepath.Join(pkgName, pkgName+".graphqls"), []byte(schemaContent), 0644); err != nil {
-		return err
-	}
-
-	// 4. Register in go.work if present
-	workPath := "go.work"
-	if _, err := os.Stat(workPath); err == nil {
-		fmt.Println("Adding new module to go.work workspace...")
-		content, err := os.ReadFile(workPath)
-		if err == nil {
-			lines := strings.Split(string(content), "\n")
-			var newLines []string
-			inUse := false
-			added := false
-			for _, line := range lines {
-				if strings.Contains(line, "use (") {
-					inUse = true
-				}
-				if inUse && strings.Contains(line, ")") && !added {
-					newLines = append(newLines, "\t./"+pkgName)
-					added = true
-				}
-				newLines = append(newLines, line)
-			}
-			_ = os.WriteFile(workPath, []byte(strings.Join(newLines, "\n")), 0644)
-		}
-	}
-
-	fmt.Printf("Successfully scaffolded module '%s'!\n", moduleName)
-	return nil
+	return scaffold.CreateModule(scConfig)
 }
 
 func runInstall(args []string) error {
 	if len(args) < 1 {
-		fmt.Println("Usage: hyperrr install <git-package-url>")
-		return fmt.Errorf("missing package path")
+		fmt.Println("Usage: hyperrr module add <module-name>")
+		return fmt.Errorf("missing module name")
 	}
 
-	pkgPath := args[0]
-	fmt.Printf("Installing module '%s'...\n", pkgPath)
+	userInput := args[0]
+
+	// 1. Resolve module shorthand name
+	resolved, ok := scaffold.ResolveModule(userInput)
+	if !ok {
+		return fmt.Errorf("could not resolve module name: %s", userInput)
+	}
+
+	fmt.Printf("Resolving '%s' to module ID '%s' (%s)...\n", userInput, resolved.ID, resolved.Resolve)
 
 	root, err := findProjectRoot()
 	if err != nil {
 		return err
 	}
 
-	// 1. Run 'go get <package>'
-	fmt.Println("Fetching dependencies via 'go get'...")
-	cmd := exec.Command("go", "get", pkgPath)
-	cmd.Dir = root
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to fetch package: %w", err)
+	// 2. Fetch package via go get (only if it's a remote URL and not a local module path)
+	if strings.Contains(resolved.Resolve, "/") && !strings.HasPrefix(resolved.Resolve, "./") && !strings.HasPrefix(resolved.Resolve, "../") {
+		fmt.Printf("Fetching package '%s' via 'go get'...\n", resolved.Resolve)
+		cmd := exec.Command("go", "get", resolved.Resolve+"@latest")
+		cmd.Dir = root
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to fetch package: %w", err)
+		}
 	}
 
-	// 2. Append to cmd/hyperrr/imports.go
-	importsFile := filepath.Join(root, "cmd", "hyperrr", "imports.go")
-	if err := addImport(importsFile, pkgPath); err != nil {
-		return fmt.Errorf("failed to write imports: %w", err)
+	// 3. Add to configuration file
+	cfgPath := findConfigFileInProject(root)
+	if _, err := os.Stat(cfgPath); err == nil {
+		fmt.Printf("Updating configuration file: %s...\n", cfgPath)
+		if err := updateConfigModulesList(cfgPath, resolved, true); err != nil {
+			return fmt.Errorf("failed to update config file: %w", err)
+		}
+	} else {
+		fmt.Printf("Warning: Config file not found at %s. Skipping configuration registration.\n", cfgPath)
 	}
 
-	// 3. Rebuild
+	// 4. Update imports_generated.go
+	importsFile := findImportsFile(root)
+	fmt.Printf("Updating imports in: %s...\n", importsFile)
+	if err := addImport(importsFile, resolved.Resolve); err != nil {
+		return fmt.Errorf("failed to add import: %w", err)
+	}
+
+	// 5. Rebuild
 	return rebuildBinary(root)
 }
 
 func runUninstall(args []string) error {
 	if len(args) < 1 {
-		fmt.Println("Usage: hyperrr uninstall <package-url>")
-		return fmt.Errorf("missing package path")
+		fmt.Println("Usage: hyperrr module remove <module-name>")
+		return fmt.Errorf("missing module name")
 	}
 
-	pkgPath := args[0]
-	fmt.Printf("Uninstalling module '%s'...\n", pkgPath)
+	userInput := args[0]
+	resolved, ok := scaffold.ResolveModule(userInput)
+	if !ok {
+		// Fallback to treat input directly as package path/ID if resolution fails
+		resolved = scaffold.ModuleInfo{ID: userInput, Resolve: userInput}
+	}
+
+	fmt.Printf("Removing module '%s'...\n", resolved.ID)
 
 	root, err := findProjectRoot()
 	if err != nil {
 		return err
 	}
 
-	// 1. Remove from cmd/hyperrr/imports.go
-	importsFile := filepath.Join(root, "cmd", "hyperrr", "imports.go")
-	if err := removeImport(importsFile, pkgPath); err != nil {
+	// 1. Remove from configuration file
+	cfgPath := findConfigFileInProject(root)
+	if _, err := os.Stat(cfgPath); err == nil {
+		fmt.Printf("Updating configuration file: %s...\n", cfgPath)
+		if err := updateConfigModulesList(cfgPath, resolved, false); err != nil {
+			return fmt.Errorf("failed to update config file: %w", err)
+		}
+	}
+
+	// 2. Remove from imports file
+	importsFile := findImportsFile(root)
+	fmt.Printf("Removing imports from: %s...\n", importsFile)
+	if err := removeImport(importsFile, resolved.Resolve); err != nil {
 		return fmt.Errorf("failed to remove import: %w", err)
 	}
 
-	// 2. Run 'go mod tidy'
+	// 3. Run 'go mod tidy'
 	fmt.Println("Cleaning go.mod via 'go mod tidy'...")
 	cmd := exec.Command("go", "mod", "tidy")
 	cmd.Dir = root
@@ -248,7 +164,7 @@ func runUninstall(args []string) error {
 		return fmt.Errorf("failed to tidy module: %w", err)
 	}
 
-	// 3. Rebuild
+	// 4. Rebuild
 	return rebuildBinary(root)
 }
 
@@ -271,8 +187,148 @@ func findProjectRoot() (string, error) {
 	return "", fmt.Errorf("could not find project root (missing go.mod)")
 }
 
+func findConfigFileInProject(root string) string {
+	paths := []string{
+		filepath.Join(root, "configs", "hyperrr.yml"),
+		filepath.Join(root, "configs", "hyperrr.yaml"),
+		filepath.Join(root, "hyperrr.yml"),
+		filepath.Join(root, "hyperrr.yaml"),
+	}
+	for _, p := range paths {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return filepath.Join(root, "configs", "hyperrr.yml")
+}
+
+func findImportsFile(root string) string {
+	paths := []string{
+		filepath.Join(root, "cmd", "server", "imports_generated.go"),
+		filepath.Join(root, "cmd", "hyperrr", "imports_generated.go"),
+		filepath.Join(root, "cmd", "hyperrr", "imports.go"),
+	}
+	for _, p := range paths {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return filepath.Join(root, "cmd", "server", "imports_generated.go")
+}
+
+func updateConfigModulesList(filename string, mod scaffold.ModuleInfo, add bool) error {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+
+	var root yaml.Node
+	if err := yaml.Unmarshal(data, &root); err != nil {
+		return err
+	}
+
+	if len(root.Content) == 0 {
+		return fmt.Errorf("empty yaml root")
+	}
+
+	mapNode := root.Content[0]
+	if mapNode.Kind != yaml.MappingNode {
+		return fmt.Errorf("root of YAML is not a map")
+	}
+
+	// Find "modules" key
+	var modulesNode *yaml.Node
+	for i := 0; i < len(mapNode.Content); i += 2 {
+		kNode := mapNode.Content[i]
+		if strings.EqualFold(kNode.Value, "modules") {
+			modulesNode = mapNode.Content[i+1]
+			break
+		}
+	}
+
+	if modulesNode == nil {
+		if !add {
+			return nil // Nothing to remove
+		}
+		// Create modules node
+		kNode := &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Tag:   "!!str",
+			Value: "modules",
+		}
+		modulesNode = &yaml.Node{
+			Kind: yaml.SequenceNode,
+			Tag:  "!!seq",
+		}
+		mapNode.Content = append(mapNode.Content, kNode, modulesNode)
+	}
+
+	if modulesNode.Kind != yaml.SequenceNode {
+		return fmt.Errorf("'modules' key is not a sequence")
+	}
+
+	if add {
+		// Check if already exists
+		exists := false
+		for _, entry := range modulesNode.Content {
+			if entry.Kind == yaml.MappingNode {
+				for j := 0; j < len(entry.Content); j += 2 {
+					if entry.Content[j].Value == "resolve" && entry.Content[j+1].Value == mod.Resolve {
+						exists = true
+						break
+					}
+				}
+			}
+		}
+
+		if !exists {
+			// Create mapping node for new module
+			entryNode := &yaml.Node{
+				Kind: yaml.MappingNode,
+				Tag:  "!!map",
+			}
+			rKey := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "resolve"}
+			rVal := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: mod.Resolve}
+			iKey := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "id"}
+			iVal := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: mod.ID}
+
+			entryNode.Content = append(entryNode.Content, rKey, rVal, iKey, iVal)
+			modulesNode.Content = append(modulesNode.Content, entryNode)
+		}
+	} else {
+		// Remove
+		var newContent []*yaml.Node
+		for _, entry := range modulesNode.Content {
+			match := false
+			if entry.Kind == yaml.MappingNode {
+				for j := 0; j < len(entry.Content); j += 2 {
+					k := entry.Content[j].Value
+					v := entry.Content[j+1].Value
+					if (k == "resolve" && v == mod.Resolve) || (k == "id" && v == mod.ID) {
+						match = true
+						break
+					}
+				}
+			}
+			if !match {
+				newContent = append(newContent, entry)
+			}
+		}
+		modulesNode.Content = newContent
+	}
+
+	var buf bytes.Buffer
+	encoder := yaml.NewEncoder(&buf)
+	encoder.SetIndent(2)
+	if err := encoder.Encode(&root); err != nil {
+		return err
+	}
+	_ = encoder.Close()
+
+	return os.WriteFile(filename, buf.Bytes(), 0644)
+}
+
 func addImport(filename, pkgPath string) error {
-	// Sanitize package path input to prevent simple formatting injections
 	pkgPath = strings.Trim(pkgPath, "\"`'` \t\n\r")
 	pkgPath = strings.ReplaceAll(pkgPath, "\n", "")
 	pkgPath = strings.ReplaceAll(pkgPath, "\r", "")
@@ -289,7 +345,6 @@ func addImport(filename, pkgPath string) error {
 			lines = append(lines, scanner.Text())
 		}
 	} else {
-		// Create basic skeleton
 		lines = []string{
 			"package main",
 			"",
@@ -299,7 +354,6 @@ func addImport(filename, pkgPath string) error {
 		}
 	}
 
-	// Check if already imported
 	importLine := fmt.Sprintf("\t_ \"%s\"", pkgPath)
 	for _, l := range lines {
 		if strings.TrimSpace(l) == strings.TrimSpace(importLine) {
@@ -308,7 +362,6 @@ func addImport(filename, pkgPath string) error {
 		}
 	}
 
-	// Insert import
 	var newLines []string
 	inserted := false
 	for _, l := range lines {
