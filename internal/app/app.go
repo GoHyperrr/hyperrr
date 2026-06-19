@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GoHyperrr/hyperrr/internal"
+	"github.com/GoHyperrr/hyperrr"
 	"github.com/GoHyperrr/hyperrr/api/graph"
 	"github.com/GoHyperrr/hyperrr/api/mcp"
 	apiMiddleware "github.com/GoHyperrr/hyperrr/api/middleware"
@@ -53,7 +53,7 @@ func RunWithConfig(cfg *config.Config) error {
 	})
 	logger.SetGlobal(l)
 
-	logger.Info("Starting hyperrr", "version", internal.Version)
+	logger.Info("Starting hyperrr", "version", hyperrr.Version)
 
 	// 3. Initialize Database
 	database, err := db.Connect(cfg)
@@ -277,7 +277,7 @@ func RunWithConfig(cfg *config.Config) error {
 		}
 
 		info := map[string]any{
-			"version":        internal.Version,
+			"version":        hyperrr.Version,
 			"environment":    cfg.AppEnv,
 			"current_time":   time.Now().Format(time.RFC3339),
 			"active_modules": activeModules,
