@@ -187,9 +187,10 @@ func RunWithConfig(cfg *config.Config) error {
 		}
 	}
 
-	// Fail-fast guard: ensure an identity resolver is registered
+	// Fallback to anonymous/system resolver if none loaded (for true decoupling and bare-slate out-of-the-box run)
 	if deps.Resolver == nil {
-		return fmt.Errorf("Configuration Error: No active identity resolver (implementing registry.ActorResolver) is loaded. Please install an auth module (e.g. auth.apikey).")
+		logger.Warn("No active identity resolver loaded. Falling back to anonymous/system actor resolver.")
+		deps.Resolver = &fallbackActorResolver{}
 	}
 
 	// Ensure cleanup on error or exit
@@ -383,4 +384,15 @@ func (r *runtimeImpl) Config(key string) any {
 		return nil
 	}
 }
+
+type fallbackActorResolver struct{}
+
+func (f *fallbackActorResolver) GetActorByAPIKey(ctx context.Context, key string) (mdk.Actor, error) {
+	return &mdk.BaseActor{
+		ID:   "system-fallback",
+		Type: mdk.ActorSystem,
+		Name: "System Fallback",
+	}, nil
+}
+
 

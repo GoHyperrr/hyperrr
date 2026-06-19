@@ -22,6 +22,22 @@ func (m *mockModule) ID() string {
 	return "commerce.mockhotel"
 }
 
+type mockAuthModule struct {
+	mockModule
+}
+
+func (m *mockAuthModule) ID() string {
+	return "auth.apikey"
+}
+
+func (m *mockAuthModule) GetActorByAPIKey(ctx context.Context, key string) (mdk.Actor, error) {
+	return &mdk.BaseActor{
+		ID:   "test-actor",
+		Type: mdk.ActorHuman,
+		Name: "Test Actor",
+	}, nil
+}
+
 func (m *mockModule) Init(ctx context.Context, rt mdk.Runtime) error {
 	m.initialized = true
 	if modulesVal := rt.Config("modules"); modulesVal != nil {
@@ -125,6 +141,11 @@ func TestRun(t *testing.T) {
 		instantiatedMod := &mockModule{}
 		mdk.Register(func() mdk.Module {
 			return instantiatedMod
+		})
+
+		// Register mock auth module factory for auth.apikey resolving
+		mdk.Register(func() mdk.Module {
+			return &mockAuthModule{}
 		})
 
 		cfg, err := config.LoadWithFile("")

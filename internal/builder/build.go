@@ -30,9 +30,15 @@ func RunBuild() error {
 	}
 
 	// 2. Scan and aggregate schemas
+	active, err := getActiveModules()
+	if err != nil {
+		return fmt.Errorf("failed to parse active modules: %w", err)
+	}
+
 	type scanItem struct {
-		src  string
-		name string
+		src        string
+		name       string
+		importPath string
 	}
 	var scanPaths []scanItem
 
@@ -40,8 +46,9 @@ func RunBuild() error {
 	if goMods, err := getGoModules(); err == nil && len(goMods) > 0 {
 		for _, mod := range goMods {
 			scanPaths = append(scanPaths, scanItem{
-				src:  mod.Dir,
-				name: filepath.Base(mod.Path), // e.g. "auth", "commerce"
+				src:        mod.Dir,
+				name:       filepath.Base(mod.Path), // e.g. "auth", "commerce"
+				importPath: mod.Path,
 			})
 		}
 	} else {
@@ -52,9 +59,14 @@ func RunBuild() error {
 					if filepath.Base(mPath) == "hyperrr" {
 						continue
 					}
+					modName, err := getModuleName(mPath)
+					if err != nil {
+						modName = "github.com/GoHyperrr/" + filepath.Base(mPath)
+					}
 					scanPaths = append(scanPaths, scanItem{
-						src:  mPath,
-						name: filepath.Base(mPath),
+						src:        mPath,
+						name:       filepath.Base(mPath),
+						importPath: modName,
 					})
 				}
 			}
@@ -63,9 +75,9 @@ func RunBuild() error {
 
 	// Always scan local folders in hyperrr core
 	scanPaths = append(scanPaths,
-		scanItem{src: "modules", name: "modules"},
-		scanItem{src: "pkg", name: "pkg"},
-		scanItem{src: "internal", name: "internal"},
+		scanItem{src: "modules", name: "modules", importPath: "github.com/GoHyperrr/hyperrr/modules"},
+		scanItem{src: "pkg", name: "pkg", importPath: "github.com/GoHyperrr/hyperrr/pkg"},
+		scanItem{src: "internal", name: "internal", importPath: "github.com/GoHyperrr/hyperrr/internal"},
 	)
 
 	for _, scan := range scanPaths {
@@ -80,11 +92,32 @@ func RunBuild() error {
 				return err
 			}
 			if !info.IsDir() && filepath.Ext(path) == ".graphqls" {
-				// Copy to schemaGenDir
 				rel, err := filepath.Rel(scan.src, path)
 				if err != nil {
 					return err
 				}
+
+				// Check if the package containing this schema is active
+				relDir := filepath.Dir(rel)
+				var pkgImport string
+				if relDir == "." {
+					pkgImport = scan.importPath
+				} else {
+					pkgImport = scan.importPath + "/" + filepath.ToSlash(relDir)
+				}
+
+				isActive := false
+				if strings.HasPrefix(pkgImport, "github.com/GoHyperrr/hyperrr/") {
+					isActive = true
+				} else if active[pkgImport] {
+					isActive = true
+				}
+
+				if !isActive {
+					return nil // Skip copy
+				}
+
+				// Copy to schemaGenDir
 				destPath := filepath.Join(schemaGenDir, scan.name, rel)
 				if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
 					return err
@@ -103,6 +136,16 @@ func RunBuild() error {
 
 	// 3. Run gqlgen code generation
 	fmt.Println("Running gqlgen schema and resolver generation...")
+	
+	// Write a minimal resolver stub to prevent compile errors during gqlgen validation
+	resolverPath := filepath.Join("api", "graph", "resolver.go")
+	resolverImplPath := filepath.Join("api", "graph", "resolvers_impl.go")
+	_ = os.Remove(resolverImplPath)
+	minimalResolver := []byte("package graph\n\ntype Resolver struct{}\n")
+	if err := os.WriteFile(resolverPath, minimalResolver, 0644); err != nil {
+		return fmt.Errorf("failed to write minimal resolver stub: %w", err)
+	}
+
 	cmdGen := exec.Command("go", "run", "github.com/99designs/gqlgen", "generate", "--config", filepath.Join("api", "gqlgen.yml"))
 	cmdGen.Stdout = os.Stdout
 	cmdGen.Stderr = os.Stderr

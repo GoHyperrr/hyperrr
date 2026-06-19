@@ -1,15 +1,12 @@
-# Hyperrr configuration file
-# Environment variable substitution is supported using ${VAR_NAME} or ${env.VAR_NAME:fallback}
+# Hyperrr configuration file — Core Bare Slate
 app_name: "hyperrr"
 app_env: "local"
 log_level: "info"
 log_format: "text"
 server_port: 8080
 
-auth_providers:
-  - jwt
-mcp_auth_providers:
-  - apikey
+auth_providers: []
+mcp_auth_providers: []
 
 event_bus_provider: "inmem"
 workflow_store_type: "mem"
@@ -18,29 +15,4 @@ db_dsn: "hyperrr.db"
 storage_provider: "cloud"
 storage_bucket_url: "mem://"
 
-modules:
-  # Identity / Authentication
-  - resolve: "github.com/GoHyperrr/auth/apikey"
-    id: "auth.apikey"
-  - resolve: "github.com/GoHyperrr/auth/emailpass"
-    id: "auth.emailpass"
-
-  # Commerce functional domain packages
-  - resolve: "github.com/GoHyperrr/commerce/product"
-    id: "commerce.product"
-  - resolve: "github.com/GoHyperrr/commerce/store"
-    id: "commerce.store"
-  - resolve: "github.com/GoHyperrr/commerce/customer"
-    id: "commerce.customer"
-  - resolve: "github.com/GoHyperrr/commerce/cart"
-    id: "commerce.cart"
-  - resolve: "github.com/GoHyperrr/commerce/order"
-    id: "commerce.order"
-  - resolve: "github.com/GoHyperrr/commerce/payments"
-    id: "commerce.payments"
-  - resolve: "github.com/GoHyperrr/commerce/taxonomy"
-    id: "commerce.taxonomy"
-  - resolve: "github.com/GoHyperrr/commerce/seo"
-    id: "commerce.seo"
-  - resolve: "github.com/GoHyperrr/notification"
-    id: "commerce.notification"
+modules: []

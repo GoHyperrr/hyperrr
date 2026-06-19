@@ -9,6 +9,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -70,8 +71,51 @@ func RunCodegen() error {
 	return nil
 }
 
+func getActiveModules() (map[string]bool, error) {
+	configPaths := []string{"hyperrr.yaml", "hyperrr.yml", "configs/hyperrr.yml", "configs/hyperrr.yaml"}
+	var configContent string
+	var foundPath string
+
+	for _, p := range configPaths {
+		data, err := os.ReadFile(p)
+		if err == nil {
+			configContent = string(data)
+			foundPath = p
+			break
+		}
+	}
+
+	active := make(map[string]bool)
+	if foundPath == "" {
+		return active, nil
+	}
+
+	reYAML := regexp.MustCompile(`resolve:\s*["']?([^"'\s]+)["']?`)
+	reJSON := regexp.MustCompile(`"resolve":\s*["']?([^"'\s]+)["']?`)
+
+	lines := strings.Split(configContent, "\n")
+	for _, line := range lines {
+		var pkg string
+		if matches := reYAML.FindStringSubmatch(line); len(matches) > 1 {
+			pkg = matches[1]
+		} else if matches := reJSON.FindStringSubmatch(line); len(matches) > 1 {
+			pkg = matches[1]
+		}
+
+		if pkg != "" {
+			active[strings.TrimSpace(pkg)] = true
+		}
+	}
+	return active, nil
+}
+
 func discoverModules() ([]ModuleInfo, error) {
 	var modules []ModuleInfo
+
+	active, err := getActiveModules()
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse active modules: %w", err)
+	}
 
 	type scanItem struct {
 		root   string
@@ -143,14 +187,18 @@ func discoverModules() ([]ModuleInfo, error) {
 		if err == nil && (len(queries) > 0 || len(mutations) > 0 || len(fields) > 0) {
 			pkgName := filepath.Base(scan.root)
 			importPath := strings.TrimSuffix(scan.prefix, "/")
-			modules = append(modules, ModuleInfo{
-				Name:       pkgName,
-				ImportPath: importPath,
-				StructName: "Module",
-				Queries:    queries,
-				Mutations:  mutations,
-				Fields:     fields,
-			})
+
+			// FILTER: Check if this module is active in hyperrr.yml
+			if strings.HasPrefix(importPath, "github.com/GoHyperrr/hyperrr/") || active[importPath] {
+				modules = append(modules, ModuleInfo{
+					Name:       pkgName,
+					ImportPath: importPath,
+					StructName: "Module",
+					Queries:    queries,
+					Mutations:  mutations,
+					Fields:     fields,
+				})
+			}
 		}
 
 		infos, err := os.ReadDir(scan.root)
@@ -178,6 +226,11 @@ func discoverModules() ([]ModuleInfo, error) {
 
 			pkgName := info.Name()
 			importPath := scan.prefix + pkgName
+
+			// FILTER: Check if this module is active in hyperrr.yml
+			if !strings.HasPrefix(importPath, "github.com/GoHyperrr/hyperrr/") && !active[importPath] {
+				continue
+			}
 
 			modules = append(modules, ModuleInfo{
 				Name:       pkgName,

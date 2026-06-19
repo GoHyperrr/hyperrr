@@ -11,11 +11,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/GoHyperrr/hyperrr/api/middleware"
-	"github.com/GoHyperrr/commerce/customer"
-	"github.com/GoHyperrr/commerce/cart"
-	"github.com/GoHyperrr/notification"
-	"github.com/GoHyperrr/commerce/order"
-	"github.com/GoHyperrr/commerce/product"
 	"github.com/GoHyperrr/hyperrr/pkg/eventbus"
 	ident "github.com/GoHyperrr/hyperrr/pkg/identity"
 	"github.com/GoHyperrr/hyperrr/pkg/logger"
@@ -990,11 +985,11 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 		accent = "#a78bfa" // Violet
 		accentGlow = "rgba(167, 139, 250, 0.15)"
 		title = "Product Catalog"
-		var list []product.Product
+		var list []map[string]any
 		var count int64
 		if s.deps.DB != nil {
-			s.deps.DB.Find(&list)
-			s.deps.DB.Model(&product.Product{}).Count(&count)
+			s.deps.DB.Table("products").Find(&list)
+			s.deps.DB.Table("products").Count(&count)
 		}
 		
 		content = fmt.Sprintf(`
@@ -1031,31 +1026,64 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 				if s.deps.Config != nil && s.deps.Config.Currency != "" {
 					currencyCode = s.deps.Config.Currency
 				}
-				if p.Metadata != nil {
-					if curr, ok := p.Metadata["currency"].(string); ok {
-						currencyCode = curr
+				if metaVal, ok := p["metadata"]; ok && metaVal != nil {
+					if metaStr, ok := metaVal.(string); ok && metaStr != "" {
+						var metaMap map[string]any
+						if err := json.Unmarshal([]byte(metaStr), &metaMap); err == nil {
+							if curr, ok := metaMap["currency"].(string); ok {
+								currencyCode = curr
+							}
+						}
+					} else if metaMap, ok := metaVal.(map[string]any); ok {
+						if curr, ok := metaMap["currency"].(string); ok {
+							currencyCode = curr
+						}
 					}
 				}
 
 				priceStr := "N/A"
-				if len(p.Variants) > 0 {
-					priceStr = formatPrice(p.Variants[0].Price, currencyCode)
-					if len(p.Variants) > 1 {
-						minP := p.Variants[0].Price
-						maxP := p.Variants[0].Price
-						for _, v := range p.Variants {
-							if v.Price < minP {
-								minP = v.Price
-							}
-							if v.Price > maxP {
-								maxP = v.Price
-							}
+				var variants []map[string]any
+				var pID string
+				if idVal, ok := p["id"].(string); ok {
+					pID = idVal
+				}
+				if s.deps.DB != nil && pID != "" {
+					s.deps.DB.Table("product_variants").Where("product_id = ?", pID).Find(&variants)
+				}
+				if len(variants) > 0 {
+					getPrice := func(v map[string]any) float64 {
+						if prVal, ok := v["price"].(float64); ok {
+							return prVal
 						}
-						if minP != maxP {
-							priceStr = fmt.Sprintf("%s - %s", formatPrice(minP, currencyCode), formatPrice(maxP, currencyCode))
+						if prVal, ok := v["price"].(int64); ok {
+							return float64(prVal)
+						}
+						if prVal, ok := v["price"].(float32); ok {
+							return float64(prVal)
+						}
+						if prVal, ok := v["price"].(int); ok {
+							return float64(prVal)
+						}
+						return 0.0
+					}
+					minP := getPrice(variants[0])
+					maxP := getPrice(variants[0])
+					for _, v := range variants {
+						pr := getPrice(v)
+						if pr < minP {
+							minP = pr
+						}
+						if pr > maxP {
+							maxP = pr
 						}
 					}
+					priceStr = formatPrice(minP, currencyCode)
+					if minP != maxP {
+						priceStr = fmt.Sprintf("%s - %s", formatPrice(minP, currencyCode), formatPrice(maxP, currencyCode))
+					}
 				}
+				pName, _ := p["name"].(string)
+				pDesc, _ := p["description"].(string)
 				content += fmt.Sprintf(`
 					<tr>
 						<td><code>%s</code></td>
@@ -1063,7 +1091,7 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 						<td>%s</td>
 						<td class="text-accent">%s</td>
 						<td>%s</td>
-					</tr>`, p.ID, p.Name, p.Description, priceStr, currencyCode)
+					</tr>`, pID, pName, pDesc, priceStr, currencyCode)
 			}
 		}
 		content += `
@@ -1076,11 +1104,11 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 		accent = "#f59e0b" // Amber
 		accentGlow = "rgba(245, 158, 11, 0.15)"
 		title = "Customer Directory"
-		var list []customer.Customer
+		var list []map[string]any
 		var count int64
 		if s.deps.DB != nil {
-			s.deps.DB.Find(&list)
-			s.deps.DB.Model(&customer.Customer{}).Count(&count)
+			s.deps.DB.Table("customers").Find(&list)
+			s.deps.DB.Table("customers").Count(&count)
 		}
 
 		content = fmt.Sprintf(`
@@ -1113,16 +1141,21 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 		} else {
 			for _, c := range list {
 				custType := "Registered"
-				if c.IsGuest {
+				if isGuest, ok := c["is_guest"].(bool); ok && isGuest {
+					custType = "Guest"
+				} else if isGuestInt, ok := c["is_guest"].(int64); ok && isGuestInt != 0 {
 					custType = "Guest"
 				}
+				cID, _ := c["id"].(string)
+				cName, _ := c["name"].(string)
+				cEmail, _ := c["email"].(string)
 				content += fmt.Sprintf(`
 					<tr>
 						<td><code>%s</code></td>
 						<td>%s</td>
 						<td>%s</td>
 						<td><span class="badge" style="background: rgba(245, 158, 11, 0.1); border: 1px solid var(--accent-color);">%s</span></td>
-					</tr>`, c.ID, c.Name, c.Email, custType)
+					</tr>`, cID, cName, cEmail, custType)
 			}
 		}
 		content += `
@@ -1135,11 +1168,11 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 		accent = "#60a5fa" // Light Blue
 		accentGlow = "rgba(96, 165, 250, 0.15)"
 		title = "Active Shopping Carts"
-		var list []cart.Cart
+		var list []map[string]any
 		var count int64
 		if s.deps.DB != nil {
-			s.deps.DB.Find(&list)
-			s.deps.DB.Model(&cart.Cart{}).Count(&count)
+			s.deps.DB.Table("carts").Find(&list)
+			s.deps.DB.Table("carts").Count(&count)
 		}
 
 		content = fmt.Sprintf(`
@@ -1171,13 +1204,20 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 			content += `<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">No shopping carts registered.</td></tr>`
 		} else {
 			for _, c := range list {
+				var itemCount int64
+				cID, _ := c["id"].(string)
+				if s.deps.DB != nil && cID != "" {
+					s.deps.DB.Table("cart_items").Where("cart_id = ?", cID).Count(&itemCount)
+				}
+				cCustID, _ := c["customer_id"].(string)
+				cStatus, _ := c["status"].(string)
 				content += fmt.Sprintf(`
 					<tr>
 						<td><code>%s</code></td>
 						<td><code>%s</code></td>
 						<td><span class="badge" style="background: rgba(96, 165, 250, 0.1); border: 1px solid var(--accent-color);">%s</span></td>
 						<td>%d items</td>
-					</tr>`, c.ID, c.CustomerID, c.Status, len(c.Items))
+					</tr>`, cID, cCustID, cStatus, itemCount)
 			}
 		}
 		content += `
@@ -1190,13 +1230,13 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 		accent = "#10b981" // Emerald
 		accentGlow = "rgba(16, 185, 129, 0.15)"
 		title = "Order Management"
-		var list []order.Order
+		var list []map[string]any
 		var count int64
 		var gross float64
 		if s.deps.DB != nil {
-			s.deps.DB.Find(&list)
-			s.deps.DB.Model(&order.Order{}).Count(&count)
-			s.deps.DB.Model(&order.Order{}).Select("sum(total_price)").Row().Scan(&gross)
+			s.deps.DB.Table("orders").Find(&list)
+			s.deps.DB.Table("orders").Count(&count)
+			s.deps.DB.Table("orders").Select("sum(total_price)").Row().Scan(&gross)
 		}
 
 		content = fmt.Sprintf(`
@@ -1229,21 +1269,32 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 		} else {
 			for _, o := range list {
 				statusColor := "#9ca3af" // Muted
-				switch o.Status {
-				case order.OrderPaid, order.OrderFulfilled:
+				status, _ := o["status"].(string)
+				switch strings.ToLower(status) {
+				case "paid", "fulfilled":
 					statusColor = "#10b981"
-				case order.OrderPending:
+				case "pending":
 					statusColor = "#f59e0b"
-				case order.OrderCancelled:
+				case "cancelled":
 					statusColor = "#ef4444"
 				}
+				totalPrice := 0.0
+				if tp, ok := o["total_price"].(float64); ok {
+					totalPrice = tp
+				} else if tp, ok := o["total_price"].(float32); ok {
+					totalPrice = float64(tp)
+				} else if tp, ok := o["total_price"].(int64); ok {
+					totalPrice = float64(tp)
+				}
+				oID, _ := o["id"].(string)
+				oCustID, _ := o["customer_id"].(string)
 				content += fmt.Sprintf(`
 					<tr>
 						<td><code>%s</code></td>
 						<td><code>%s</code></td>
 						<td><span class="badge" style="background: rgba(16, 185, 129, 0.05); border: 1px solid %s; color: %s">%s</span></td>
 						<td class="text-accent">$%.2f</td>
-					</tr>`, o.ID, o.CustomerID, statusColor, statusColor, o.Status, o.TotalPrice)
+					</tr>`, oID, oCustID, statusColor, statusColor, status, totalPrice)
 			}
 		}
 		content += `
@@ -1252,17 +1303,15 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 				</div>
 			</div>`
 
-
-
 	case "notification":
 		accent = "#f97316" // Orange
 		accentGlow = "rgba(249, 115, 22, 0.15)"
 		title = "Notifications Hub"
-		var list []notification.Notification
+		var list []map[string]any
 		var count int64
 		if s.deps.DB != nil {
-			s.deps.DB.Find(&list)
-			s.deps.DB.Model(&notification.Notification{}).Count(&count)
+			s.deps.DB.Table("notifications").Find(&list)
+			s.deps.DB.Table("notifications").Count(&count)
 		}
 
 		content = fmt.Sprintf(`
@@ -1295,6 +1344,11 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 			content += `<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No notification records.</td></tr>`
 		} else {
 			for _, n := range list {
+				nID, _ := n["id"].(string)
+				nRecip, _ := n["recipient"].(string)
+				nChan, _ := n["channel"].(string)
+				nSubj, _ := n["subject"].(string)
+				nStat, _ := n["status"].(string)
 				content += fmt.Sprintf(`
 					<tr>
 						<td><code>%s</code></td>
@@ -1302,7 +1356,7 @@ func (s *Server) renderUI(ctx context.Context, appName string) string {
 						<td>%s</td>
 						<td>%s</td>
 						<td><span class="badge" style="background: rgba(249, 115, 22, 0.1); border: 1px solid var(--accent-color);">%s</span></td>
-					</tr>`, n.ID, n.Recipient, n.Channel, n.Subject, n.Status)
+					</tr>`, nID, nRecip, nChan, nSubj, nStat)
 			}
 		}
 		content += `
