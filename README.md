@@ -149,11 +149,16 @@ mutation {
 
 ---
 
-## 📖 Deep-Dive Reference Docs
+## 📖 Reference Documentation
 
-Browse our specialized design docs inside the `docs/` folder to learn more about the core engines:
-* [docs/workflows_and_dags.md](docs/workflows_and_dags.md): Declarative step definitions, RETRY gates, and parallel execution trees.
-* [docs/event_fabric.md](docs/event_fabric.md): Asynchronous Pub/Sub and namespace routing.
-* [docs/model_context_protocol.md](docs/model_context_protocol.md): MCP SSE gateway details.
-* [docs/graphql_api_gateway.md](docs/graphql_api_gateway.md): Zero Core Pollution dynamic module resolver container.
+For detailed design specifications, guides, and tutorials, please visit the official documentation website:
+* [Hyperrr Documentation Website](https://hyperrr.com/docs/)
+
+Detailed developer guides, architecture plans, and specifications have been consolidated on the site:
+* [System Architecture](https://hyperrr.com/docs/architecture.html)
+* [Module Development Kit (MDK)](https://hyperrr.com/docs/mdk.html)
+* [Core Gateway & Builder](https://hyperrr.com/docs/core-gateway.html)
+* [End-to-End E-Commerce Backend Recipe](https://hyperrr.com/docs/recipe-e2e.html)
+* [Branching, Versioning & Release Promotion](https://hyperrr.com/docs/release-management.html)
+
 
